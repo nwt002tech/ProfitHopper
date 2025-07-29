@@ -52,7 +52,7 @@ def load_game_data():
         
         # Set defaults for optional columns
         if 'advantage_play_potential' not in df.columns:
-            df['advant极age_play_potential'] = 3  # Default: moderate
+            df['advantage_play_potential'] = 3  # Default: moderate
         if 'volatility' not in df.columns:
             df['volatility'] = 3  # Default: medium
         if 'bonus_frequency' not in df.columns:
