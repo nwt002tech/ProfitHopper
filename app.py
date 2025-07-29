@@ -1,11 +1,11 @@
 # app.py
 import streamlit as st
-from session_manager import init_session_state, get_bankroll_metrics
-from components.header import render_header
-from components.sidebar import render_sidebar
-from components.game_plan import render_game_plan_tab
-from components.session_tracker import render_session_tracker_tab
-from components.analytics import render_analytics_tab
+from profithopper.session_manager import init_session_state, get_bankroll_metrics
+from profithopper.components.header import render_header
+from profithopper.components.sidebar import render_sidebar
+from profithopper.components.game_plan import render_game_plan_tab
+from profithopper.components.session_tracker import render_session_tracker_tab
+from profithopper.components.analytics import render_analytics_tab
 
 def main():
     # Initialize session state
@@ -22,7 +22,7 @@ def main():
     
     # Render sticky header with metrics
     st.markdown(f"""
-    <div class="ph-sticky-header">
+    <div class="ph-st极icky-header">
         <div style="display:flex; justify-content:space-around; text-align:center; flex-wrap: wrap;">
             <div style="padding: 10px; min-width: 150px;"><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
             <div style="padding: 10px; min-width: 150px;"><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
