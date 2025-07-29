@@ -1,4 +1,3 @@
-# utils/data_loader.py
 import streamlit as st
 import pandas as pd
 import re
@@ -21,7 +20,7 @@ def load_game_data():
         # Create standard column names
         col_map = {
             'rtp': ['rtp', 'expected_rtp'],
-            'min_bet': ['min_bet', 'minbet', 'minimum_bet', 'min_bet_amount'],
+            'min_bet': ['min_bet', 'minbet', 'minimum_bet', 'min_b极et_amount'],
             'advantage_play_potential': ['advantage_play_potential', 'app', 'advantage_potential'],
             'volatility': ['volatility', 'vol'],
             'bonus_frequency': ['bonus_frequency', 'bonus_freq', 'bonus_rate'],
