@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import plotly.express as px
-from ..utils.file_handling import get_csv_download_link
+import sys
+import os
+
+# Add src directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from utils.file_handling import get_csv_download_link
 
 def render_analytics_tab():
     """Render the Trip Analytics tab"""

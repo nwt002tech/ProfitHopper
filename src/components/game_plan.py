@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
-from ..utils.data_loader import load_game_data
-from ..utils.helpers import map_advantage, map_volatility, map_bonus_freq
+import sys
+import os
+
+# Add src directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from utils.data_loader import load_game_data
+from utils.helpers import map_advantage, map_volatility, map_bonus_freq
 
 def render_game_plan_tab(session_bankroll, max_bet):
     """Render the Game Plan tab"""
@@ -28,7 +34,7 @@ def render_game_plan_tab(session_bankroll, max_bet):
             advantage_filter = st.selectbox("Advantage Play Potential", 
                                           ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
             
-        with col3:
+        with极 col3:
             volatility_filter = st.selectbox("Volatility", 
                                            ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
             search_query = st.text_input("Search Game Name")
@@ -58,7 +64,7 @@ def render_game_plan_tab(session_bankroll, max_bet):
         elif volatility_filter == "Medium (3)":
             filtered_games = filtered_games[filtered_games['volatility'] == 3]
         elif volatility_filter == "High (4-5)":
-            filtered_games = filtered极_games[filtered_games['volatility'] >= 4]
+            filtered_games = filtered_games[filtered_games['volatility'] >= 4]
                 
         # Apply search filter
         if search_query:

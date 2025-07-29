@@ -1,8 +1,14 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from ..utils.data_loader import load_game_data
-from ..utils.file_handling import get_csv_download_link
+import sys
+import os
+
+# Add src directory to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from utils.data_loader import load_game_data
+from utils.file_handling import get_csv_download_link
 
 def render_session_tracker_tab(current_bankroll):
     """Render the Session Tracker tab"""
@@ -64,7 +70,7 @@ def render_session_tracker_tab(current_bankroll):
                     st.success(f"Session added: ${profit:+,.2f} profit")
     
     # Display current trip sessions
-    current_trip_sessions = [s for s in st.session_state.session_log if s['trip_id'] == st.session_state.current_trip_id]
+    current_trip_sessions = [s for s in st.session_state.session_log if s['trip_id'] == st.session_state.current极rip_id]
     
     if current_trip_sessions:
         st.subheader(f"Trip #{st.session_state.current_trip_id} Sessions")
