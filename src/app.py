@@ -5,7 +5,7 @@ import os
 # Add src directory to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from session_manager import init_session_state, get_bankroll_metrics
+from .session_manager import init_session_state, get_bankroll_metrics
 from components.header import render_header
 from components.sidebar import render_sidebar
 from components.game_plan import render_game_plan_tab
