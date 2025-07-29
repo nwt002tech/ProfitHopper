@@ -25,9 +25,9 @@ def main():
         <div style="display:flex; justify-content:space-around; text-align:center; flex-wrap: wrap;">
             <div style="padding: 10px; min-width: 150px;"><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
             <div style="padding: 10px; min-width: 150px;"><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
-            <div style="padding: 10px; min-width: 150px;"><strong>💸 Max Bet</strong><br>${max_bet:,.极2f}</div>
+            <div style="padding: 10px; min-width: 150px;"><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
             <div style="padding: 10px; min-width: 150px;"><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
-        </极div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
     
