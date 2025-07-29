@@ -1,4 +1,3 @@
-# session_manager.py
 import streamlit as st
 
 def init_session_state():
