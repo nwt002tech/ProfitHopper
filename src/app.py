@@ -1,10 +1,10 @@
 import streamlit as st
-from src.session_manager import init_session_state, get_bankroll_metrics
-from src.components.header import render_header
-from src.components.sidebar import render_sidebar
-from src.components.game_plan import render_game_plan_tab
-from src.components.session_tracker import render_session_tracker_tab
-from src.components.analytics import render_analytics_tab
+from .session_manager import init_session_state, get_bankroll_metrics
+from .components.header import render_header
+from .components.sidebar import render_sidebar
+from .components.game_plan import render_game_plan_tab
+from .components.session_tracker import render_session_tracker_tab
+from .components.analytics import render_analytics_tab
 
 def main():
     # Initialize session state
