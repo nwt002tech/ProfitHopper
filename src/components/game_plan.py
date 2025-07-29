@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-from src.utils.data_loader import load_game_data
-from src.utils.helpers import map_advantage, map_volatility, map_bonus_freq
+from ..utils.data_loader import load_game_data
+from ..utils.helpers import map_advantage, map_volatility, map_bonus_freq
 
 def render_game_plan_tab(session_bankroll, max_bet):
     """Render the Game Plan tab"""
@@ -58,7 +58,7 @@ def render_game_plan_tab(session_bankroll, max_bet):
         elif volatility_filter == "Medium (3)":
             filtered_games = filtered_games[filtered_games['volatility'] == 3]
         elif volatility_filter == "High (4-5)":
-            filtered_games = filtered_games[filtered_games['volatility'] >= 4]
+            filtered_games = filtered极_games[filtered_games['volatility'] >= 4]
                 
         # Apply search filter
         if search_query:

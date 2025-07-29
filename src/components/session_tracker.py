@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from src.utils.data_loader import load_game_data
-from src.utils.file_handling import get_csv_download_link
+from ..utils.data_loader import load_game_data
+from ..utils.file_handling import get_csv_download_link
 
 def render_session_tracker_tab(current_bankroll):
     """Render the Session Tracker tab"""

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import plotly.express as px
-from src.utils.file_handling import get_csv_download_link
+from ..utils.file_handling import get_csv_download_link
 
 def render_analytics_tab():
     """Render the Trip Analytics tab"""
