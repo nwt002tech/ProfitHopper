@@ -1,7 +1,7 @@
 import pandas as pd
 import altair as alt
-from .utils import get_csv_download_link
 import streamlit as st
+from utils import get_csv_download_link
 
 def render_analytics():
     st.subheader("Bankroll Analytics")

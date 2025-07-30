@@ -5,7 +5,6 @@ from data_loader import load_game_data
 from session_manager import render_session_tracker
 from analytics import render_analytics
 from templates import get_css, game_card
-from utils import map_advantage, map_volatility, map_bonus_freq
 
 # Configure page
 st.set_page_config(layout="wide", initial_sidebar_state="collapsed", 

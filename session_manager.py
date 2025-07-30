@@ -1,6 +1,6 @@
-from .utils import get_csv_download_link
-import pandas as pd
 import streamlit as st
+import pandas as pd
+from utils import get_csv_download_link
 
 def delete_session(index):
     session = st.session_state.session_log[index]

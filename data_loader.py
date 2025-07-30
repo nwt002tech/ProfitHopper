@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from .utils import normalize_column_name
+from utils import normalize_column_name
 
 @st.cache_data(ttl=3600)
 def load_game_data():
