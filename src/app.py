@@ -8,7 +8,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # Add src directory to Python path
 sys.path.insert(0, current_dir)
 
-# Now import using the components package
+# Import components
 from components.header import render_header
 from components.sidebar import render_sidebar
 from components.game_plan import render_game_plan_tab
@@ -32,10 +32,14 @@ def main():
     # Render header
     render_header()
     
-    # Get bankroll metrics
-    metrics = get_bankroll_metrics()
+    # Safely get bankroll metrics
+    try:
+        metrics = get_bankroll_metrics()
+    except Exception as e:
+        st.error(f"Error loading metrics: {e}")
+        metrics = None
     
-    # Render sidebar
+    # Render sidebar with safe metrics
     render_sidebar(metrics)
     
     # Setup tabs
