@@ -3,9 +3,9 @@ import os
 import sys
 
 # Add project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Fixed absolute imports
+# Absolute imports
 from session_manager import init_session_state, get_bankroll_metrics
 from components.header import render_header
 from components.sidebar import render_sidebar
