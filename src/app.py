@@ -2,8 +2,13 @@ import streamlit as st
 import os
 import sys
 
-# Add project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Get current directory and parent directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+
+# Add both to Python path
+sys.path.insert(0, current_dir)
+sys.path.insert(0, parent_dir)
 
 # Absolute imports
 from session_manager import init_session_state, get_bankroll_metrics
