@@ -1,17 +1,12 @@
-# app.py
-import streamlit as st
+# /mount/src/profithopper/app.py
+import sys
+from pathlib import Path
 
-st.set_page_config(layout="wide")
-st.title("Profit Hopper Casino Manager")
-st.success("Application is loading...")
+# Add project root to Python path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# Add loading spinner
-with st.spinner("Initializing application..."):
-    import time
-    time.sleep(3)  # Simulate loading time
-
-# Main app will be loaded from src
+# Now import from src
 from src.app import main
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
