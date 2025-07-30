@@ -21,6 +21,20 @@ if 'session_count' not in st.session_state:
 # Apply CSS
 st.markdown(get_css(), unsafe_allow_html=True)
 
+# Add title and logo
+st.markdown("""
+<div style="display: flex; align-items: center; margin-bottom: 20px;">
+    <img src="https://raw.githubusercontent.com/nwt002tech/profit-hopper/main/logo.png" 
+         style="height: 80px; margin-right: 20px;">
+    <div>
+        <h1 style="margin: 0; color: #2c3e50;">Profit Hopper Casino Manager</h1>
+        <p style="margin: 0; color: #7f8c8d; font-size: 1.1rem;">
+            Optimize your casino advantage play strategy with data-driven decisions
+        </p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # Input panel
 with st.container():
     col1, col2 = st.columns(2)
