@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils import get_csv_download_link
+from trip_manager import get_current_trip_sessions, get_trip_profit, get_current_bankroll
+from templates import trip_info_box  # Fixed import
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
@@ -24,8 +26,6 @@ def render_session_tracker(game_df, session_bankroll):
     st.info("Track your gambling sessions to monitor performance and bankroll growth")
     
     # Trip info box
-    from trip_manager import get_current_bankroll
-    from templates import trip_info_box
     current_bankroll = get_current_bankroll()
     
     st.markdown(trip_info_box(
@@ -66,7 +66,6 @@ def render_session_tracker(game_df, session_bankroll):
                     save_session(session_date, game_played, money_in, money_out, session_notes)
     
     # Display current trip sessions
-    from trip_manager import get_current_trip_sessions
     current_trip_sessions = get_current_trip_sessions()
     
     if current_trip_sessions:

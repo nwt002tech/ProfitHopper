@@ -92,8 +92,9 @@ def get_css():
 
 def get_header():
     return """
-    <div style="display:flex; align-items:center; margin-bottom:20px;">
-        <h1 style="margin:0; color:#4e89ae;">Profit Hopper Casino Manager</h1>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1 style="color: #4e89ae; margin-bottom: 0;">Profit Hopper Casino Manager</h1>
+        <p style="color: #43658b; margin-top: 5px;">Maximize your casino profits with data-driven strategies</p>
     </div>
     """
 
@@ -108,5 +109,25 @@ def game_card(row):
         <p><strong>Advantage Play:</strong> {map_advantage(row['advantage_play_potential'])}</p>
         <p><strong>Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}</p>
         <p><strong>Tips:</strong> {row['tips']}</p>
+    </div>
+    """
+
+def trip_info_box(trip_id, casino, starting_bankroll, current_bankroll):
+    profit = current_bankroll - starting_bankroll
+    profit_class = "positive-profit" if profit >= 0 else "negative-profit"
+    
+    return f"""
+    <div style="background-color: #f0f2f6; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin:0;">Trip #{trip_id}</h3>
+                <p style="margin:0;"><strong>Casino:</strong> {casino}</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="margin:0;"><strong>Starting Bankroll:</strong> ${starting_bankroll:,.2f}</p>
+                <p style="margin:0;"><strong>Current Bankroll:</strong> ${current_bankroll:,.2f}</p>
+                <p style="margin:0;"><span class="{profit_class}">Profit/Loss: ${profit:+,.2f}</span></p>
+            </div>
+        </div>
     </div>
     """
