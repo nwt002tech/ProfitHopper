@@ -1,9 +1,13 @@
 import streamlit as st
-from templates import get_css, get_header
+import pandas as pd
+import altair as alt
+from utils import get_csv_download_link
+from templates import get_css, get_header, game_card, trip_info_box
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
+from datetime import datetime
 
 # Configure page
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -49,9 +53,8 @@ with tab1:
     game_df = load_game_data()
     
     if not game_df.empty:
-        # Create collapsible filter section (default to collapsed)
-        with st.expander("🔍 Game Filters", expanded=False):
-            st.subheader("Filter Options")
+        # Collapsible game filters (changed to expanded=False)
+        with st.expander("🔍 Game Filters", expanded=False):  # ONLY CHANGE: expanded=False
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -116,7 +119,6 @@ with tab1:
             st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
             
             for _, row in filtered_games.head(50).iterrows():
-                from templates import game_card
                 st.markdown(game_card(row), unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
