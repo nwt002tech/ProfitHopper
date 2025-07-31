@@ -80,10 +80,13 @@ def render_sidebar():
         trip_profit = sum(s['profit'] for s in trip_sessions)
         current_bankroll = st.session_state.trip_settings['starting_bankroll'] + trip_profit
         
+        # FIX: Use actual session count for current trip
+        sessions_completed = len(trip_sessions)
+        
         st.markdown(f"**Casino:** {st.session_state.trip_settings['casino']}")
         st.markdown(f"**Starting Bankroll:** ${st.session_state.trip_settings['starting_bankroll']:,.2f}")
         st.markdown(f"**Current Bankroll:** ${current_bankroll:,.2f}")
-        st.markdown(f"**Sessions Completed:** {len(trip_sessions)}/{st.session_state.trip_settings['num_sessions']}")
+        st.markdown(f"**Sessions Completed:** {sessions_completed}/{st.session_state.trip_settings['num_sessions']}")
         
         st.markdown("---")
         st.warning("""

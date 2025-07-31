@@ -5,7 +5,7 @@ from utils import get_csv_download_link
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
-    st.session_state.session_log.append({
+    new_session = {
         "trip_id": st.session_state.current_trip_id,
         "date": session_date.strftime("%Y-%m-%d"),
         "casino": st.session_state.trip_settings['casino'],
@@ -14,7 +14,10 @@ def save_session(session_date, game_played, money_in, money_out, session_notes):
         "money_out": money_out,
         "profit": profit,
         "notes": session_notes
-    })
+    }
+    
+    # FIX: Properly update session state
+    st.session_state.session_log = st.session_state.session_log + [new_session]
     st.success(f"Session added: ${profit:+,.2f} profit")
 
 def render_session_tracker(game_df, session_bankroll):
@@ -35,7 +38,7 @@ def render_session_tracker(game_df, session_bankroll):
     st.subheader("Session Tracker")
     
     with st.expander("➕ Add New Session", expanded=True):
-        with st.form("session_form"):
+        with st.form("session_form", clear_on_submit=False):
             col1, col2 = st.columns(2)
             with col1:
                 session_date = st.date_input("📅 Date", value=datetime.today())
