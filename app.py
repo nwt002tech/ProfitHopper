@@ -1,10 +1,8 @@
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 from data_loader import load_game_data
 from session_manager import render_session_tracker
 from analytics import render_analytics
-from templates import get_css, game_card, get_header
+from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 
 # Configure page
@@ -117,6 +115,7 @@ with tab1:
             st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
             
             for _, row in filtered_games.head(50).iterrows():
+                from templates import game_card
                 st.markdown(game_card(row), unsafe_allow_html=True)
             
             st.markdown('</div>', unsafe_allow_html=True)
@@ -127,7 +126,7 @@ with tab1:
 
 # Session Tracker Tab
 with tab2:
-    render_session_tracker(game_df)
+    render_session_tracker(game_df, session_bankroll)
 
 # Trip Analytics Tab
 with tab3:

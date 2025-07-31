@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils import get_csv_download_link
-from trip_manager import get_session_bankroll
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
@@ -17,15 +16,15 @@ def save_session(session_date, game_played, money_in, money_out, session_notes):
         "notes": session_notes
     }
     
-    # FIX: Properly update session state
+    # Update session log
     st.session_state.session_log = st.session_state.session_log + [new_session]
     st.success(f"Session added: ${profit:+,.2f} profit")
 
-def render_session_tracker(game_df):
+def render_session_tracker(game_df, session_bankroll):
     st.info("Track your gambling sessions to monitor performance and bankroll growth")
     
     # Trip info box
-    from trip_manager import get_current_bankroll, get_session_bankroll
+    from trip_manager import get_current_bankroll
     from templates import trip_info_box
     current_bankroll = get_current_bankroll()
     
@@ -38,15 +37,12 @@ def render_session_tracker(game_df):
     
     st.subheader("Session Tracker")
     
-    # FIX: Get current session bankroll for default value
-    session_bankroll = get_session_bankroll()
-    
     with st.expander("➕ Add New Session", expanded=True):
         with st.form("session_form", clear_on_submit=False):
             col1, col2 = st.columns(2)
             with col1:
                 session_date = st.date_input("📅 Date", value=datetime.today())
-                # FIX: Use calculated session bankroll as default
+                # Use calculated session bankroll as default
                 money_in = st.number_input("💵 Money In", 
                                           min_value=0.0, 
                                           value=float(session_bankroll),

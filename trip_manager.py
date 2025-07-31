@@ -16,10 +16,9 @@ def initialize_trip_state():
             "Coushatta"
         ])
     if 'trip_settings' not in st.session_state:
-        # FIX: Set default starting bankroll to $100
         st.session_state.trip_settings = {
             'casino': st.session_state.casino_list[0] if st.session_state.casino_list else "",
-            'starting_bankroll': 100.0,  # Changed from 1000 to 100
+            'starting_bankroll': 100.0,  # Set to $100
             'num_sessions': 10
         }
 
@@ -77,7 +76,7 @@ def render_sidebar():
         
         # Trip summary
         st.subheader("Trip Summary")
-        # FIX: Correctly count sessions for current trip
+        # Get sessions for current trip
         current_trip_sessions = [s for s in st.session_state.session_log if s['trip_id'] == st.session_state.current_trip_id]
         trip_profit = sum(s['profit'] for s in current_trip_sessions)
         current_bankroll = st.session_state.trip_settings['starting_bankroll'] + trip_profit
@@ -85,7 +84,6 @@ def render_sidebar():
         st.markdown(f"**Casino:** {st.session_state.trip_settings['casino']}")
         st.markdown(f"**Starting Bankroll:** ${st.session_state.trip_settings['starting_bankroll']:,.2f}")
         st.markdown(f"**Current Bankroll:** ${current_bankroll:,.2f}")
-        # FIX: Use actual session count for current trip
         st.markdown(f"**Sessions Completed:** {len(current_trip_sessions)}/{st.session_state.trip_settings['num_sessions']}")
         
         st.markdown("---")

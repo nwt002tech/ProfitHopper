@@ -3,6 +3,7 @@ from utils import map_advantage, map_volatility, map_bonus_freq
 def get_css():
     return """
     <style>
+    /* Unique class names to avoid conflicts */
     .ph-sticky-header {
         position: sticky;
         top: 0;
