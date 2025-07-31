@@ -127,7 +127,7 @@ with tab1:
 
 # Session Tracker Tab
 with tab2:
-    render_session_tracker(game_df, session_bankroll)
+    render_session_tracker(game_df)
 
 # Trip Analytics Tab
 with tab3:
