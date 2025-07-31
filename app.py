@@ -53,8 +53,8 @@ with tab1:
     game_df = load_game_data()
     
     if not game_df.empty:
-        # Collapsible game filters (now default to collapsed)
-        with st.expander("🔍 Game Filters", expanded=False):
+        # Collapsible game filters (changed to expanded=False)
+        with st.expander("🔍 Game Filters", expanded=False):  # ONLY CHANGE: expanded=False
             col1, col2, col3 = st.columns(3)
             
             with col1:

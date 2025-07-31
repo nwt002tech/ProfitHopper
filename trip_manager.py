@@ -18,7 +18,7 @@ def initialize_trip_state():
     if 'trip_settings' not in st.session_state:
         st.session_state.trip_settings = {
             'casino': st.session_state.casino_list[0] if st.session_state.casino_list else "",
-            'starting_bankroll': 100.0,  # Default to $100
+            'starting_bankroll': 100.0,  # CHANGED: $100 instead of $1000
             'num_sessions': 10
         }
 
@@ -52,7 +52,7 @@ def render_sidebar():
                 casino = st.selectbox("Casino", options=st.session_state.casino_list)
                 starting_bankroll = st.number_input("Starting Bankroll", 
                                                    min_value=1.0, 
-                                                   value=100.0,  # Default to $100
+                                                   value=100.0,  # CHANGED: $100 instead of $1000
                                                    step=1.0)
                 num_sessions = st.number_input("Planned Sessions", min_value=1, value=10)
                 
@@ -64,7 +64,7 @@ def render_sidebar():
                         'starting_bankroll': starting_bankroll,
                         'num_sessions': num_sessions
                     }
-                    st.rerun()  # FIXED: Use st.rerun() instead of st.experimental_rerun()
+                    st.rerun()
         
         # Trip summary
         st.subheader("Current Trip")
@@ -82,4 +82,4 @@ def render_sidebar():
                                           if s['trip_id'] != st.session_state.current_trip_id]
             st.success(f"Trip #{st.session_state.current_trip_id} ended")
             st.session_state.current_trip_id = max(1, st.session_state.current_trip_id - 1)
-            st.rerun()  # FIXED: Use st.rerun() instead of st.experimental_rerun()
+            st.rerun()
