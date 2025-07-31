@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 
 def initialize_trip_state():
     if 'session_log' not in st.session_state:
