@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils import get_csv_download_link
-from trip_manager import get_current_trip_sessions, get_trip_profit, get_current_bankroll
+from trip_manager import get_current_trip_sessions, get_current_bankroll
 from templates import trip_info_box
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
@@ -19,7 +19,7 @@ def save_session(session_date, game_played, money_in, money_out, session_notes):
     }
     
     # Update session log
-    st.session_state.session_log = st.session_state.session_log + [new_session]
+    st.session_state.session_log.append(new_session)
     st.success(f"Session added: ${profit:+,.2f} profit")
 
 def render_session_tracker(game_df, session_bankroll):
@@ -42,7 +42,6 @@ def render_session_tracker(game_df, session_bankroll):
             col1, col2 = st.columns(2)
             with col1:
                 session_date = st.date_input("📅 Date", value=datetime.today())
-                # Use calculated session bankroll as default
                 money_in = st.number_input("💵 Money In", 
                                           min_value=0.0, 
                                           value=float(session_bankroll),

@@ -1,114 +1,165 @@
-from utils import map_advantage, map_volatility, map_bonus_freq
-
 def get_css():
     return """
     <style>
-    /* Base styles */
-    :root {
-        --primary: #4e89ae;
-        --secondary: #43658b;
-        --accent: #ed6663;
-        --light: #f0f2f6;
-        --dark: #2e3b4e;
-        --success: #27ae60;
-        --danger: #e74c3c;
-    }
-    
-    /* Sticky header */
+    /* Unique class names to avoid conflicts */
     .ph-sticky-header {
         position: sticky;
         top: 0;
-        background-color: white;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        background: white;
         z-index: 100;
-        margin-bottom: 20px;
+        padding: 10px 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .ph-game-card {
+        padding: 15px;
+        margin: 15px 0;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        background-color: #f8f9fa;
+        border-left: 4px solid #4e89ae;
+    }
+    
+    .ph-game-title {
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+        color: #2c3e50;
+    }
+    
+    .ph-game-detail {
+        margin: 6px 0;
+        padding-left: 25px;
+        position: relative;
+        font-size: 0.95rem;
+    }
+    
+    .ph-game-detail::before {
+        content: "•";
+        position: absolute;
+        left: 10px;
+        color: #4e89ae;
+        font-size: 1.2rem;
     }
     
     .ph-stop-loss {
-        color: var(--danger);
+        color: #e74c3c;
         font-weight: bold;
     }
     
-    /* Game grid */
     .ph-game-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 20px;
-        margin-top: 20px;
     }
     
-    .game-card {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    @media (max-width: 768px) {
+        .ph-game-grid {
+            grid-template-columns: 1fr;
+        }
+        .ph-game-card {
+            padding: 12px;
+            margin: 12px 0;
+        }
+        .ph-game-detail {
+            padding-left: 20px;
+        }
+        .ph-game-detail::before {
+            left: 5px;
+        }
+    }
+    
+    .session-card {
         padding: 15px;
-        transition: transform 0.3s ease;
+        margin: 10px 0;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        border-left: 4px solid #3498db;
     }
     
-    .game-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
-    
-    .game-card h3 {
-        color: var(--primary);
-        margin-top: 0;
+    .trip-card {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        background-color: #e3f2fd;
+        border-left: 4px solid #1976d2;
     }
     
     .positive-profit {
-        color: var(--success);
+        color: #27ae60;
         font-weight: bold;
     }
     
     .negative-profit {
-        color: var(--danger);
+        color: #e74c3c;
         font-weight: bold;
     }
     
-    /* Session card */
-    .session-card {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        padding: 15px;
-        margin-bottom: 15px;
+    .download-button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 8px 16px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+        border: none;
     }
     
-    /* Add styling for filter expander */
-    .filter-expander .st-emotion-cache-1j9s6t8 {
-        background-color: #f0f2f6;
+    .trip-info-box {
+        background-color: #e8f5e9;
+        padding: 15px;
         border-radius: 8px;
-        padding: 10px 15px;
-        margin-bottom: 15px;
-        border-left: 4px solid #4e89ae;
+        margin-bottom: 20px;
+        border-left: 4px solid #4caf50;
     }
-    .filter-expander .st-emotion-cache-1j9s6t8:hover {
-        background-color: #e6e9ef;
+    
+    .trip-id-badge {
+        background-color: #1976d2;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
     }
     </style>
     """
 
 def get_header():
     return """
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h1 style="color: #4e89ae; margin-bottom: 0;">Profit Hopper Casino Manager</h1>
-        <p style="color: #43658b; margin-top: 5px;">Maximize your casino profits with data-driven strategies</p>
+    <div style="text-align:center; padding:20px 0; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); border-radius:10px; margin-bottom:30px;">
+        <h1 style="color:white; margin:0;">🏆 Profit Hopper Casino Manager</h1>
+        <p style="color:white; margin:0;">Smart Bankroll Management & Game Recommendations</p>
     </div>
     """
 
 def game_card(row):
     return f"""
-    <div class="game-card">
-        <h3>{row['game_name']}</h3>
-        <p><strong>Type:</strong> {row['type']}</p>
-        <p><strong>RTP:</strong> {row['rtp']}%</p>
-        <p><strong>Min Bet:</strong> ${row['min_bet']:,.2f}</p>
-        <p><strong>Volatility:</strong> {map_volatility(row['volatility'])}</p>
-        <p><strong>Advantage Play:</strong> {map_advantage(row['advantage_play_potential'])}</p>
-        <p><strong>Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}</p>
-        <p><strong>Tips:</strong> {row['tips']}</p>
+    <div class="ph-game-card">
+        <div class="ph-game-title">🎰 {row['game_name']}</div>
+        <div class="ph-game-detail">
+            <strong>🗂️ Type:</strong> {row['type']}
+        </div>
+        <div class="ph-game-detail">
+            <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
+        </div>
+        <div class="ph-game-detail">
+            <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
+        </div>
+        <div class="ph-game-detail">
+            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+        </div>
+        <div class="ph-game-detail">
+            <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
+        </div>
+        <div class="ph-game-detail">
+            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+        </div>
+        <div class="ph-game-detail">
+            <strong>💡 Tips:</strong> {row['tips']}
+        </div>
     </div>
     """
 
@@ -117,17 +168,17 @@ def trip_info_box(trip_id, casino, starting_bankroll, current_bankroll):
     profit_class = "positive-profit" if profit >= 0 else "negative-profit"
     
     return f"""
-    <div style="background-color: #f0f2f6; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h3 style="margin:0;">Trip #{trip_id}</h3>
-                <p style="margin:0;"><strong>Casino:</strong> {casino}</p>
-            </div>
-            <div style="text-align: right;">
-                <p style="margin:0;"><strong>Starting Bankroll:</strong> ${starting_bankroll:,.2f}</p>
-                <p style="margin:0;"><strong>Current Bankroll:</strong> ${current_bankroll:,.2f}</p>
-                <p style="margin:0;"><span class="{profit_class}">Profit/Loss: ${profit:+,.2f}</span></p>
-            </div>
+    <div class="trip-info-box">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div><strong>Current Trip:</strong> #{trip_id}</div>
+            <div><strong>Casino:</strong> {casino}</div>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <div><strong>Starting Bankroll:</strong> ${starting_bankroll:,.2f}</div>
+            <div><strong>Current Bankroll:</strong> ${current_bankroll:,.2f}</div>
+        </div>
+        <div style="margin-top:10px; text-align:center;">
+            <span class="{profit_class}">Profit/Loss: ${profit:+,.2f}</span>
         </div>
     </div>
     """
