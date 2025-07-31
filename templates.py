@@ -78,6 +78,14 @@ def get_css():
         border-left: 4px solid #3498db;
     }
     
+    .trip-card {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        background-color: #e3f2fd;
+        border-left: 4px solid #1976d2;
+    }
+    
     .positive-profit {
         color: #27ae60;
         font-weight: bold;
@@ -100,6 +108,22 @@ def get_css():
         cursor: pointer;
         border-radius: 4px;
         border: none;
+    }
+    
+    .trip-info-box {
+        background-color: #e8f5e9;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #4caf50;
+    }
+    
+    .trip-id-badge {
+        background-color: #1976d2;
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-weight: bold;
     }
     </style>
     """
@@ -128,6 +152,28 @@ def game_card(row):
         </div>
         <div class="ph-game-detail">
             <strong>💡 Tips:</strong> {row['tips']}
+        </div>
+    </div>
+    """
+
+def get_header():
+    return """
+    <div style="text-align:center; padding:20px 0; background:linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d); border-radius:10px; margin-bottom:30px;">
+        <h1 style="color:white; margin:0;">🏆 Profit Hopper Casino Manager</h1>
+        <p style="color:white; margin:0;">Smart Bankroll Management & Game Recommendations</p>
+    </div>
+    """
+
+def trip_info_box(trip_id, casino, starting_bankroll, current_bankroll):
+    return f"""
+    <div class="trip-info-box">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div><strong>Current Trip:</strong> #{trip_id}</div>
+            <div><strong>Casino:</strong> {casino}</div>
+        </div>
+        <div style="display:flex; justify-content:space-between;">
+            <div><strong>Starting Bankroll:</strong> ${starting_bankroll:,.2f}</div>
+            <div><strong>Current Bankroll:</strong> ${current_bankroll:,.2f}</div>
         </div>
     </div>
     """

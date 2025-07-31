@@ -1,43 +1,57 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 from utils import get_csv_download_link
-
-def delete_session(index):
-    session = st.session_state.session_log[index]
-    st.session_state.bankroll -= session['profit']
-    st.session_state.session_log.pop(index)
-    st.success(f"Session deleted: {session['date']} - {session['game']}")
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
     st.session_state.session_log.append({
+        "trip_id": st.session_state.current_trip_id,
         "date": session_date.strftime("%Y-%m-%d"),
+        "casino": st.session_state.trip_settings['casino'],
         "game": game_played,
         "money_in": money_in,
         "money_out": money_out,
         "profit": profit,
         "notes": session_notes
     })
-    st.session_state.bankroll += profit
     st.success(f"Session added: ${profit:+,.2f} profit")
 
-def render_session_tracker(game_df):
+def render_session_tracker(game_df, session_bankroll):
+    st.info("Track your gambling sessions to monitor performance and bankroll growth")
+    
+    # Trip info box
+    from trip_manager import get_current_bankroll
+    from templates import trip_info_box
+    current_bankroll = get_current_bankroll()
+    
+    st.markdown(trip_info_box(
+        st.session_state.current_trip_id,
+        st.session_state.trip_settings['casino'],
+        st.session_state.trip_settings['starting_bankroll'],
+        current_bankroll
+    ), unsafe_allow_html=True)
+    
     st.subheader("Session Tracker")
     
     with st.expander("➕ Add New Session", expanded=True):
         with st.form("session_form"):
             col1, col2 = st.columns(2)
             with col1:
-                session_date = st.date_input("📅 Date")
-                money_in = st.number_input("💵 Money In", min_value=0.0, 
-                                         value=st.session_state.bankroll / st.session_state.session_count)
+                session_date = st.date_input("📅 Date", value=datetime.today())
+                money_in = st.number_input("💵 Money In", 
+                                          min_value=0.0, 
+                                          value=float(session_bankroll),
+                                          step=5.0)  # Increment by $5
             with col2:
-                game_options = ["Select Game"] + list(game_df['game_name'].unique())
+                game_options = ["Select Game"] + list(game_df['game_name'].unique()) if not game_df.empty else ["Select Game"]
                 game_played = st.selectbox("🎮 Game Played", options=game_options)
-                money_out = st.number_input("💰 Money Out", min_value=0.0, value=0.0)
+                money_out = st.number_input("💰 Money Out", 
+                                           min_value=0.0, 
+                                           value=0.0,
+                                           step=5.0)  # Increment by $5
             
-            session_notes = st.text_area("📝 Session Notes", 
-                                        placeholder="Record observations or strategies...")
+            session_notes = st.text_area("📝 Session Notes", placeholder="Record any observations, strategies, or important events during the session...")
             
             submitted = st.form_submit_button("💾 Save Session")
             
@@ -47,12 +61,17 @@ def render_session_tracker(game_df):
                 else:
                     save_session(session_date, game_played, money_in, money_out, session_notes)
     
-    if st.session_state.session_log:
-        st.subheader("Session History")
-        sorted_sessions = sorted(st.session_state.session_log, 
-                                key=lambda x: x['date'], reverse=True)
+    # Display current trip sessions
+    from trip_manager import get_current_trip_sessions
+    current_trip_sessions = get_current_trip_sessions()
+    
+    if current_trip_sessions:
+        st.subheader(f"Trip #{st.session_state.current_trip_id} Sessions")
         
-        for idx, session in enumerate(sorted_sessions):
+        # Sort sessions by date descending
+        sorted_sessions = sorted(current_trip_sessions, key=lambda x: x['date'], reverse=True)
+        
+        for session in sorted_sessions:
             profit = session['profit']
             profit_class = "positive-profit" if profit >= 0 else "negative-profit"
             
@@ -62,24 +81,14 @@ def render_session_tracker(game_df):
                 <div>💵 In: ${session['money_in']:,.2f} | 💰 Out: ${session['money_out']:,.2f} | 
                 <span class="{profit_class}">📈 Profit: ${profit:+,.2f}</span></div>
                 <div><strong>📝 Notes:</strong> {session['notes']}</div>
-                <div style="margin-top: 5px;">
-                    <button onclick="deleteSession({idx})" style="background-color: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Delete</button>
-                </div>
             </div>
             """
             st.markdown(session_card, unsafe_allow_html=True)
         
-        st.markdown(f"""
-        <script>
-        function deleteSession(index) {{
-            Streamlit.setComponentValue(JSON.stringify({{action: "delete", index: index}}));
-        }}
-        </script>
-        """, unsafe_allow_html=True)
-        
+        # Export sessions to CSV
         st.subheader("Export Data")
         if st.button("💾 Export Session History to CSV"):
-            session_df = pd.DataFrame(st.session_state.session_log)
-            st.markdown(get_csv_download_link(session_df, "session_history.csv"), unsafe_allow_html=True)
+            session_df = pd.DataFrame(current_trip_sessions)
+            st.markdown(get_csv_download_link(session_df, f"trip_{st.session_state.current_trip_id}_sessions.csv"), unsafe_allow_html=True)
     else:
-        st.info("No sessions recorded yet. Add your first session above.")
+        st.info("No sessions recorded for this trip yet. Add your first session above.")

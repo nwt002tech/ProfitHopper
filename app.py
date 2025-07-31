@@ -4,60 +4,36 @@ from datetime import datetime
 from data_loader import load_game_data
 from session_manager import render_session_tracker
 from analytics import render_analytics
-from templates import get_css, game_card
+from templates import get_css, game_card, get_header
+from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 
 # Configure page
-st.set_page_config(layout="wide", initial_sidebar_state="collapsed", 
+st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
 
-# Initialize session state
-if 'session_log' not in st.session_state:
-    st.session_state.session_log = []
-if 'bankroll' not in st.session_state:
-    st.session_state.bankroll = 1000.0
-if 'session_count' not in st.session_state:
-    st.session_state.session_count = 10
+# Initialize trip state
+initialize_trip_state()
 
 # Apply CSS
 st.markdown(get_css(), unsafe_allow_html=True)
 
-# Add title and logo
-st.markdown("""
-<div style="display: flex; align-items: center; margin-bottom: 20px;">
-    <img src="https://raw.githubusercontent.com/nwt002tech/profit-hopper/main/logo.png" 
-         style="height: 80px; margin-right: 20px;">
-    <div>
-        <h1 style="margin: 0; color: #2c3e50;">Profit Hopper Casino Manager</h1>
-        <p style="margin: 0; color: #7f8c8d; font-size: 1.1rem;">
-            Optimize your casino advantage play strategy with data-driven decisions
-        </p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# Header with logo and title
+st.markdown(get_header(), unsafe_allow_html=True)
 
-# Input panel
-with st.container():
-    col1, col2 = st.columns(2)
-    with col1:
-        total_bankroll = st.number_input("💰 Total Bankroll", min_value=0.0, 
-                                       value=st.session_state.bankroll,
-                                       step=100.0, format="%.2f")
-        st.session_state.bankroll = total_bankroll
-    with col2:
-        num_sessions = st.number_input("📅 Number of Sessions", min_value=1, 
-                                     value=st.session_state.session_count, step=1)
-        st.session_state.session_count = num_sessions
+# Render sidebar
+render_sidebar()
 
 # Calculations
-session_bankroll = total_bankroll / num_sessions
+session_bankroll = get_session_bankroll()
 max_bet = session_bankroll * 0.25
 stop_loss = session_bankroll * 0.6
+current_bankroll = get_current_bankroll()
 
 # Sticky header
 st.markdown(f"""
 <div class="ph-sticky-header">
     <div style="display:flex; justify-content:space-around; text-align:center">
-        <div><strong>💰 Total Bankroll</strong><br>${total_bankroll:,.2f}</div>
+        <div><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
         <div><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
         <div><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
         <div><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
@@ -66,13 +42,16 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Main tabs
-tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Bankroll Analytics"])
+tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
 # Game Plan Tab
 with tab1:
+    st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
+    
     game_df = load_game_data()
     
     if not game_df.empty:
+        # Game filters
         st.subheader("Game Filters")
         col1, col2, col3 = st.columns(3)
         
@@ -148,20 +127,11 @@ with tab1:
 
 # Session Tracker Tab
 with tab2:
-    render_session_tracker(game_df)
+    render_session_tracker(game_df, session_bankroll)
 
-# Bankroll Analytics Tab
+# Trip Analytics Tab
 with tab3:
     render_analytics()
-
-# Handle session deletion
-if st.session_state.get('session_log'):
-    from session_manager import delete_session
-    if st.experimental_get_query_params().get('action'):
-        action = st.experimental_get_query_params().get('action')[0]
-        index = int(st.experimental_get_query_params().get('index')[0])
-        delete_session(index)
-        st.experimental_set_query_params()
 
 if __name__ == "__main__":
     pass
