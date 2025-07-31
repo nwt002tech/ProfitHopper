@@ -94,7 +94,6 @@ def get_header():
     return """
     <div style="display:flex; align-items:center; margin-bottom:20px;">
         <h1 style="margin:0; color:#4e89ae;">Profit Hopper Casino Manager</h1>
-        <img src="https://via.placeholder.com/100" style="margin-left:20px; border-radius:8px;">
     </div>
     """
 

@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 
 def initialize_trip_state():
     if 'session_log' not in st.session_state:
@@ -65,7 +64,7 @@ def render_sidebar():
                         'starting_bankroll': starting_bankroll,
                         'num_sessions': num_sessions
                     }
-                    st.experimental_rerun()
+                    st.rerun()  # FIXED: Use st.rerun() instead of st.experimental_rerun()
         
         # Trip summary
         st.subheader("Current Trip")
@@ -83,4 +82,4 @@ def render_sidebar():
                                           if s['trip_id'] != st.session_state.current_trip_id]
             st.success(f"Trip #{st.session_state.current_trip_id} ended")
             st.session_state.current_trip_id = max(1, st.session_state.current_trip_id - 1)
-            st.experimental_rerun()
+            st.rerun()  # FIXED: Use st.rerun() instead of st.experimental_rerun()
