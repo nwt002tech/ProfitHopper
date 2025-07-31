@@ -1,9 +1,4 @@
-import streamlit as st
-from data_loader import load_game_data
-from session_manager import render_session_tracker
-from analytics import render_analytics
-from templates import get_css, get_header
-from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
+# ... existing imports ...
 
 # Configure page
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -49,27 +44,27 @@ with tab1:
     game_df = load_game_data()
     
     if not game_df.empty:
-        # Game filters
-        st.subheader("Game Filters")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
-            game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
+        # Collapsible game filters
+        with st.expander("🔍 Game Filters", expanded=True):
+            col1, col2, col3 = st.columns(3)
             
-        with col2:
-            max_min_bet = st.slider("Max Min Bet", 
-                                   float(game_df['min_bet'].min()), 
-                                   float(game_df['min_bet'].max() * 2), 
-                                   float(max_bet), 
-                                   step=1.0)
-            advantage_filter = st.selectbox("Advantage Play Potential", 
-                                          ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
-            
-        with col3:
-            volatility_filter = st.selectbox("Volatility", 
-                                           ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
-            search_query = st.text_input("Search Game Name")
+            with col1:
+                min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
+                game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
+                
+            with col2:
+                max_min_bet = st.slider("Max Min Bet", 
+                                       float(game_df['min_bet'].min()), 
+                                       float(game_df['min_bet'].max() * 2), 
+                                       float(max_bet), 
+                                       step=1.0)
+                advantage_filter = st.selectbox("Advantage Play Potential", 
+                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                
+            with col3:
+                volatility_filter = st.selectbox("Volatility", 
+                                               ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
+                search_query = st.text_input("Search Game Name")
         
         # Apply filters
         filtered_games = game_df[
@@ -124,13 +119,4 @@ with tab1:
     else:
         st.error("Failed to load game data. Please check the CSV format and column names.")
 
-# Session Tracker Tab
-with tab2:
-    render_session_tracker(game_df, session_bankroll)
-
-# Trip Analytics Tab
-with tab3:
-    render_analytics()
-
-if __name__ == "__main__":
-    pass
+# ... rest of the file remains the same ...
