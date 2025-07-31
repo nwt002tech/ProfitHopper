@@ -49,8 +49,9 @@ with tab1:
     game_df = load_game_data()
     
     if not game_df.empty:
-        # Collapsible game filters (default to collapsed)
+        # Create collapsible filter section (default to collapsed)
         with st.expander("🔍 Game Filters", expanded=False):
+            st.subheader("Filter Options")
             col1, col2, col3 = st.columns(3)
             
             with col1:
