@@ -1,4 +1,12 @@
-# ... existing imports ...
+import streamlit as st
+import pandas as pd
+import altair as alt
+from utils import normalize_column_name, get_csv_download_link, get_css, get_header
+from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
+from data_loader import load_game_data
+from analytics import render_analytics
+from session_manager import render_session_tracker
+from datetime import datetime
 
 # Configure page
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -44,8 +52,8 @@ with tab1:
     game_df = load_game_data()
     
     if not game_df.empty:
-        # Collapsible game filters
-        with st.expander("🔍 Game Filters", expanded=True):
+        # Collapsible game filters (now default to collapsed)
+        with st.expander("🔍 Game Filters", expanded=False):
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -119,4 +127,11 @@ with tab1:
     else:
         st.error("Failed to load game data. Please check the CSV format and column names.")
 
-# ... rest of the file remains the same ...
+# Session Tracker Tab
+with tab2:
+    game_df = load_game_data()
+    render_session_tracker(game_df, session_bankroll)
+
+# Trip Analytics Tab
+with tab3:
+    render_analytics()
