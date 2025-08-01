@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
@@ -90,32 +91,48 @@ with tab1:
             ]
         
         if not filtered_games.empty:
+            # Enhanced scoring algorithm
+            # Normalize factors to comparable scales
+            rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
+            bonus_normalized = filtered_games['bonus_frequency']  # Already 0-1
+            app_normalized = filtered_games['advantage_play_potential'] / 5
+            volatility_normalized = (5 - filtered_games['volatility']) / 4  # Invert scale
+            
+            # Bankroll-adjusted factors
+            bankroll_factor = np.log10(session_bankroll) / 3  # Scale based on bankroll size
+            bet_comfort = (max_bet - filtered_games['min_bet']) / max_bet
+            
+            # Calculate score with dynamic weights
             filtered_games['Score'] = (
-                (filtered_games['rtp'] * 0.5) +
-                (filtered_games['bonus_frequency'] * 0.2) +
-                (filtered_games['advantage_play_potential'] * 0.2) +
-                ((6 - filtered_games['volatility']) * 0.1)
-            )
+                (rtp_normalized * 0.35) + 
+                (bonus_normalized * 0.20) +
+                (app_normalized * 0.20) +
+                (volatility_normalized * 0.15) +
+                (bet_comfort * 0.10)
+            ) * 10
             
+            # Penalize games with min bet > 10% of session bankroll
+            filtered_games.loc[filtered_games['min_bet'] > (session_bankroll * 0.1), 'Score'] *= 0.8
+            
+            # Penalize high volatility games for small bankrolls
+            if session_bankroll < 50:
+                volatility_penalty = filtered_games['volatility'] / 5
+                filtered_games['Score'] *= (1 - (volatility_penalty * 0.3))
+            
+            # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
-            
-            # Store recommendations in session state
-            if 'recommended_games' not in st.session_state:
-                st.session_state.recommended_games = filtered_games.head(
-                    st.session_state.trip_settings['num_sessions']
-                ).copy()
             
             # Recommended play order
             st.subheader("🎯 Recommended Play Order")
             num_sessions = st.session_state.trip_settings['num_sessions']
+            recommended_games = filtered_games.head(num_sessions)
             
-            if not st.session_state.recommended_games.empty:
+            if not recommended_games.empty:
                 st.info(f"For optimal results during your {num_sessions} sessions, play games in this order:")
-                st.warning("Don't see a recommended game at your casino? Use the substitution tool below!")
                 st.markdown("---")
                 
                 # Display sessions in sequential order
-                for i, (_, row) in enumerate(st.session_state.recommended_games.iterrows(), start=1):
+                for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
                     # Create two columns: one for session number, one for game details
                     col1, col2 = st.columns([1, 5])
                     
@@ -157,49 +174,25 @@ with tab1:
                         """, unsafe_allow_html=True)
                 
                 st.markdown("---")
-                
-                # Game substitution tool
-                st.subheader("🔁 Game Substitution Tool")
-                st.info("If a recommended game isn't available at your casino, select it below and choose a substitute:")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    game_to_replace = st.selectbox("Select game to replace", 
-                                                 options=st.session_state.recommended_games['game_name'].tolist())
-                
-                with col2:
-                    # Get available substitutes (filtered games not already in recommendations)
-                    available_games = filtered_games[
-                        ~filtered_games['game_name'].isin(st.session_state.recommended_games['game_name'])
-                    ]['game_name'].tolist()
-                    
-                    substitute_game = st.selectbox("Select substitute game", 
-                                                 options=available_games)
-                
-                if st.button("Replace Game"):
-                    # Find index of game to replace
-                    idx = st.session_state.recommended_games[
-                        st.session_state.recommended_games['game_name'] == game_to_replace
-                    ].index[0]
-                    
-                    # Get substitute game data
-                    new_game = filtered_games[filtered_games['game_name'] == substitute_game].iloc[0]
-                    
-                    # Replace in recommendations
-                    st.session_state.recommended_games.loc[idx] = new_game
-                    st.success(f"Replaced {game_to_replace} with {substitute_game} in your play order!")
-                    st.rerun()
-                
-                if st.button("Reset to Original Recommendations"):
-                    st.session_state.recommended_games = filtered_games.head(num_sessions).copy()
-                    st.success("Play order reset to original recommendations!")
-                    st.rerun()
             else:
                 st.warning("Not enough games match your criteria for all sessions")
             
             st.subheader(f"🎮 Recommended Games ({len(filtered_games)} matches)")
             st.caption(f"Showing games with RTP ≥ {min_rtp}% and min bet ≤ ${max_min_bet:,.2f}")
+            
+            # Display bankroll suitability information
+            st.markdown("""
+            <div class="trip-info-box">
+                <h4>💰 Bankroll Suitability Guide</h4>
+                <p>Game recommendations are optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
+                <ul>
+                    <li><strong>Ideal min bet</strong>: ≤ ${session_bankroll * 0.05:,.2f} (5% of session bankroll)</li>
+                    <li><strong>Acceptable min bet</strong>: ≤ ${session_bankroll * 0.1:,.2f} (10% of session bankroll)</li>
+                    <li><strong>High-risk min bet</strong>: > ${session_bankroll * 0.1:,.2f} (10% of session bankroll)</li>
+                </ul>
+                <p>Games with min bets exceeding 10% of your session bankroll are penalized in scoring.</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
             for _, row in filtered_games.head(50).iterrows():
