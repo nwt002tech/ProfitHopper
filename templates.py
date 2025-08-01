@@ -1,3 +1,5 @@
+from utils import map_advantage, map_volatility, map_bonus_freq
+
 def get_css():
     return """
     <style>
