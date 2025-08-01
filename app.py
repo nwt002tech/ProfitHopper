@@ -4,7 +4,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility  # Import needed for play order cards
+from utils import map_volatility
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -61,6 +61,7 @@ with tab1:
                                                ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
                 search_query = st.text_input("Search Game Name")
         
+        # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
             (game_df['rtp'] >= min_rtp)
@@ -98,17 +99,23 @@ with tab1:
             
             filtered_games = filtered_games.sort_values('Score', ascending=False)
             
+            # Store recommendations in session state
+            if 'recommended_games' not in st.session_state:
+                st.session_state.recommended_games = filtered_games.head(
+                    st.session_state.trip_settings['num_sessions']
+                ).copy()
+            
             # Recommended play order
             st.subheader("🎯 Recommended Play Order")
             num_sessions = st.session_state.trip_settings['num_sessions']
-            recommended_games = filtered_games.head(num_sessions)
             
-            if not recommended_games.empty:
+            if not st.session_state.recommended_games.empty:
                 st.info(f"For optimal results during your {num_sessions} sessions, play games in this order:")
+                st.warning("Don't see a recommended game at your casino? Use the substitution tool below!")
                 st.markdown("---")
                 
                 # Display sessions in sequential order
-                for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
+                for i, (_, row) in enumerate(st.session_state.recommended_games.iterrows(), start=1):
                     # Create two columns: one for session number, one for game details
                     col1, col2 = st.columns([1, 5])
                     
@@ -150,6 +157,44 @@ with tab1:
                         """, unsafe_allow_html=True)
                 
                 st.markdown("---")
+                
+                # Game substitution tool
+                st.subheader("🔁 Game Substitution Tool")
+                st.info("If a recommended game isn't available at your casino, select it below and choose a substitute:")
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    game_to_replace = st.selectbox("Select game to replace", 
+                                                 options=st.session_state.recommended_games['game_name'].tolist())
+                
+                with col2:
+                    # Get available substitutes (filtered games not already in recommendations)
+                    available_games = filtered_games[
+                        ~filtered_games['game_name'].isin(st.session_state.recommended_games['game_name'])
+                    ]['game_name'].tolist()
+                    
+                    substitute_game = st.selectbox("Select substitute game", 
+                                                 options=available_games)
+                
+                if st.button("Replace Game"):
+                    # Find index of game to replace
+                    idx = st.session_state.recommended_games[
+                        st.session_state.recommended_games['game_name'] == game_to_replace
+                    ].index[0]
+                    
+                    # Get substitute game data
+                    new_game = filtered_games[filtered_games['game_name'] == substitute_game].iloc[0]
+                    
+                    # Replace in recommendations
+                    st.session_state.recommended_games.loc[idx] = new_game
+                    st.success(f"Replaced {game_to_replace} with {substitute_game} in your play order!")
+                    st.rerun()
+                
+                if st.button("Reset to Original Recommendations"):
+                    st.session_state.recommended_games = filtered_games.head(num_sessions).copy()
+                    st.success("Play order reset to original recommendations!")
+                    st.rerun()
             else:
                 st.warning("Not enough games match your criteria for all sessions")
             
