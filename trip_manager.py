@@ -1,10 +1,15 @@
 import streamlit as st
 
 def initialize_trip_state():
+    # Ensure session_log is always initialized
     if 'session_log' not in st.session_state:
         st.session_state.session_log = []
+    
+    # Initialize current trip ID
     if 'current_trip_id' not in st.session_state:
         st.session_state.current_trip_id = 1
+    
+    # Initialize casino list
     if 'casino_list' not in st.session_state:
         st.session_state.casino_list = sorted([
             "L'auberge Lake Charles",
@@ -15,31 +20,38 @@ def initialize_trip_state():
             "Paragon Marksville",
             "Coushatta"
         ])
+    
+    # Initialize trip settings with proper defaults
     if 'trip_settings' not in st.session_state:
         st.session_state.trip_settings = {
             'casino': st.session_state.casino_list[0] if st.session_state.casino_list else "",
-            'starting_bankroll': 100.0,  # Default to $100
+            'starting_bankroll': 100.0,
             'num_sessions': 10
         }
+    
+    # Initialize trip bankrolls tracking
+    if 'trip_bankrolls' not in st.session_state:
+        st.session_state.trip_bankrolls = {1: 100.0}
 
 def get_current_trip_sessions():
-    if 'session_log' not in st.session_state:
-        return []
     return [s for s in st.session_state.session_log 
             if s['trip_id'] == st.session_state.current_trip_id]
 
-def get_trip_profit():
-    sessions = get_current_trip_sessions()
+def get_trip_profit(trip_id=None):
+    trip_id = trip_id or st.session_state.current_trip_id
+    sessions = [s for s in st.session_state.session_log 
+               if s['trip_id'] == trip_id]
     return sum(s['profit'] for s in sessions)
 
 def get_current_bankroll():
-    if not hasattr(st.session_state, 'trip_settings'):
-        return 0
-    return st.session_state.trip_settings['starting_bankroll'] + get_trip_profit()
+    # Always calculate from scratch
+    starting = st.session_state.trip_settings['starting_bankroll']
+    return starting + get_trip_profit()
 
 def get_session_bankroll():
     current_bankroll = get_current_bankroll()
-    remaining_sessions = max(1, st.session_state.trip_settings['num_sessions'] - len(get_current_trip_sessions()))
+    completed_sessions = len(get_current_trip_sessions())
+    remaining_sessions = max(1, st.session_state.trip_settings['num_sessions'] - completed_sessions)
     return current_bankroll / remaining_sessions
 
 def render_sidebar():
@@ -70,7 +82,7 @@ def render_sidebar():
                              key='casino_select')
         st.session_state.trip_settings['casino'] = casino
         
-        # Bankroll and sessions (default to $100)
+        # Bankroll and sessions
         starting_bankroll = st.number_input("Starting Bankroll ($)", 
                                            min_value=0.0, 
                                            value=st.session_state.trip_settings['starting_bankroll'],
@@ -90,6 +102,10 @@ def render_sidebar():
         if st.button("Start New Trip"):
             st.session_state.current_trip_id += 1
             st.session_state.session_log = []
+            # Initialize bankroll for new trip
+            st.session_state.trip_bankrolls[st.session_state.current_trip_id] = (
+                st.session_state.trip_settings['starting_bankroll']
+            )
             st.success(f"Started new trip! Trip ID: {st.session_state.current_trip_id}")
             st.rerun()
         
