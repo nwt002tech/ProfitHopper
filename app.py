@@ -5,7 +5,25 @@ with tab1:
     
     if not game_df.empty:
         with st.expander("🔍 Game Filters", expanded=False):
-            # ... (filter controls remain unchanged) ...
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
+                game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
+                
+            with col2:
+                max_min_bet = st.slider("Max Min Bet", 
+                                       float(game_df['min_bet'].min()), 
+                                       float(game_df['min_bet'].max() * 2), 
+                                       float(max_bet), 
+                                       step=1.0)
+                advantage_filter = st.selectbox("Advantage Play Potential", 
+                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                
+            with col3:
+                volatility_filter = st.selectbox("Volatility", 
+                                               ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
+                search_query = st.text_input("Search Game Name")
         
         # Apply filters
         filtered_games = game_df[
@@ -13,7 +31,27 @@ with tab1:
             (game_df['rtp'] >= min_rtp)
         ]
         
-        # ... (additional filters remain unchanged) ...
+        if game_type != "All":
+            filtered_games = filtered_games[filtered_games['type'] == game_type]
+            
+        if advantage_filter == "High (4-5)":
+            filtered_games = filtered_games[filtered_games['advantage_play_potential'] >= 4]
+        elif advantage_filter == "Medium (3)":
+            filtered_games = filtered_games[filtered_games['advantage_play_potential'] == 3]
+        elif advantage_filter == "Low (1-2)":
+            filtered_games = filtered_games[filtered_games['advantage_play_potential'] <= 2]
+            
+        if volatility_filter == "Low (1-2)":
+            filtered_games = filtered_games[filtered_games['volatility'] <= 2]
+        elif volatility_filter == "Medium (3)":
+            filtered_games = filtered_games[filtered_games['volatility'] == 3]
+        elif volatility_filter == "High (4-5)":
+            filtered_games = filtered_games[filtered_games['volatility'] >= 4]
+            
+        if search_query:
+            filtered_games = filtered_games[
+                filtered_games['game_name'].str.contains(search_query, case=False)
+            ]
         
         if not filtered_games.empty:
             # Calculate game scores
@@ -27,7 +65,7 @@ with tab1:
             # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
             
-            # ENHANCEMENT: Recommended play order
+            # Recommended play order
             st.subheader("🎯 Recommended Play Order")
             num_sessions = st.session_state.trip_settings['num_sessions']
             recommended_games = filtered_games.head(num_sessions)
