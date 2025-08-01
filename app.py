@@ -180,15 +180,20 @@ with tab1:
             st.subheader(f"🎮 Recommended Games ({len(filtered_games)} matches)")
             st.caption(f"Showing games with RTP ≥ {min_rtp}% and min bet ≤ ${max_min_bet:,.2f}")
             
+            # Calculate bankroll thresholds
+            ideal_bet = session_bankroll * 0.05
+            acceptable_bet = session_bankroll * 0.1
+            high_risk_threshold = session_bankroll * 0.1
+            
             # Display bankroll suitability information
-            st.markdown("""
+            st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Suitability Guide</h4>
                 <p>Game recommendations are optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
-                    <li><strong>Ideal min bet</strong>: ≤ ${session_bankroll * 0.05:,.2f} (5% of session bankroll)</li>
-                    <li><strong>Acceptable min bet</strong>: ≤ ${session_bankroll * 0.1:,.2f} (10% of session bankroll)</li>
-                    <li><strong>High-risk min bet</strong>: > ${session_bankroll * 0.1:,.2f} (10% of session bankroll)</li>
+                    <li><strong>Ideal min bet</strong>: ≤ ${ideal_bet:,.2f} (5% of session bankroll)</li>
+                    <li><strong>Acceptable min bet</strong>: ≤ ${acceptable_bet:,.2f} (10% of session bankroll)</li>
+                    <li><strong>High-risk min bet</strong>: > ${high_risk_threshold:,.2f} (10% of session bankroll)</li>
                 </ul>
                 <p>Games with min bets exceeding 10% of your session bankroll are penalized in scoring.</p>
             </div>
