@@ -32,7 +32,6 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Create tabs BEFORE using them
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
 with tab1:
@@ -62,7 +61,6 @@ with tab1:
                                                ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
                 search_query = st.text_input("Search Game Name")
         
-        # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
             (game_df['rtp'] >= min_rtp)
@@ -91,7 +89,6 @@ with tab1:
             ]
         
         if not filtered_games.empty:
-            # Calculate game scores
             filtered_games['Score'] = (
                 (filtered_games['rtp'] * 0.5) +
                 (filtered_games['bonus_frequency'] * 0.2) +
@@ -99,7 +96,6 @@ with tab1:
                 ((6 - filtered_games['volatility']) * 0.1)
             )
             
-            # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
             
             # Recommended play order
@@ -109,27 +105,51 @@ with tab1:
             
             if not recommended_games.empty:
                 st.info(f"For optimal results during your {num_sessions} sessions, play games in this order:")
+                st.markdown("---")
                 
-                # Create columns for the play order
-                cols = st.columns(3)
-                for i, (_, row) in enumerate(recommended_games.iterrows()):
-                    with cols[i % 3]:
+                # Display sessions in sequential order
+                for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
+                    # Create two columns: one for session number, one for game details
+                    col1, col2 = st.columns([1, 5])
+                    
+                    with col1:
                         st.markdown(f"""
-                        <div style="text-align:center; margin-bottom:20px; padding:15px; 
-                                    background:#f0f8ff; border-radius:10px; border:2px solid #4e89ae">
-                            <div style="font-size:1.3rem; font-weight:bold; margin-bottom:10px;">
-                                Session #{i+1}
+                        <div style="text-align:center; padding:15px; 
+                                    background:#e3f2fd; border-radius:10px; border:2px solid #1976d2">
+                            <div style="font-size:1.5rem; font-weight:bold;">
+                                #{i}
                             </div>
-                            <div style="font-size:1.1rem; margin-bottom:8px;">
-                                🎰 {row['game_name']}
-                            </div>
-                            <div style="font-size:0.9rem;">
-                                <div>⭐ Score: {row['Score']:.1f}/10</div>
-                                <div>🔢 RTP: {row['rtp']:.2f}%</div>
-                                <div>🎲 Volatility: {map_volatility(int(row['volatility']))}</div>
+                            <div style="font-size:1rem;">
+                                Session
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
+                    
+                    with col2:
+                        st.markdown(f"""
+                        <div style="padding:15px; background:#f8f9fa; border-radius:10px; 
+                                    border-left:4px solid #4e89ae; margin-bottom:15px">
+                            <div style="font-size:1.3rem; font-weight:bold; margin-bottom:8px;">
+                                🎰 {row['game_name']}
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                <div>
+                                    <strong>⭐ Score:</strong> {row['Score']:.1f}/10
+                                </div>
+                                <div>
+                                    <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+                                </div>
+                                <div>
+                                    <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                                </div>
+                                <div>
+                                    <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
+                                </div>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                st.markdown("---")
             else:
                 st.warning("Not enough games match your criteria for all sessions")
             
