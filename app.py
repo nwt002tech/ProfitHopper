@@ -18,16 +18,16 @@ st.markdown(get_css(), unsafe_allow_html=True)
 # Header with logo and title
 st.markdown(get_header(), unsafe_allow_html=True)
 
-# Render sidebar
+# Render sidebar FIRST to process any session additions
 render_sidebar()
 
-# Calculations
+# Get current bankroll AFTER sidebar processing
+current_bankroll = get_current_bankroll()
 session_bankroll = get_session_bankroll()
 max_bet = session_bankroll * 0.25
 stop_loss = session_bankroll * 0.6
-current_bankroll = get_current_bankroll()
 
-# Sticky header
+# Sticky header - moved calculations here
 st.markdown(f"""
 <div class="ph-sticky-header">
     <div style="display:flex; justify-content:space-around; text-align:center">
