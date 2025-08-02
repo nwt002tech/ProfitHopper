@@ -22,20 +22,19 @@ session_bankroll = get_session_bankroll()
 
 # Enhanced bankroll-sensitive calculations
 if session_bankroll < 20:
-    # Conservative strategy for small bankrolls
+    strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
-    # Moderate strategy for medium bankrolls
+    strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
-    stop_loss = session极客
     stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
-    # Standard strategy for larger bankrolls
+    strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
-    stop_loss = session_bankroll * 0.60
+    stop_loss = session极客
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
@@ -49,7 +48,6 @@ st.markdown(f"""
         <div style="margin:5px;"><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
         <div style="margin:5px;"><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
         <div style="margin:5px;"><strong>🔄 Bet Unit</strong><br>${bet_unit:,.2f}</div>
-        <div style="margin:5极客
         <div style="margin:5px;"><strong>🎰 Est. Spins</strong><br>{estimated_spins}</div>
     </div>
 </div>
@@ -116,12 +114,12 @@ with tab1:
             # Enhanced scoring algorithm
             # Normalize factors to comparable scales
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
-            bonus_normalized = filtered_games['bonus_frequency']
+            bonus_normalized = filtered_games['bonus_frequency']  # Already 0-1
             app_normalized = filtered_games['advantage_play_potential'] / 5
-            volatility_normalized = (5 - filtered_games['volatility']) / 4
+            volatility_normalized = (5 - filtered_games['volatility']) / 4  # Invert scale
             
             # Bankroll-adjusted factors
-            bankroll_factor = np.log10(session_bankroll) / 3
+            bankroll_factor = np.log10(session_bankroll) / 3  # Scale based on bankroll size
             
             # Risk-adjusted bet comfort
             bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
@@ -136,6 +134,7 @@ with tab1:
             ) * 10
             
             # Penalize games that don't fit bankroll strategy
+            # Higher penalty for small bankrolls
             bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
             # Min bet penalty
@@ -164,8 +163,6 @@ with tab1:
             recommended_games = filtered_games.head(num_sessions)
             
             # Display bankroll management strategy
-            strategy_type = "Conservative" if session_bankroll < 20 else "Moderate" if session_bankroll < 100 else "Standard"
-            
             st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Management Strategy ({strategy_type})</h4>
@@ -234,10 +231,35 @@ with tab1:
                 
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                 for _, row in extra_games.head(20).iterrows():
-                    # Use game_card function for additional games
-                    from templates import game_card
-                    st.markdown(game_card(row), unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    # Create a standard game card for additional games
+                    game_card = f"""
+                    <div class="ph-game-card">
+                        <div class="ph-game-title">🎰 {row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
+                        <div class="ph-game-detail">
+                            <strong>🗂️ Type:</strong> {row['type']}
+                        </div>
+                        <div class="ph-game-detail">
+                            <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
+                        </div>
+                        <div class="ph-game-detail">
+                            <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
+                        </div>
+                        <div class="ph-game极客
+                        <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                    </div>
+                    <div class="ph-game-detail">
+                        <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
+                    </div>
+                    <div class="ph-game-detail">
+                        <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+                    </div>
+                    <div class="ph-game-detail">
+                        <strong>💡 Tips:</strong> {row['tips']}
+                    </div>
+                </div>
+                """
+                st.markdown(game_card, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.warning("No games match your current filters. Try adjusting your criteria.")
     else:
