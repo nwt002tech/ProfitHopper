@@ -13,7 +13,7 @@ def get_css():
     .compact-bankroll-info {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 5px;
         padding: 10px 15px;
         background: #f8f9fa;
         border-bottom: 1px solid #e0e0e0;
@@ -27,14 +27,12 @@ def get_css():
     
     .bankroll-item {
         display: flex;
-        flex-direction: column;
         align-items: center;
         background: #ffffff;
-        padding: 10px 15px;
+        padding: 8px 15px;
         border-radius: 10px;
         font-size: 0.9rem;
         flex: 1;
-        min-width: 140px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         border: 1px solid #e0e0e0;
     }
@@ -42,18 +40,16 @@ def get_css():
     .bankroll-item .label {
         font-weight: bold;
         color: #2c3e50;
-        margin-bottom: 5px;
-        font-size: 0.85rem;
+        margin-right: 8px;
     }
     
     .bankroll-item .value {
         color: #34495e;
-        font-size: 1.1rem;
-        font-weight: bold;
     }
     
     .ph-stop-loss {
         color: #e74c3c;
+        font-weight: bold;
     }
     
     .ph-game-card {
@@ -112,15 +108,8 @@ def get_css():
             flex-wrap: wrap;
         }
         .bankroll-item {
-            min-width: calc(50% - 10px);
-            padding: 8px 10px;
-            font-size: 0.8rem;
-        }
-        .bankroll-item .label {
-            font-size: 0.8rem;
-        }
-        .bankroll-item .value {
-            font-size: 1.0rem;
+            min-width: 100%;
+            padding: 8px 12px;
         }
     }
     
@@ -167,7 +156,7 @@ def get_css():
     .trip-info-box {
         background-color: #e8f5e9;
         padding: 15px;
-        border-radius: 8px;
+        border-radius: 8极客;
         margin-bottom: 20px;
         border-left: 4px solid #4caf50;
     }

@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded",
 initialize_trip_state()
 
 st.markdown(get_css(), unsafe_allow_html=True)
-st.markdown(get_header(), unsafe_allow_html=True)
+st.markdown(get_header(), unsafe_allow_html极客=True)
 
 render_sidebar()
 
@@ -29,7 +29,7 @@ if session_bankroll < 20:
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
-    stop极客_loss = session_bankroll * 0.50
+    stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
@@ -45,31 +45,31 @@ st.markdown(f"""
     <div class="compact-bankroll-info">
         <div class="bankroll-row">
             <div class="bankroll-item">
-                <span class="label">💰 Bankroll</span>
+                <span class="label">💰 Bankroll:</span>
                 <span class="value">${current_bankroll:,.2f}</span>
             </div>
             <div class="bankroll-item">
-                <span class="label">📅 Session</span>
+                <span class="label">📅 Session:</span>
                 <span class="value">${session_bankroll:,.2f}</span>
             </div>
         </div>
         <div class="bankroll-row">
             <div class="bankroll-item">
-                <span class="label">🔄 Unit</span>
+                <span class="label">🔄 Unit:</span>
                 <span class="value">${bet_unit:,.2f}</span>
             </div>
             <div class="bankroll-item">
-                <span class="label">💸 Max Bet</span>
+                <span class="label">💸 Max Bet:</span>
                 <span class="value">${max_bet:,.2f}</span>
             </div>
         </div>
         <div class="bankroll-row">
             <div class="bankroll-item">
-                <span class="label">🚫 Stop Loss</span>
+                <span class="label">🚫 Stop Loss:</span>
                 <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
             </div>
             <div class="bankroll-item">
-                <span class="label">🎰 Spins</span>
+                <span class="label">🎰 Spins:</span>
                 <span class="value">{estimated_spins}</span>
             </div>
         </div>
@@ -196,7 +196,7 @@ with tab1:
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
-                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</极客
+                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
                 </ul>
                 <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
             </div>
