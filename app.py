@@ -30,10 +30,10 @@ elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
-    bet_unit = max(0.05, session_bankroll * 极客03)
+    bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
-    max_bet = session_bankroll * 0.25
+    max极客_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
@@ -184,10 +184,10 @@ with tab1:
             st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Management Strategy ({strategy_type})</h4>
-                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</极客
+                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
-                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_b极客/session_bankroll:.0%} of bankroll)</li>
+                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
@@ -216,7 +216,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
-                        <div class="ph-game-detail">
+                        <div class极客"ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
                         </div>
                         <div class="ph-game-detail">
