@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session_bankroll * 0.40
+    stop_loss = session极客_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
@@ -40,7 +40,8 @@ else:
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-st.markdown(f"""
+# Create the bankroll header HTML
+bankroll_html = f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
         <div class="bankroll-row">
@@ -77,7 +78,10 @@ st.markdown(f"""
         </div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+
+# Render the bankroll header
+st.markdown(bankroll_html, unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
@@ -172,7 +176,7 @@ with tab1:
             
             # Volatility penalty
             volatility_penalty = np.where(
-                (session极客_bankroll < 50) & (filtered_games['volatility'] >= 4),
+                (session_bankroll < 50) & (filtered_games['volatility'] >= 4),
                 0.7,
                 1.0
             )
@@ -198,7 +202,7 @@ with tab1:
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
-                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
+                    <极客li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
                 </ul>
                 <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
             </div>
