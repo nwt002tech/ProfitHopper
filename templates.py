@@ -1,7 +1,9 @@
+from utils import map_advantage, map_volatility, map_bonus_freq
+
 def get_css():
     return """
     <style>
-    /* ... CSS remains the same ... */
+    /* ... existing CSS ... */
     </style>
     """
 
@@ -39,6 +41,7 @@ def game_card(row):
             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
         </div>
         <div class="ph-game-detail">
+            <strong>💡 Tips:</极客
             <strong>💡 Tips:</strong> {row['tips']}
         </div>
     </div>
