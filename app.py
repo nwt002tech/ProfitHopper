@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils极客 import map_volatility, map_advantage, map_bonus_freq
+from utils import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -168,10 +168,10 @@ with tab1:
             
             # Min bet penalty
             min_bet_penalty = np.where(
-                filtered_games['min极客_bet'] > max_bet * 0.5,
-                0.6 * bankroll_penalty_factor,
-                1.0
-            )
+    filtered_games['min_bet'] > max_bet * 0.5,  # CORRECTED
+    0.6 * bankroll_penalty_factor,
+    1.0
+)
             
             # Volatility penalty
             volatility_penalty = np.where(
