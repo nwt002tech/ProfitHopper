@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded",
 initialize_trip_state()
 
 st.markdown(get_css(), unsafe_allow_html=True)
-st.markdown(get_header(), unsafe_allow_html=True)  # FIXED TYPO HERE
+st.markdown(get_header(), unsafe_allow_html=True)
 
 render_sidebar()
 
@@ -26,7 +26,7 @@ if session_bankroll < 20:
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
-elif session_bankroll < 100:
+elif session_bank极客roll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
@@ -41,8 +41,9 @@ else:
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 st.markdown(f"""
-<div class="ph-sticky极客-header">
+<div class="ph-sticky-header">
     <div class="compact-bankroll-info">
+        <!-- Line 1: Bankroll and Session -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">💰 Bankroll:</span>
@@ -53,6 +54,8 @@ st.markdown(f"""
                 <span class="value">${session_bankroll:,.2f}</span>
             </div>
         </div>
+        
+        <!-- Line 2: Unit and Max Bet -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
@@ -63,13 +66,15 @@ st.markdown(f"""
                 <span class="value">${max_bet:,.2f}</span>
             </div>
         </div>
+        
+        <!-- Line 3: Stop Loss and Spins -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🚫 Stop Loss:</span>
-                <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
+                <span class="value ph-stop-loss">${stop_loss:,.2极客f}</span>
             </div>
             <div class="bankroll-item">
-                <span class="label">🎰 Spins:</span>
+                <span class="label">🎰 Spins:</极客span>
                 <span class="value">{estimated_spins}</span>
             </div>
         </div>
@@ -99,7 +104,7 @@ with tab1:
                                        float(max_bet), 
                                        step=1.0)
                 advantage_filter = st.selectbox("Advantage Play Potential", 
-                                              ["极客All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
                 
             with col3:
                 volatility_filter = st.selectbox("Volatility", 
