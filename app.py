@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
-from data_loader import load_game极客_data
+from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq
@@ -29,7 +29,7 @@ if session_bankroll < 20:
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
-    stop_loss = session_bankroll * 0.50
+    stop极客_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
@@ -196,7 +196,7 @@ with tab1:
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
-                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
+                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</极客
                 </ul>
                 <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
             </div>
@@ -258,7 +258,7 @@ with tab1:
                     # Create a standard game card for additional games
                     game_card = f"""
                     <div class="ph-game-card">
-                        <div class="ph-game-title">🎰 {极客row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
+                        <div class="ph-game-title">🎰 {row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
