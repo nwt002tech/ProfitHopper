@@ -53,7 +53,7 @@ st.markdown(f"""
         </div>
         <div class="bankroll-item">
             <span class="label">💸 Max Bet:</span>
-            <span class="value">${max_bet:,.2f}</span>
+            <span class="value">${max_bet:,.极客f}</span>
         </div>
         <div class="bankroll-item">
             <span class="label">🚫 Stop Loss:</span>
@@ -83,7 +83,7 @@ with tab1:
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                min_rtp = st.s极客ider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
+                min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
                 game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
                 
             with col2:
@@ -171,7 +171,7 @@ with tab1:
             
             # Apply penalties
             filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
-            filtered_games['Score'] = filtered_games['Score'] * volatility_penalty  # FIXED TYPO HERE
+            filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
@@ -208,7 +208,7 @@ with tab1:
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
-                                    border-radius:50%; width:30px; height:30极客; display:flex; 
+                                    border-radius:50%; width:30px; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
