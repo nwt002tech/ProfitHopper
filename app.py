@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq  # FIXED IMPORT
+from utils import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -43,7 +43,6 @@ estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 st.markdown(f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
-        <!-- Line 1: Bankroll and Session -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">💰 Bankroll:</span>
@@ -55,7 +54,6 @@ st.markdown(f"""
             </div>
         </div>
         
-        <!-- Line 2: Unit and Max Bet -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
@@ -67,7 +65,6 @@ st.markdown(f"""
             </div>
         </div>
         
-        <!-- Line 3: Stop Loss and Spins -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🚫 Stop Loss:</span>
@@ -166,7 +163,7 @@ with tab1:
             # Higher penalty for small bankrolls
             bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
-            # Min bet penalty - FIXED VARIABLE NAME
+            # Min bet penalty
             min_bet_penalty = np.where(
                 filtered_games['min_bet'] > max_bet * 0.5,
                 0.6 * bankroll_penalty_factor,
@@ -175,7 +172,7 @@ with tab1:
             
             # Volatility penalty
             volatility_penalty = np.where(
-                (session_bankroll < 50) & (filtered_games['volatility'] >= 4),
+                (session极客_bankroll < 50) & (filtered_games['volatility'] >= 4),
                 0.7,
                 1.0
             )
@@ -240,7 +237,7 @@ with tab1:
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%  <!-- FIXED HTML TAG -->
+                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
                         </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
@@ -280,7 +277,7 @@ with tab1:
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%  <!-- FIXED HTML TAG -->
+                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
                         </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
