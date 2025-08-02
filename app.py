@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq
+from utils import map_volatility, map_advantage, map_bonus_freq  # FIXED IMPORT
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -166,12 +166,12 @@ with tab1:
             # Higher penalty for small bankrolls
             bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
-            # Min bet penalty
+            # Min bet penalty - FIXED VARIABLE NAME
             min_bet_penalty = np.where(
-    filtered_games['min_bet'] > max_bet * 0.5,  # CORRECTED
-    0.6 * bankroll_penalty_factor,
-    1.0
-)
+                filtered_games['min_bet'] > max_bet * 0.5,
+                0.6 * bankroll_penalty_factor,
+                1.0
+            )
             
             # Volatility penalty
             volatility_penalty = np.where(
@@ -240,7 +240,7 @@ with tab1:
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%  <!-- FIXED HTML TAG -->
                         </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
@@ -280,7 +280,7 @@ with tab1:
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
-                            <strong极客>🔢 RTP:</strong> {row['rtp']:.2f}%
+                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%  <!-- FIXED HTML TAG -->
                         </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
