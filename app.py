@@ -19,16 +19,36 @@ render_sidebar()
 
 current_bankroll = get_current_bankroll()
 session_bankroll = get_session_bankroll()
-max_bet = session_bankroll * 0.25
-stop_loss = session_bankroll * 0.6
+
+# Enhanced bankroll-sensitive calculations
+if session_bankroll < 20:
+    # Conservative strategy for small bankrolls
+    max_bet = max(0.01, session_bankroll * 0.10)  # 10% of session bankroll
+    stop_loss = session_bankroll * 0.40  # 40% loss limit
+    bet_unit = max(0.01, session_bankroll * 0.02)  # 2% unit size
+elif session_bankroll < 100:
+    # Moderate strategy for medium bankrolls
+    max_bet = session_bankroll * 0.15
+    stop_loss = session_bankroll * 0.50
+    bet_unit = max(0.05, session_bankroll * 0.03)
+else:
+    # Standard strategy for larger bankrolls
+    max_bet = session_bankroll * 0.25
+    stop_loss = session_bankroll * 0.60
+    bet_unit = max(0.10, session_bankroll * 0.05)
+
+# Calculate session duration estimate
+estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 st.markdown(f"""
 <div class="ph-sticky-header">
-    <div style="display:flex; justify-content:space-around; text-align:center">
-        <div><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
-        <div><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
-        <div><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
-        <div><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
+    <div style="display:flex; justify-content:space-around; text-align:center; flex-wrap:wrap;">
+        <div style="margin:5px;"><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
+        <div style="margin:5px;"><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
+        <div style="margin:5px;"><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
+        <div style="margin:5px;"><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
+        <div style="margin:5px;"><strong>🔄 Bet Unit</strong><br>${bet_unit:,.2f}</div>
+        <div style="margin:5px;"><strong>🎰 Est. Spins</strong><br>{estimated_spins}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -100,7 +120,9 @@ with tab1:
             
             # Bankroll-adjusted factors
             bankroll_factor = np.log10(session_bankroll) / 3  # Scale based on bankroll size
-            bet_comfort = (max_bet - filtered_games['min_bet']) / max_bet
+            
+            # Risk-adjusted bet comfort
+            bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
             
             # Calculate score with dynamic weights
             filtered_games['Score'] = (
@@ -111,13 +133,27 @@ with tab1:
                 (bet_comfort * 0.10)
             ) * 10
             
-            # Penalize games with min bet > 10% of session bankroll
-            filtered_games.loc[filtered_games['min_bet'] > (session_bankroll * 0.1), 'Score'] *= 0.8
+            # Penalize games that don't fit bankroll strategy
+            # Higher penalty for small bankrolls
+            bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
-            # Penalize high volatility games for small bankrolls
-            if session_bankroll < 50:
-                volatility_penalty = filtered_games['volatility'] / 5
-                filtered_games['Score'] *= (1 - (volatility_penalty * 0.3))
+            # Min bet penalty
+            min_bet_penalty = np.where(
+                filtered_games['min_bet'] > max_bet * 0.5,
+                0.6 * bankroll_penalty_factor,
+                1.0
+            )
+            
+            # Volatility penalty
+            volatility_penalty = np.where(
+                (session_bankroll < 50) & (filtered_games['volatility'] >= 4),
+                0.7,
+                1.0
+            )
+            
+            # Apply penalties
+            filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
+            filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
@@ -126,21 +162,21 @@ with tab1:
             num_sessions = st.session_state.trip_settings['num_sessions']
             recommended_games = filtered_games.head(num_sessions)
             
-            # Display bankroll suitability information
-            ideal_bet = session_bankroll * 0.05
-            acceptable_bet = session_bankroll * 0.1
-            high_risk_threshold = session_bankroll * 0.1
+            # Display bankroll management strategy
+            strategy_type = "Conservative" if session_bankroll < 20 else "Moderate" if session_bankroll < 100 else "Standard"
             
             st.markdown(f"""
             <div class="trip-info-box">
-                <h4>💰 Bankroll Suitability Guide</h4>
-                <p>Game recommendations are optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
+                <h4>💰 Bankroll Management Strategy ({strategy_type})</h4>
+                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
-                    <li><strong>Ideal min bet</strong>: ≤ ${ideal_bet:,.2f} (5% of session bankroll)</li>
-                    <li><strong>Acceptable min bet</strong>: ≤ ${acceptable_bet:,.2f} (10% of session bankroll)</li>
-                    <li><strong>High-risk min bet</strong>: > ${high_risk_threshold:,.2f} (10% of session bankroll)</li>
+                    <li><strong>Strategy Type</strong>: {strategy_type}</li>
+                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
+                    <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
+                    <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
+                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
                 </ul>
-                <p>Games with min bets exceeding 10% of your session bankroll are penalized in scoring.</p>
+                <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
             </div>
             """, unsafe_allow_html=True)
             
