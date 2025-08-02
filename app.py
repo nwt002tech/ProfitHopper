@@ -25,12 +25,12 @@ if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session极客_bankroll * 0.02)
+    bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
-    bet_unit = max(0.05, session_bankroll * 0.03)
+    bet_unit = max(0.05, session_bankroll * 极客03)
 else:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
@@ -184,10 +184,10 @@ with tab1:
             st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Management Strategy ({strategy_type})</h4>
-                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
+                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</极客
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
-                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
+                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_b极客/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
