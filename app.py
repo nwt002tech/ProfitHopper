@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
-from data_loader import load_game_data
+from data_loader import load_game极客_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq
@@ -33,7 +33,7 @@ elif session_bankroll < 100:
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
-    max极客_bet = session_bankroll * 0.25
+    max_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
@@ -43,29 +43,35 @@ estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 st.markdown(f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
-        <div class="bankroll-item">
-            <span class="label">💰 Bankroll:</span>
-            <span class="value">${current_bankroll:,.2f}</span>
+        <div class="bankroll-row">
+            <div class="bankroll-item">
+                <span class="label">💰 Bankroll</span>
+                <span class="value">${current_bankroll:,.2f}</span>
+            </div>
+            <div class="bankroll-item">
+                <span class="label">📅 Session</span>
+                <span class="value">${session_bankroll:,.2f}</span>
+            </div>
         </div>
-        <div class="bankroll-item">
-            <span class="label">📅 Session:</span>
-            <span class="value">${session_bankroll:,.2f}</span>
+        <div class="bankroll-row">
+            <div class="bankroll-item">
+                <span class="label">🔄 Unit</span>
+                <span class="value">${bet_unit:,.2f}</span>
+            </div>
+            <div class="bankroll-item">
+                <span class="label">💸 Max Bet</span>
+                <span class="value">${max_bet:,.2f}</span>
+            </div>
         </div>
-        <div class="bankroll-item">
-            <span class="label">💸 Max Bet:</span>
-            <span class="value">${max_bet:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">🚫 Stop Loss:</span>
-            <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">🔄 Unit:</span>
-            <span class="value">${bet_unit:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">🎰 Spins:</span>
-            <span class="value">{estimated_spins}</span>
+        <div class="bankroll-row">
+            <div class="bankroll-item">
+                <span class="label">🚫 Stop Loss</span>
+                <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
+            </div>
+            <div class="bankroll-item">
+                <span class="label">🎰 Spins</span>
+                <span class="value">{estimated_spins}</span>
+            </div>
         </div>
     </div>
 </div>
@@ -216,7 +222,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
-                        <div class极客"ph-game-detail">
+                        <div class="ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
                         </div>
                         <div class="ph-game-detail">
@@ -252,7 +258,7 @@ with tab1:
                     # Create a standard game card for additional games
                     game_card = f"""
                     <div class="ph-game-card">
-                        <div class="ph-game-title">🎰 {row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
+                        <div class="ph-game-title">🎰 {极客row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>

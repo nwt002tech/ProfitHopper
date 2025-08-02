@@ -12,29 +12,48 @@ def get_css():
     
     .compact-bankroll-info {
         display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 8px;
-        padding: 8px 15px;
+        padding: 10px 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .bankroll-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
     }
     
     .bankroll-item {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 5px;
-        background: #f0f2f6;
-        padding: 6px 12px;
-        border-radius: 20px;
+        background: #ffffff;
+        padding: 10px 15px;
+        border-radius: 10px;
         font-size: 0.9rem;
+        flex: 1;
+        min-width: 140px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
     }
     
     .bankroll-item .label {
         font-weight: bold;
         color: #2c3e50;
+        margin-bottom: 5px;
+        font-size: 0.85rem;
     }
     
     .bankroll-item .value {
         color: #34495e;
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+    
+    .ph-stop-loss {
+        color: #e74c3c;
     }
     
     .ph-game-card {
@@ -69,11 +88,6 @@ def get_css():
         font-size: 1.2rem;
     }
     
-    .ph-stop-loss {
-        color: #e74c3c;
-        font-weight: bold;
-    }
-    
     .ph-game-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -94,17 +108,19 @@ def get_css():
         .ph-game-detail::before {
             left: 5px;
         }
-        .ph-sticky-header > div {
-            flex-direction: column;
-            gap: 10px;
-        }
-        .compact-bankroll-info {
-            padding: 5px;
-            gap: 5px;
+        .bankroll-row {
+            flex-wrap: wrap;
         }
         .bankroll-item {
-            padding: 4px 8px;
+            min-width: calc(50% - 10px);
+            padding: 8px 10px;
             font-size: 0.8rem;
+        }
+        .bankroll-item .label {
+            font-size: 0.8rem;
+        }
+        .bankroll-item .value {
+            font-size: 1.0rem;
         }
     }
     
