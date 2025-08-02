@@ -25,7 +25,7 @@ if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session_bankroll * 0.02)
+    bet_unit = max(0.01, session极客_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
@@ -53,7 +53,7 @@ st.markdown(f"""
         </div>
         <div class="bankroll-item">
             <span class="label">💸 Max Bet:</span>
-            <span class="value">${max_bet:,.极客f}</span>
+            <span class="value">${max_bet:,.2f}</span>
         </div>
         <div class="bankroll-item">
             <span class="label">🚫 Stop Loss:</span>
