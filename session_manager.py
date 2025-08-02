@@ -90,10 +90,18 @@ def render_session_tracker(game_df, session_bankroll):
             
             session_card = f"""
             <div class="session-card">
-                <div><strong>📅 {session['date']}</strong> | 🎮 {session['game']}</div>
-                <div>💵 In: ${session['money_in']:,.2f} | 💰 Out: ${session['money_out']:,.2f} | 
-                <span class="{profit_class}">📈 Profit: ${profit:+,.2f}</span></div>
-                <div><strong>📝 Notes:</strong> {session['notes']}</div>
+                <div style="display: flex; justify-content: space-between; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px;">
+                        <strong>📅 {session['date']}</strong> | 🎮 {session['game']}
+                    </div>
+                    <div style="flex: 1; min-width: 250px; text-align: right;">
+                        <span>💵 ${session['money_in']:,.2f} → 💰 ${session['money_out']:,.2f}</span>
+                        <span class="{profit_class}"> | 📈 ${profit:+,.2f}</span>
+                    </div>
+                </div>
+                <div style="margin-top: 8px; font-size: 0.9em;">
+                    <strong>📝 Notes:</strong> {session['notes']}
+                </div>
             </div>
             """
             st.markdown(session_card, unsafe_allow_html=True)

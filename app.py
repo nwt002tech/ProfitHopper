@@ -34,7 +34,7 @@ elif session_bankroll < 100:
 else:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
-    stop_loss = session极客
+    stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
@@ -42,13 +42,31 @@ estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 st.markdown(f"""
 <div class="ph-sticky-header">
-    <div style="display:flex; justify-content:space-around; text-align:center; flex-wrap:wrap;">
-        <div style="margin:5px;"><strong>💰 Current Bankroll</strong><br>${current_bankroll:,.2f}</div>
-        <div style="margin:5px;"><strong>📅 Session Bankroll</strong><br>${session_bankroll:,.2f}</div>
-        <div style="margin:5px;"><strong>💸 Max Bet</strong><br>${max_bet:,.2f}</div>
-        <div style="margin:5px;"><strong>🚫 Stop Loss</strong><br><span class="ph-stop-loss">${stop_loss:,.2f}</span></div>
-        <div style="margin:5px;"><strong>🔄 Bet Unit</strong><br>${bet_unit:,.2f}</div>
-        <div style="margin:5px;"><strong>🎰 Est. Spins</strong><br>{estimated_spins}</div>
+    <div class="compact-bankroll-info">
+        <div class="bankroll-item">
+            <span class="label">💰 Bankroll:</span>
+            <span class="value">${current_bankroll:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">📅 Session:</span>
+            <span class="value">${session_bankroll:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">💸 Max Bet:</span>
+            <span class="value">${max_bet:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">🚫 Stop Loss:</span>
+            <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">🔄 Unit:</span>
+            <span class="value">${bet_unit:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">🎰 Spins:</span>
+            <span class="value">{estimated_spins}</span>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -153,7 +171,7 @@ with tab1:
             
             # Apply penalties
             filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
-            filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
+            filtered_games['Score'] = filtered极客['Score'] * volatility_penalty
             
             # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
@@ -206,7 +224,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
-                        </div>
+                        </极客
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
@@ -244,22 +262,22 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
-                        <div class="ph-game极客
-                        <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                        <div class="ph-game-detail">
+                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                        </div>
+                        <div class="ph-game-detail">
+                            <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
+                        </div>
+                        <div class="ph-game-detail">
+                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+                        </div>
+                        <div class="ph-game-detail">
+                            <strong>💡 Tips:</strong> {row['tips']}
+                        </div>
                     </div>
-                    <div class="ph-game-detail">
-                        <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
-                    </div>
-                    <div class="ph-game-detail">
-                        <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
-                    </div>
-                    <div class="ph-game-detail">
-                        <strong>💡 Tips:</strong> {row['tips']}
-                    </div>
-                </div>
-                """
-                st.markdown(game_card, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+                    """
+                    st.markdown(game_card, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.warning("No games match your current filters. Try adjusting your criteria.")
     else:

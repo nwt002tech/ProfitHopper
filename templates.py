@@ -6,8 +6,35 @@ def get_css():
         top: 0;
         background: white;
         z-index: 100;
-        padding: 10px 0;
+        padding: 0 !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    
+    .compact-bankroll-info {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 15px;
+    }
+    
+    .bankroll-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #f0f2f6;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+    }
+    
+    .bankroll-item .label {
+        font-weight: bold;
+        color: #2c3e50;
+    }
+    
+    .bankroll-item .value {
+        color: #34495e;
     }
     
     .ph-game-card {
@@ -71,10 +98,18 @@ def get_css():
             flex-direction: column;
             gap: 10px;
         }
+        .compact-bankroll-info {
+            padding: 5px;
+            gap: 5px;
+        }
+        .bankroll-item {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
     }
     
     .session-card {
-        padding: 15px;
+        padding: 10px 15px;
         margin: 10px 0;
         border-radius: 8px;
         background-color: #f8f9fa;
