@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session极客_bankroll * 0.40
+    stop_loss = session_bankroll * 0.40  # FIXED TYPO HERE
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
@@ -48,7 +48,7 @@ bankroll_html = f"""
             <div class="bankroll-item">
                 <span class="label">💰 Bankroll:</span>
                 <span class="value">${current_bankroll:,.2f}</span>
-            </div>
+            </极客div>
             <div class="bankroll-item">
                 <span class="label">📅 Session:</span>
                 <span class="value">${session_bankroll:,.2f}</span>
@@ -182,7 +182,7 @@ with tab1:
             )
             
             # Apply penalties
-            filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
+            filtered_games['Score'] = filtered_games['Score'] * min_b极客_penalty
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
@@ -202,7 +202,7 @@ with tab1:
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
-                    <极客li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
+                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
                 </ul>
                 <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
             </div>
@@ -219,7 +219,7 @@ with tab1:
                     # Add session number to game card
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
-                        <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
+                        <div style="position:absolute; top:10px; right:10极客px; background:#1976d2; color:white; 
                                     border-radius:50%; width:30px; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
