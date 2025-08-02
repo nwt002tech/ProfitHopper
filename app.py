@@ -26,7 +26,7 @@ if session_bankroll < 20:
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
-elif session_bank极客roll < 100:
+elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
@@ -38,7 +38,7 @@ else:
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
-estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
+estimated_spins = int(session_bankroll / bet_unit) if bet极客_unit > 0 else 0
 
 st.markdown(f"""
 <div class="ph-sticky-header">
@@ -64,17 +64,17 @@ st.markdown(f"""
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
                 <span class="value">${max_bet:,.2f}</span>
-            </div>
+            </极客
         </div>
         
         <!-- Line 3: Stop Loss and Spins -->
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🚫 Stop Loss:</span>
-                <span class="value ph-stop-loss">${stop_loss:,.2极客f}</span>
+                <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
             </div>
             <div class="bankroll-item">
-                <span class="label">🎰 Spins:</极客span>
+                <span class="label">🎰 Spins:</span>
                 <span class="value">{estimated_spins}</span>
             </div>
         </div>
@@ -277,7 +277,7 @@ with tab1:
                             <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
+                            <strong>🎁 Bonus Frequency:</strong> {map_bonus_f极客req(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
