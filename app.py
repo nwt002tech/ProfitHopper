@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq
+from utils极客 import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -38,7 +38,7 @@ else:
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
-estimated_spins = int(session_bankroll / bet_unit) if bet极客_unit > 0 else 0
+estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 st.markdown(f"""
 <div class="ph-sticky-header">
@@ -64,7 +64,7 @@ st.markdown(f"""
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
                 <span class="value">${max_bet:,.2f}</span>
-            </极客
+            </div>
         </div>
         
         <!-- Line 3: Stop Loss and Spins -->
@@ -168,7 +168,7 @@ with tab1:
             
             # Min bet penalty
             min_bet_penalty = np.where(
-                filtered_games['min_bet'] > max_bet * 0.5,
+                filtered_games['min极客_bet'] > max_bet * 0.5,
                 0.6 * bankroll_penalty_factor,
                 1.0
             )
@@ -277,10 +277,10 @@ with tab1:
                             <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎁 Bonus Frequency:</strong> {map_bonus_f极客req(row['bonus_frequency'])}
+                            <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
+                            <strong极客>🔢 RTP:</strong> {row['rtp']:.2f}%
                         </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
