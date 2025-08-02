@@ -13,7 +13,7 @@ st.set_page_config(layout="wide", initial_sidebar_state="expanded",
 initialize_trip_state()
 
 st.markdown(get_css(), unsafe_allow_html=True)
-st.markdown(get_header(), unsafe_allow_html极客=True)
+st.markdown(get_header(), unsafe_allow_html=True)  # FIXED TYPO HERE
 
 render_sidebar()
 
@@ -41,7 +41,7 @@ else:
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 st.markdown(f"""
-<div class="ph-sticky-header">
+<div class="ph-sticky极客-header">
     <div class="compact-bankroll-info">
         <div class="bankroll-row">
             <div class="bankroll-item">
@@ -99,7 +99,7 @@ with tab1:
                                        float(max_bet), 
                                        step=1.0)
                 advantage_filter = st.selectbox("Advantage Play Potential", 
-                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                                              ["极客All", "High (4-5)", "Medium (3)", "Low (1-2)"])
                 
             with col3:
                 volatility_filter = st.selectbox("Volatility", 
