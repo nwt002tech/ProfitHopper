@@ -40,48 +40,16 @@ else:
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Create the bankroll header HTML
-bankroll_html = f"""
-<div class="ph-sticky-header">
-    <div class="compact-bankroll-info">
-        <div class="bankroll-row">
-            <div class="bankroll-item">
-                <span class="label">💰 Bankroll:</span>
-                <span class="value">${current_bankroll:,.2f}</span>
-            </div>
-            <div class="bankroll-item">
-                <span class="label">📅 Session:</span>
-                <span class="value">${session_bankroll:,.2f}</span>
-            </div>
-        </div>
-        
-        <div class="bankroll-row">
-            <div class="bankroll-item">
-                <span class="label">🔄 Unit:</span>
-                <span class="value">${bet_unit:,.2f}</span>
-            </div>
-            <div class="bankroll-item">
-                <span class="label">💸 Max Bet:</span>
-                <span class="value">${max_bet:,.2f}</span>
-            </div>
-        </div>
-        
-        <div class="bankroll-row">
-            <div class="bankroll-item">
-                <span class="label">🚫 Stop Loss:</span>
-                <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
-            </div>
-            <div class="bankroll-item">
-                <span class="label">🎰 Spins:</span>
-                <span class="value">{estimated_spins}</span>
-            </div>
-        </div>
-    </div>
-</div>
-"""
-
-# Render the bankroll header
-st.markdown(bankroll_html, unsafe_allow_html=True)
+# Display bankroll information using Streamlit's native columns/metric API.
+# This avoids embedding raw HTML in the app and prevents any stray markup
+# from appearing at the top of the page.
+header_cols = st.columns(6)
+header_cols[0].metric("💰 Bankroll", f"${current_bankroll:,.2f}")
+header_cols[1].metric("📅 Session", f"${session_bankroll:,.2f}")
+header_cols[2].metric("🔄 Unit", f"${bet_unit:,.2f}")
+header_cols[3].metric("💸 Max Bet", f"${max_bet:,.2f}")
+header_cols[4].metric("🚫 Stop Loss", f"${stop_loss:,.2f}")
+header_cols[5].metric("🎰 Spins", f"{estimated_spins}")
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
