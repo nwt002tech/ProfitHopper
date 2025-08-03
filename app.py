@@ -47,7 +47,8 @@ strategy_classes = {
     "Standard": "strategy-standard"
 }
 
-st.markdown(f"""
+# Create the HTML content for the summary
+summary_html = f"""
 <div class="compact-summary">
     <div class="summary-card">
         <div class="summary-icon">💰</div>
@@ -86,12 +87,15 @@ st.markdown(f"""
     </div>
 </div>
 
-<div style="text-align: center; margin-top: 10px;">
+<div style="text-align: center; margin-top: 10px; margin-bottom: 20px;">
     <span class="strategy-tag {strategy_classes[strategy_type]}">{strategy_type} Strategy</span>
     <span style="margin: 0 8px">•</span>
     <span>🏛️ {st.session_state.trip_settings['casino']}</span>
 </div>
-""", unsafe_allow_html=True)
+"""
+
+# Render the HTML summary
+st.markdown(summary_html, unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
