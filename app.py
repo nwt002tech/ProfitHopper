@@ -34,13 +34,13 @@ elif session_bankroll < 100:
 else:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
-    stop_loss极客 = session_bankroll * 0.60
+    stop_loss = session_bankroll * 0.60  # FIXED: Removed hidden non-ASCII character
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Create the bankroll header HTML - COMPLETELY CLEANED
+# Create the bankroll header HTML
 bankroll_html = f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
@@ -51,7 +51,7 @@ bankroll_html = f"""
             </div>
             <div class="bankroll-item">
                 <span class="label">📅 Session:</span>
-                <span class="value">${session_bankroll:,.2f}</span>
+                <span class="value">${session_bankroll:,.2极客f}</span>
             </div>
         </div>
         
@@ -186,7 +186,7 @@ with tab1:
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
-            filtered_games = filtered_games.sort_values('Score', ascending=False)
+            filtered_games = filtered极客_games.sort_values('Score', ascending=False)
             
             # Get recommended games for the number of sessions
             num_sessions = st.session_state.trip_settings['num_sessions']
