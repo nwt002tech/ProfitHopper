@@ -49,50 +49,40 @@ strategy_classes = {
 
 # Create the HTML content for the summary
 summary_html = f"""
-<div class="compact-summary">
-    <div class="summary-card">
-        <div class="summary-icon">💰</div>
-        <div class="summary-label">Bankroll</div>
-        <div class="summary-value">${current_bankroll:,.2f}</div>
+<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>💰</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
-    
-    <div class="summary-card">
-        <div class="summary-icon">💵</div>
-        <div class="summary-label">Session</div>
-        <div class="summary-value">${session_bankroll:,.2f}</div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
     </div>
-    
-    <div class="summary-card">
-        <div class="summary-icon">🪙</div>
-        <div class="summary-label">Unit</div>
-        <div class="summary-value">${bet_unit:,.2f}</div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>🪙</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
     </div>
-    
-    <div class="summary-card">
-        <div class="summary-icon">⬆️</div>
-        <div class="summary-label">Max Bet</div>
-        <div class="summary-value">${max_bet:,.2f}</div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>⬆️</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Max Bet</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{max_bet:,.2f}</div>
     </div>
-    
-    <div class="summary-card stop-loss">
-        <div class="summary-icon">🛑</div>
-        <div class="summary-label">Stop Loss</div>
-        <div class="summary-value">${stop_loss:,.2f}</div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>🛑</div>
+        <div style='font-size:0.7rem;color:#e74c3c;margin-bottom:3px;'>Stop Loss</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#e74c3c;'>{stop_loss:,.2f}</div>
     </div>
-    
-    <div class="summary-card">
-        <div class="summary-icon">🌀</div>
-        <div class="summary-label">Spins</div>
-        <div class="summary-value">{estimated_spins}</div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>🌀</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Spins</div>
+        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{estimated_spins}</div>
     </div>
-</div>
-
-<div style="text-align: center; margin-top: 10px; margin-bottom: 20px;">
-    <span class="strategy-tag {strategy_classes[strategy_type]}">{strategy_type} Strategy</span>
-    <span style="margin: 0 8px">•</span>
-    <span>🏛️ {st.session_state.trip_settings['casino']}</span>
 </div>
 """
+
 
 # Render the HTML summary
 st.markdown(summary_html, unsafe_allow_html=True)
