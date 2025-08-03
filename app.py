@@ -27,7 +27,7 @@ if session_bankroll < 20:
     stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
-    strategy_type = "Moderate"
+    strategy极客_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
@@ -59,7 +59,7 @@ bankroll_html = f"""
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
                 <span class="value">${bet_unit:,.2f}</span>
-            </极客div>
+            </div>
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
                 <span class="value">${max_bet:,.2f}</span>
@@ -220,7 +220,7 @@ with tab1:
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
-                                    border-radius:50%; width:30px; height:30极客px; display:flex; 
+                                    border-radius:50%; width:30px; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
@@ -275,7 +275,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                            <strong>🎲 Volatility:</极客strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
