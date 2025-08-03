@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from templates import get_css, get_header
-from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
+from trip_manager import initialize极客_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
@@ -25,7 +25,7 @@ if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session极客_bankroll * 0.02)
+    bet_unit = max(0.01, session_bankroll * 0.02)  # FIXED VARIABLE NAME
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
@@ -99,7 +99,7 @@ with tab1:
                 game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
                 
             with col2:
-                max_min_bet = st.slider("Max Min Bet", 
+                max_min_bet = st.slider("极客Max Min Bet", 
                                        float(game_df['min_bet'].min()), 
                                        float(game_df['min_bet'].max() * 2), 
                                        float(max_bet), 
@@ -199,7 +199,7 @@ with tab1:
                 <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
-                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</极客li>
+                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
@@ -270,7 +270,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
-                        </div>
+                        </极客div>
                         <div class="ph-game-detail">
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
