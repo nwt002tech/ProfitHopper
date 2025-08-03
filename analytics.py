@@ -1,119 +1,127 @@
-import pandas as pd
-import altair as alt
-import streamlit as st
-from utils import get_csv_download_link
-from trip_manager import get_current_trip_sessions, get_trip_profit, get_current_bankroll
+"""
+Module for rendering trip analytics in the Profit Hopper application.
 
-def render_analytics():
-    st.info("Analyze your trip performance and track your bankroll growth")
-    
-    current_trip_sessions = get_current_trip_sessions()
-    
-    if not current_trip_sessions:
-        st.info("No sessions recorded for this trip yet. Add sessions to see analytics.")
+This module exposes a single function, :func:`render_analytics`, which can be
+called from the main application to display high‑level statistics about all
+recorded trips. Unlike the previous version of this file, there is no top‑level
+execution of Streamlit code here—importing this module will not cause any
+markup to be displayed. Instead, all Streamlit calls are contained inside
+`render_analytics`, ensuring that analytics content only appears when the
+function is explicitly invoked.
+
+The analytics presented are intentionally simple: for each trip recorded in the
+session state, the function computes the number of sessions, total profit,
+current bankroll and inferred starting bankroll. It then displays a summary
+table and a bar chart of profits by trip. The design uses Streamlit's native
+components rather than raw HTML to avoid accidentally rendering raw markup at
+the top of the page.
+"""
+
+from __future__ import annotations
+
+import streamlit as st
+import pandas as pd
+from typing import List, Dict, Any
+
+from trip_manager import initialize_trip_state
+
+
+def _compute_trip_summaries() -> pd.DataFrame:
+    """Aggregate session data into a DataFrame of trip summaries.
+
+    This helper function looks at ``st.session_state.session_log`` and
+    ``st.session_state.trip_bankrolls`` to build a summary for each trip. If
+    there are no recorded trips yet, an empty DataFrame is returned.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame where each row corresponds to a trip and contains the
+        following columns: ``trip_id``, ``num_sessions``, ``profit``,
+        ``current_bankroll``, ``starting_bankroll`` and ``casino`` (where
+        available).
+    """
+    # Ensure session state keys exist
+    initialize_trip_state()
+
+    session_log: List[Dict[str, Any]] = st.session_state.get("session_log", [])
+    trip_bankrolls: Dict[int, float] = st.session_state.get("trip_bankrolls", {})
+
+    if not trip_bankrolls:
+        return pd.DataFrame(columns=[
+            "trip_id",
+            "num_sessions",
+            "profit",
+            "current_bankroll",
+            "starting_bankroll",
+            "casino",
+        ])
+
+    # Organise sessions by trip_id
+    trips: Dict[int, List[Dict[str, Any]]] = {}
+    for session in session_log:
+        tid = session.get("trip_id")
+        trips.setdefault(tid, []).append(session)
+
+    data = []
+    for trip_id, current_bankroll in trip_bankrolls.items():
+        sessions_for_trip = trips.get(trip_id, [])
+        profit = sum(s.get("profit", 0.0) for s in sessions_for_trip)
+        starting_bankroll = current_bankroll - profit
+        num_sessions = len(sessions_for_trip)
+        # Determine casino from first session if available
+        casino = sessions_for_trip[0].get("casino") if sessions_for_trip else "N/A"
+        data.append({
+            "trip_id": trip_id,
+            "num_sessions": num_sessions,
+            "profit": profit,
+            "current_bankroll": current_bankroll,
+            "starting_bankroll": starting_bankroll,
+            "casino": casino,
+        })
+    return pd.DataFrame(data)
+
+
+def render_analytics() -> None:
+    """Render a summary of all recorded trips and their performance.
+
+    This function builds a summary table of trips and displays it using
+    Streamlit. It also plots a bar chart of trip profits to help users quickly
+    visualise which trips were profitable or not. If there are no trips
+    recorded yet, it informs the user accordingly.
+
+    Unlike a full Streamlit app, this function does not set the page
+    configuration or load global CSS. Those responsibilities belong to the
+    caller (typically the main ``app.py`` file). It only displays content in
+    the location where it is called, making it safe to import in other
+    modules without side effects.
+    """
+    # Compute the trip summary table
+    summary_df = _compute_trip_summaries()
+
+    st.subheader("Trip Performance Overview")
+    if summary_df.empty:
+        st.info("No trip data available yet. Play some sessions to see analytics here.")
         return
-    
-    # Calculate cumulative values
-    trip_profit = get_trip_profit()
-    current_bankroll = get_current_bankroll()
-    
-    # Calculate performance metrics
-    total_invested = sum(s['money_in'] for s in current_trip_sessions)
-    roi = (trip_profit / total_invested) * 100 if total_invested > 0 else 0
-    avg_session_profit = trip_profit / len(current_trip_sessions)
-    
-    # Display key metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("💰 Current Bankroll", f"${current_bankroll:,.2f}",
-                 delta=f"${trip_profit:+,.2f}")
-    with col2:
-        st.metric("📈 Total Profit/Loss", f"${trip_profit:+,.2f}")
-    with col3:
-        st.metric("📊 ROI", f"{roi:.1f}%")
-    
-    # Bankroll growth chart
-    bankroll_history = [st.session_state.trip_settings['starting_bankroll']]
-    dates = [min(s['date'] for s in current_trip_sessions)]
-    cumulative = 0
-    
-    for session in sorted(current_trip_sessions, key=lambda x: x['date']):
-        cumulative += session['profit']
-        bankroll_history.append(st.session_state.trip_settings['starting_bankroll'] + cumulative)
-        dates.append(session['date'])
-    
-    st.subheader("Bankroll Growth")
-    chart_data = pd.DataFrame({
-        "Date": dates,
-        "Bankroll": bankroll_history
-    })
-    st.line_chart(chart_data.set_index("Date"))
-    
-    # Game performance analysis
-    st.subheader("Game Performance")
-    game_performance = {}
-    for session in current_trip_sessions:
-        game = session['game']
-        if game not in game_performance:
-            game_performance[game] = {
-                'sessions': 0,
-                'total_profit': 0,
-                'total_invested': 0
-            }
-        game_performance[game]['sessions'] += 1
-        game_performance[game]['total_profit'] += session['profit']
-        game_performance[game]['total_invested'] += session['money_in']
-    
-    # Create performance DataFrame
-    perf_df = pd.DataFrame.from_dict(game_performance, orient='index')
-    perf_df['ROI'] = (perf_df['total_profit'] / perf_df['total_invested']) * 100
-    perf_df['Avg Profit'] = perf_df['total_profit'] / perf_df['sessions']
-    perf_df = perf_df.sort_values('ROI', ascending=False)
-    
-    st.dataframe(perf_df[['sessions', 'total_profit', 'Avg Profit', 'ROI']].rename(columns={
-        'sessions': 'Sessions',
-        'total_profit': 'Total Profit',
-        'Avg Profit': 'Avg Profit/Session',
-        'ROI': 'ROI (%)'
-    }).style.format({
-        'Total Profit': '${:,.2f}',
-        'Avg Profit/Session': '${:,.2f}',
-        'ROI (%)': '{:.1f}%'
-    }))
-    
-    # Win/Loss distribution using Altair
-    st.subheader("Win/Loss Distribution")
-    profits = [s['profit'] for s in current_trip_sessions]
-    
-    if profits:
-        df = pd.DataFrame({
-            'Profit': profits,
-            'Type': ['Win' if p >= 0 else 'Loss' for p in profits]
-        })
-        
-        chart = alt.Chart(df).mark_bar().encode(
-            alt.X("Profit:Q", bin=alt.Bin(maxbins=20), title='Profit/Loss Amount'),
-            alt.Y('count()', title='Frequency'),
-            color=alt.Color('Type', scale=alt.Scale(
-                domain=['Win', 'Loss'],
-                range=['#27ae60', '#e74c3c']
-            ))
-        ).properties(
-            title='Profit/Loss Distribution'
-        )
-        
-        st.altair_chart(chart, use_container_width=True)
-    else:
-        st.info("No profit data available")
-        
-    # Export analytics data
-    st.subheader("Export Analytics")
-    if st.button("📊 Export Trip Analytics to CSV"):
-        analytics_df = pd.DataFrame({
-            'Metric': ['Trip ID', 'Casino', 'Starting Bankroll', 'Current Bankroll', 
-                      'Total Profit/Loss', 'ROI', 'Avg Session Profit', 'Sessions Completed'],
-            'Value': [st.session_state.current_trip_id, st.session_state.trip_settings['casino'], 
-                     st.session_state.trip_settings['starting_bankroll'], current_bankroll,
-                     trip_profit, f"{roi}%", avg_session_profit, len(current_trip_sessions)]
-        })
-        st.markdown(get_csv_download_link(analytics_df, f"trip_{st.session_state.current_trip_id}_analytics.csv"), unsafe_allow_html=True)
+
+    # Format numeric columns for display
+    display_df = summary_df.copy()
+    display_df["profit"] = display_df["profit"].map(lambda x: f"${x:,.2f}")
+    display_df["current_bankroll"] = display_df["current_bankroll"].map(lambda x: f"${x:,.2f}")
+    display_df["starting_bankroll"] = display_df["starting_bankroll"].map(lambda x: f"${x:,.2f}")
+
+    # Display the summary table
+    st.dataframe(display_df.rename(columns={
+        "trip_id": "Trip ID",
+        "num_sessions": "Sessions",
+        "profit": "Profit",
+        "current_bankroll": "Current Bankroll",
+        "starting_bankroll": "Starting Bankroll",
+        "casino": "Casino",
+    }), hide_index=True)
+
+    # Plot profits by trip
+    chart_df = summary_df[["trip_id", "profit"]].set_index("trip_id")
+    st.subheader("Profit by Trip")
+    # Streamlit bar_chart automatically uses the index as x-axis
+    st.bar_chart(chart_df)
