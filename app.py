@@ -40,16 +40,19 @@ else:
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Display bankroll information using Streamlit's native columns/metric API.
-# This avoids embedding raw HTML in the app and prevents any stray markup
-# from appearing at the top of the page.
-header_cols = st.columns(6)
-header_cols[0].metric("💰 Bankroll", f"${current_bankroll:,.2f}")
-header_cols[1].metric("📅 Session", f"${session_bankroll:,.2f}")
-header_cols[2].metric("🔄 Unit", f"${bet_unit:,.2f}")
-header_cols[3].metric("💸 Max Bet", f"${max_bet:,.2f}")
-header_cols[4].metric("🚫 Stop Loss", f"${stop_loss:,.2f}")
-header_cols[5].metric("🎰 Spins", f"{estimated_spins}")
+# Display bankroll information using individual metrics to make the header more
+# compact and mobile‑friendly. We create six columns (one per metric). On
+# narrow screens Streamlit will automatically wrap these columns, resulting
+# in a stacked layout. Using ``st.metric`` reduces vertical whitespace
+# compared with custom HTML markup and maintains consistency with
+# Streamlit’s responsive design.
+cols = st.columns(6)
+cols[0].metric("Bankroll", f"${current_bankroll:,.2f}")
+cols[1].metric("Session", f"${session_bankroll:,.2f}")
+cols[2].metric("Unit", f"${bet_unit:,.2f}")
+cols[3].metric("Max Bet", f"${max_bet:,.2f}")
+cols[4].metric("Stop Loss", f"${stop_loss:,.2f}")
+cols[5].metric("Spins", f"{estimated_spins}")
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
