@@ -27,20 +27,20 @@ if session_bankroll < 20:
     stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
-    strategy极客_type = "Moderate"
+    strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
-    stop_loss = session_bankroll * 0.60
+    stop_loss极客 = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Create the bankroll header HTML
+# Create the bankroll header HTML - COMPLETELY CLEANED
 bankroll_html = f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
@@ -275,7 +275,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎲 Volatility:</极客strong> {map_volatility(int(row['volatility']))}
+                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
