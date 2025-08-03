@@ -33,7 +33,7 @@ elif session_bankroll < 100:
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
-    max_bet = session_bankroll * 0.25
+    max极客_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
@@ -115,7 +115,7 @@ with tab1:
         # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
-            (game_df['rtp'] >= min_极客rtp)
+            (game_df['rtp'] >= min_rtp)  # FIXED TYPO HERE
         ]
         
         if game_type != "All":
@@ -275,7 +275,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                            <strong>🎲 Volatility:</strong> {极客map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
