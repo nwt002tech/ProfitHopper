@@ -142,9 +142,9 @@ with tab1:
         
         if not filtered_games.empty:
             # When assigning new columns on a filtered DataFrame, pandas can raise
-            # a ``SettingWithCopyWarning`` because the filtered result may be a
-            # view on the original ``game_df``. Make a shallow copy here to
-            # ensure that operations below modify an independent DataFrame.
+            # a ``SettingWithCopyWarning`` because the filtered result may be a view
+            # on the original ``game_df``. Make a shallow copy to ensure
+            # modifications don't propagate unintendedly and avoid the warning.
             filtered_games = filtered_games.copy()
 
             # Enhanced scoring algorithm

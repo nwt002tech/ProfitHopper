@@ -3,18 +3,15 @@ Module for rendering trip analytics in the Profit Hopper application.
 
 This module exposes a single function, :func:`render_analytics`, which can be
 called from the main application to display high‑level statistics about all
-recorded trips. Unlike the previous version of this file, there is no top‑level
-execution of Streamlit code here—importing this module will not cause any
-markup to be displayed. Instead, all Streamlit calls are contained inside
-``render_analytics``, ensuring that analytics content only appears when the
-function is explicitly invoked.
+recorded trips. There is no top‑level Streamlit code execution here—importing
+this module will not render anything. All rendering happens inside
+``render_analytics`` when it is explicitly invoked.
 
-The analytics presented are intentionally simple: for each trip recorded in the
-session state, the function computes the number of sessions, total profit,
-current bankroll and inferred starting bankroll. It then displays a summary
-table and a bar chart of profits by trip. The design uses Streamlit's native
-components rather than raw HTML to avoid accidentally rendering raw markup at
-the top of the page.
+The analytics presented are intentionally simple: for each trip recorded in
+the session state, the function computes the number of sessions, total
+profit, current bankroll and inferred starting bankroll. It then displays a
+summary table and a bar chart of profits by trip. Streamlit's native
+components are used throughout to avoid raw HTML markup.
 """
 
 from __future__ import annotations
@@ -41,7 +38,6 @@ def _compute_trip_summaries() -> pd.DataFrame:
         ``current_bankroll``, ``starting_bankroll`` and ``casino`` (where
         available).
     """
-    # Ensure session state keys exist
     initialize_trip_state()
 
     session_log: List[Dict[str, Any]] = st.session_state.get("session_log", [])
@@ -49,15 +45,10 @@ def _compute_trip_summaries() -> pd.DataFrame:
 
     if not trip_bankrolls:
         return pd.DataFrame(columns=[
-            "trip_id",
-            "num_sessions",
-            "profit",
-            "current_bankroll",
-            "starting_bankroll",
-            "casino",
+            "trip_id", "num_sessions", "profit",
+            "current_bankroll", "starting_bankroll", "casino"
         ])
 
-    # Organise sessions by trip_id
     trips: Dict[int, List[Dict[str, Any]]] = {}
     for session in session_log:
         tid = session.get("trip_id")
@@ -69,7 +60,6 @@ def _compute_trip_summaries() -> pd.DataFrame:
         profit = sum(s.get("profit", 0.0) for s in sessions_for_trip)
         starting_bankroll = current_bankroll - profit
         num_sessions = len(sessions_for_trip)
-        # Determine casino from first session if available
         casino = sessions_for_trip[0].get("casino") if sessions_for_trip else "N/A"
         data.append({
             "trip_id": trip_id,
@@ -85,18 +75,10 @@ def _compute_trip_summaries() -> pd.DataFrame:
 def render_analytics() -> None:
     """Render a summary of all recorded trips and their performance.
 
-    This function builds a summary table of trips and displays it using
-    Streamlit. It also plots a bar chart of trip profits to help users quickly
-    visualise which trips were profitable or not. If there are no trips
-    recorded yet, it informs the user accordingly.
-
-    Unlike a full Streamlit app, this function does not set the page
-    configuration or load global CSS. Those responsibilities belong to the
-    caller (typically the main ``app.py`` file). It only displays content in
-    the location where it is called, making it safe to import in other
-    modules without side effects.
+    Builds a summary table of trips using :func:`_compute_trip_summaries` and
+    displays it via Streamlit. Also plots a bar chart of trip profits. If no
+    trips have been recorded yet, a friendly message is shown instead.
     """
-    # Compute the trip summary table
     summary_df = _compute_trip_summaries()
 
     st.subheader("Trip Performance Overview")
@@ -104,13 +86,11 @@ def render_analytics() -> None:
         st.info("No trip data available yet. Play some sessions to see analytics here.")
         return
 
-    # Format numeric columns for display
     display_df = summary_df.copy()
     display_df["profit"] = display_df["profit"].map(lambda x: f"${x:,.2f}")
     display_df["current_bankroll"] = display_df["current_bankroll"].map(lambda x: f"${x:,.2f}")
     display_df["starting_bankroll"] = display_df["starting_bankroll"].map(lambda x: f"${x:,.2f}")
 
-    # Display the summary table
     st.dataframe(display_df.rename(columns={
         "trip_id": "Trip ID",
         "num_sessions": "Sessions",
@@ -120,8 +100,6 @@ def render_analytics() -> None:
         "casino": "Casino",
     }), hide_index=True)
 
-    # Plot profits by trip
     chart_df = summary_df[["trip_id", "profit"]].set_index("trip_id")
     st.subheader("Profit by Trip")
-    # Streamlit bar_chart automatically uses the index as x-axis
     st.bar_chart(chart_df)
