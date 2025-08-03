@@ -4,7 +4,7 @@ from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
-from session_manager import render_session_tracker
+from session_manager import render_session极客_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -33,7 +33,7 @@ elif session_bankroll < 100:
     bet_unit = max(0.05, session_bankroll * 0.03)
 else:
     strategy_type = "Standard"
-    max极客_bet = session_bankroll * 0.25
+    max_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
@@ -115,7 +115,7 @@ with tab1:
         # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
-            (game_df['rtp'] >= min_rtp)  # FIXED TYPO HERE
+            (game_df['rtp'] >= min_rtp)
         ]
         
         if game_type != "All":
@@ -275,7 +275,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎲 Volatility:</strong> {极客map_volatility(int(row['volatility']))}
+                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
