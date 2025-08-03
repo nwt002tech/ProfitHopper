@@ -1,65 +1,6 @@
 def get_css():
     return """
     <style>
-/* Add these new styles */
-    .compact-bankroll-info {
-        padding: 10px 15px;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #e0e0e0;
-        margin-bottom: 20px;
-    }
-    
-    .bankroll-row {
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        margin-bottom: 5px;
-    }
-    
-    .bankroll-item {
-        display: flex;
-        align-items: center;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        background: rgba(255, 255, 255, 0.7);
-        margin: 4px;
-        flex: 1 0 calc(33% - 20px);
-        min-width: 120px;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    }
-    
-    .bankroll-item .label {
-        font-weight: bold;
-        color: #2c3e50;
-        margin-right: 6px;
-        white-space: nowrap;
-    }
-    
-    .bankroll-item .value {
-        color: #34495e;
-        font-weight: bold;
-        white-space: nowrap;
-    }
-    
-    .ph-stop-loss {
-        color: #e74c3c;
-    }
-    
-    @media (max-width: 768px) {
-        .bankroll-item {
-            flex: 1 0 calc(50% - 20px);
-            font-size: 0.8rem;
-            padding: 5px 8px;
-        }
-    }
-    
-    @media (max-width: 480px) {
-        .bankroll-item {
-            flex: 1 0 100%;
-        }
-    }
     .ph-sticky-header {
         position: sticky;
         top: 0;
@@ -69,53 +10,82 @@ def get_css():
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    .compact-bankroll-info {
-        padding: 10px 15px;
-        background: #f8f9fa;
-        border-bottom: 1px solid #e0e0e0;
+    /* New compact summary styles */
+    .compact-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        margin-bottom: 20px;
     }
     
-    .bankroll-row {
-        display: flex;
-        justify-content: space-between;
+    .summary-card {
+        background: white;
+        border-radius: 10px;
+        padding: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        text-align: center;
+    }
+    
+    .summary-icon {
+        font-size: 1.5rem;
         margin-bottom: 5px;
     }
     
-    .bankroll-item {
-        display: flex;
-        align-items: center;
-        background: #ffffff;
-        padding: 8px 15px;
-        border-radius: 10px;
-        font-size: 0.9rem;
-        flex: 1;
-        margin: 0 5px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
+    .summary-label {
+        font-size: 0.7rem;
+        color: #7f8c8d;
+        margin-bottom: 3px;
     }
     
-    .bankroll-item:first-child {
-        margin-left: 0;
-    }
-    
-    .bankroll-item:last-child {
-        margin-right: 0;
-    }
-    
-    .bankroll-item .label {
+    .summary-value {
+        font-size: 0.95rem;
         font-weight: bold;
         color: #2c3e50;
-        margin-right: 8px;
-        white-space: nowrap;
     }
     
-    .bankroll-item .value {
-        color: #34495e;
-        font-weight: bold;
-    }
-    
-    .ph-stop-loss {
+    .stop-loss .summary-value {
         color: #e74c3c;
+    }
+    
+    .strategy-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        margin-top: 8px;
+    }
+    
+    .strategy-conservative {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .strategy-moderate {
+        background: #cce5ff;
+        color: #004085;
+    }
+    
+    .strategy-standard {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    @media (max-width: 768px) {
+        .compact-summary {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .compact-summary {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .summary-card {
+            padding: 8px;
+        }
     }
     
     .ph-game-card {
@@ -169,15 +139,6 @@ def get_css():
         }
         .ph-game-detail::before {
             left: 5px;
-        }
-        .bankroll-row {
-            flex-direction: column;
-            margin-bottom: 0;
-        }
-        
-        .bankroll-item {
-            margin: 0 0 5px 0;
-            width: 100%;
         }
     }
     

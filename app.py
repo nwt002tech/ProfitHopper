@@ -34,63 +34,64 @@ elif session_bankroll < 100:
 else:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
-    stop_loss = session_bankroll * 0.60  # FIXED: Removed hidden non-ASCII character
+    stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
 
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Display bankroll information using individual metrics to make the header more
-# compact and mobile‑friendly. We create six columns (one per metric). On
-# narrow screens Streamlit will automatically wrap these columns, resulting
-# in a stacked layout. Using ``st.metric`` reduces vertical whitespace
-# compared with custom HTML markup and maintains consistency with
-# Streamlit’s responsive design.
-# Display bankroll information in compact format
-st.markdown("""
-<div class="compact-bankroll-info">
-    <div class="bankroll-row">
-        <div class="bankroll-item">
-            <span class="label">Bankroll:</span>
-            <span class="value">${current_bankroll:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">Session:</span>
-            <span class="value">${session_bankroll:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">Unit:</span>
-            <span class="value">${bet_unit:,.2f}</span>
-        </div>
+# Display compact session summary with icons
+strategy_classes = {
+    "Conservative": "strategy-conservative",
+    "Moderate": "strategy-moderate",
+    "Standard": "strategy-standard"
+}
+
+st.markdown(f"""
+<div class="compact-summary">
+    <div class="summary-card">
+        <div class="summary-icon">💰</div>
+        <div class="summary-label">Bankroll</div>
+        <div class="summary-value">${current_bankroll:,.2f}</div>
     </div>
-    <div class="bankroll-row">
-        <div class="bankroll-item">
-            <span class="label">Max Bet:</span>
-            <span class="value">${max_bet:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">Stop Loss:</span>
-            <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
-        </div>
-        <div class="bankroll-item">
-            <span class="label">Spins:</span>
-            <span class="value">{estimated_spins}</span>
-        </div>
+    
+    <div class="summary-card">
+        <div class="summary-icon">💵</div>
+        <div class="summary-label">Session</div>
+        <div class="summary-value">${session_bankroll:,.2f}</div>
     </div>
-    <div style="margin-top: 8px; font-size: 0.85rem; text-align: center; color: #7f8c8d;">
-        Strategy: {strategy_type} &nbsp; | &nbsp; Casino: {casino}
+    
+    <div class="summary-card">
+        <div class="summary-icon">🪙</div>
+        <div class="summary-label">Unit</div>
+        <div class="summary-value">${bet_unit:,.2f}</div>
+    </div>
+    
+    <div class="summary-card">
+        <div class="summary-icon">⬆️</div>
+        <div class="summary-label">Max Bet</div>
+        <div class="summary-value">${max_bet:,.2f}</div>
+    </div>
+    
+    <div class="summary-card stop-loss">
+        <div class="summary-icon">🛑</div>
+        <div class="summary-label">Stop Loss</div>
+        <div class="summary-value">${stop_loss:,.2f}</div>
+    </div>
+    
+    <div class="summary-card">
+        <div class="summary-icon">🌀</div>
+        <div class="summary-label">Spins</div>
+        <div class="summary-value">{estimated_spins}</div>
     </div>
 </div>
-""".format(
-    current_bankroll=current_bankroll,
-    session_bankroll=session_bankroll,
-    bet_unit=bet_unit,
-    max_bet=max_bet,
-    stop_loss=stop_loss,
-    estimated_spins=estimated_spins,
-    strategy_type=strategy_type,
-    casino=st.session_state.trip_settings['casino']
-), unsafe_allow_html=True)
+
+<div style="text-align: center; margin-top: 10px;">
+    <span class="strategy-tag {strategy_classes[strategy_type]}">{strategy_type} Strategy</span>
+    <span style="margin: 0 8px">•</span>
+    <span>🏛️ {st.session_state.trip_settings['casino']}</span>
+</div>
+""", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
