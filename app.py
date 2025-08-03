@@ -40,7 +40,7 @@ else:
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Create the bankroll header HTML - PROPERLY FORMATTED
+# Create the bankroll header HTML
 bankroll_html = f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
@@ -105,7 +105,7 @@ with tab1:
                                        float(max_bet), 
                                        step=1.0)
                 advantage_filter = st.selectbox("Advantage Play Potential", 
-                                              ["All", "High (4-5)", "Medium (3)", "极客Low (1-2)"])
+                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
                 
             with col3:
                 volatility_filter = st.selectbox("Volatility", 
@@ -115,7 +115,7 @@ with tab1:
         # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
-            (game_df['rtp'] >= min_rtp)
+            (game_df['rtp'] >= min_极客rtp)
         ]
         
         if game_type != "All":
