@@ -1,6 +1,65 @@
 def get_css():
     return """
     <style>
+/* Add these new styles */
+    .compact-bankroll-info {
+        padding: 10px 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+        margin-bottom: 20px;
+    }
+    
+    .bankroll-row {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        margin-bottom: 5px;
+    }
+    
+    .bankroll-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        background: rgba(255, 255, 255, 0.7);
+        margin: 4px;
+        flex: 1 0 calc(33% - 20px);
+        min-width: 120px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    
+    .bankroll-item .label {
+        font-weight: bold;
+        color: #2c3e50;
+        margin-right: 6px;
+        white-space: nowrap;
+    }
+    
+    .bankroll-item .value {
+        color: #34495e;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    
+    .ph-stop-loss {
+        color: #e74c3c;
+    }
+    
+    @media (max-width: 768px) {
+        .bankroll-item {
+            flex: 1 0 calc(50% - 20px);
+            font-size: 0.8rem;
+            padding: 5px 8px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .bankroll-item {
+            flex: 1 0 100%;
+        }
+    }
     .ph-sticky-header {
         position: sticky;
         top: 0;

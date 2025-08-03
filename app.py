@@ -46,13 +46,51 @@ estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 # in a stacked layout. Using ``st.metric`` reduces vertical whitespace
 # compared with custom HTML markup and maintains consistency with
 # Streamlit’s responsive design.
-cols = st.columns(6)
-cols[0].metric("Bankroll", f"${current_bankroll:,.2f}")
-cols[1].metric("Session", f"${session_bankroll:,.2f}")
-cols[2].metric("Unit", f"${bet_unit:,.2f}")
-cols[3].metric("Max Bet", f"${max_bet:,.2f}")
-cols[4].metric("Stop Loss", f"${stop_loss:,.2f}")
-cols[5].metric("Spins", f"{estimated_spins}")
+# Display bankroll information in compact format
+st.markdown("""
+<div class="compact-bankroll-info">
+    <div class="bankroll-row">
+        <div class="bankroll-item">
+            <span class="label">Bankroll:</span>
+            <span class="value">${current_bankroll:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">Session:</span>
+            <span class="value">${session_bankroll:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">Unit:</span>
+            <span class="value">${bet_unit:,.2f}</span>
+        </div>
+    </div>
+    <div class="bankroll-row">
+        <div class="bankroll-item">
+            <span class="label">Max Bet:</span>
+            <span class="value">${max_bet:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">Stop Loss:</span>
+            <span class="value ph-stop-loss">${stop_loss:,.2f}</span>
+        </div>
+        <div class="bankroll-item">
+            <span class="label">Spins:</span>
+            <span class="value">{estimated_spins}</span>
+        </div>
+    </div>
+    <div style="margin-top: 8px; font-size: 0.85rem; text-align: center; color: #7f8c8d;">
+        Strategy: {strategy_type} &nbsp; | &nbsp; Casino: {casino}
+    </div>
+</div>
+""".format(
+    current_bankroll=current_bankroll,
+    session_bankroll=session_bankroll,
+    bet_unit=bet_unit,
+    max_bet=max_bet,
+    stop_loss=stop_loss,
+    estimated_spins=estimated_spins,
+    strategy_type=strategy_type,
+    casino=st.session_state.trip_settings['casino']
+), unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
