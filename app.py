@@ -4,7 +4,7 @@ from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
-from session_manager import render_session极客_tracker
+from session_manager import render_session_tracker  # FIXED IMPORT HERE
 from utils import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -49,7 +49,7 @@ bankroll_html = f"""
                 <span class="label">💰 Bankroll:</span>
                 <span class="value">${current_bankroll:,.2f}</span>
             </div>
-            <div class="bankroll-item">
+            <极客div class="bankroll-item">
                 <span class="label">📅 Session:</span>
                 <span class="value">${session_bankroll:,.2f}</span>
             </div>
@@ -58,7 +58,7 @@ bankroll_html = f"""
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
-                <span class="value">${bet_unit:,.2f}</span>
+                <span class="value">${bet_unit:,.2极客f}</span>
             </div>
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
