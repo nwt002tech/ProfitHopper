@@ -51,7 +51,7 @@ bankroll_html = f"""
             </div>
             <div class="bankroll-item">
                 <span class="label">📅 Session:</span>
-                <span class="value">${session_bankroll:,.2极客f}</span>
+                <span class="value">${session_bankroll:,.2f}</span>
             </div>
         </div>
         
