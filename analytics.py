@@ -6,7 +6,7 @@ called from the main application to display high‑level statistics about all
 recorded trips. Unlike the previous version of this file, there is no top‑level
 execution of Streamlit code here—importing this module will not cause any
 markup to be displayed. Instead, all Streamlit calls are contained inside
-`render_analytics`, ensuring that analytics content only appears when the
+``render_analytics``, ensuring that analytics content only appears when the
 function is explicitly invoked.
 
 The analytics presented are intentionally simple: for each trip recorded in the
@@ -63,7 +63,7 @@ def _compute_trip_summaries() -> pd.DataFrame:
         tid = session.get("trip_id")
         trips.setdefault(tid, []).append(session)
 
-    data = []
+    data: List[Dict[str, Any]] = []
     for trip_id, current_bankroll in trip_bankrolls.items():
         sessions_for_trip = trips.get(trip_id, [])
         profit = sum(s.get("profit", 0.0) for s in sessions_for_trip)
