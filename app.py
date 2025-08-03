@@ -186,7 +186,7 @@ with tab1:
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
-            filtered_games = filtered极客_games.sort_values('Score', ascending=False)
+            filtered_games = filtered_games.sort_values('Score', ascending=False)
             
             # Get recommended games for the number of sessions
             num_sessions = st.session_state.trip_settings['num_sessions']
