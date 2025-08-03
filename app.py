@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from templates import get_css, get_header
-from trip_manager import initialize极客_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
+from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
@@ -25,7 +25,7 @@ if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session_bankroll * 0.02)  # FIXED VARIABLE NAME
+    bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
@@ -59,7 +59,7 @@ bankroll_html = f"""
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
                 <span class="value">${bet_unit:,.2f}</span>
-            </div>
+            </极客div>
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
                 <span class="value">${max_bet:,.2f}</span>
@@ -99,7 +99,7 @@ with tab1:
                 game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
                 
             with col2:
-                max_min_bet = st.slider("极客Max Min Bet", 
+                max_min_bet = st.slider("Max Min Bet", 
                                        float(game_df['min_bet'].min()), 
                                        float(game_df['min_bet'].max() * 2), 
                                        float(max_bet), 
@@ -220,7 +220,7 @@ with tab1:
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
-                                    border-radius:50%; width:30px; height:30px; display:flex; 
+                                    border-radius:50%; width:30px; height:30极客px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
@@ -270,7 +270,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
-                        </极客div>
+                        </div>
                         <div class="ph-game-detail">
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
