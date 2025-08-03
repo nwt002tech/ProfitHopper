@@ -4,7 +4,7 @@ from templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
 from data_loader import load_game_data
 from analytics import render_analytics
-from session_manager import render_session_tracker  # FIXED IMPORT HERE
+from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -25,7 +25,7 @@ if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
     stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session_bankroll * 0.02)
+    bet_unit = max(0.01, session极客_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
     max_bet = session_bankroll * 0.15
@@ -49,7 +49,7 @@ bankroll_html = f"""
                 <span class="label">💰 Bankroll:</span>
                 <span class="value">${current_bankroll:,.2f}</span>
             </div>
-            <极客div class="bankroll-item">
+            <div class="bankroll-item">
                 <span class="label">📅 Session:</span>
                 <span class="value">${session_bankroll:,.2f}</span>
             </div>
@@ -58,7 +58,7 @@ bankroll_html = f"""
         <div class="bankroll-row">
             <div class="bankroll-item">
                 <span class="label">🔄 Unit:</span>
-                <span class="value">${bet_unit:,.2极客f}</span>
+                <span class="value">${bet_unit:,.2f}</span>
             </div>
             <div class="bankroll-item">
                 <span class="label">💸 Max Bet:</span>
@@ -199,7 +199,7 @@ with tab1:
                 <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
-                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
+                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</极客li>
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
