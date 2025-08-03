@@ -141,6 +141,12 @@ with tab1:
             ]
         
         if not filtered_games.empty:
+            # When assigning new columns on a filtered DataFrame, pandas can raise
+            # a ``SettingWithCopyWarning`` because the filtered result may be a
+            # view on the original ``game_df``. Make a shallow copy here to
+            # ensure that operations below modify an independent DataFrame.
+            filtered_games = filtered_games.copy()
+
             # Enhanced scoring algorithm
             # Normalize factors to comparable scales
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
