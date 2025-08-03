@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session_bankroll * 0.40  # FIXED TYPO HERE
+    stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
@@ -40,7 +40,7 @@ else:
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Create the bankroll header HTML
+# Create the bankroll header HTML - PROPERLY FORMATTED
 bankroll_html = f"""
 <div class="ph-sticky-header">
     <div class="compact-bankroll-info">
@@ -48,7 +48,7 @@ bankroll_html = f"""
             <div class="bankroll-item">
                 <span class="label">💰 Bankroll:</span>
                 <span class="value">${current_bankroll:,.2f}</span>
-            </极客div>
+            </div>
             <div class="bankroll-item">
                 <span class="label">📅 Session:</span>
                 <span class="value">${session_bankroll:,.2f}</span>
@@ -105,7 +105,7 @@ with tab1:
                                        float(max_bet), 
                                        step=1.0)
                 advantage_filter = st.selectbox("Advantage Play Potential", 
-                                              ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                                              ["All", "High (4-5)", "Medium (3)", "极客Low (1-2)"])
                 
             with col3:
                 volatility_filter = st.selectbox("Volatility", 
@@ -182,7 +182,7 @@ with tab1:
             )
             
             # Apply penalties
-            filtered_games['Score'] = filtered_games['Score'] * min_b极客_penalty
+            filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
@@ -219,7 +219,7 @@ with tab1:
                     # Add session number to game card
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
-                        <div style="position:absolute; top:10px; right:10极客px; background:#1976d2; color:white; 
+                        <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
                                     border-radius:50%; width:30px; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
