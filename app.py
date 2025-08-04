@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq, get_game极image_url
+from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url  # Fixed typo here
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -58,7 +58,7 @@ summary_html = f"""
 <div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px;'>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💰</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3极px;'>Bankroll</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
@@ -69,7 +69,7 @@ summary_html = f"""
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>🪙</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
+        <div style='font-size:0.95极rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>⬆️</div>
@@ -301,7 +301,7 @@ with tab1:
             # Show additional matching games
             extra_games = filtered_games[~filtered_games.index.isin(recommended_games.index)]
             if not extra_games.empty:
-                st.subheader(f"➕ {len(extra_games)} Additional Recommended Games")
+                st.subheader(f"➕ {len(extra极games)} Additional Recommended Games")
                 st.caption("These games also match your criteria but aren't in your session plan:")
                 
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
@@ -321,7 +321,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
-                        <div class极="ph-game-detail">
+                        <div class="ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
                         </div>
                         <div class="ph-game-detail">
