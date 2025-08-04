@@ -31,11 +31,16 @@ elif session_bankroll < 100:
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
-else:
+elif session_bankroll < 500:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
     bet_unit = max(0.10, session_bankroll * 0.05)
+else:
+    strategy_type = "Aggressive"
+    max_bet = session_bankroll * 0.30
+    stop_loss = session_bankroll * 0.70
+    bet_unit = max(0.25, session_bankroll * 0.06)
 
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
@@ -44,7 +49,8 @@ estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 strategy_classes = {
     "Conservative": "strategy-conservative",
     "Moderate": "strategy-moderate",
-    "Standard": "strategy-standard"
+    "Standard": "strategy-standard",
+    "Aggressive": "strategy-aggressive"
 }
 
 # Create the HTML content for the summary
@@ -177,9 +183,15 @@ with tab1:
             # Higher penalty for small bankrolls
             bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
+            # Define threshold for min_bet penalty based on strategy
+            if strategy_type == "Aggressive":
+                threshold_factor = 0.75
+            else:
+                threshold_factor = 0.5
+                
             # Min bet penalty
             min_bet_penalty = np.where(
-                filtered_games['min_bet'] > max_bet * 0.5,
+                filtered_games['min_bet'] > max_bet * threshold_factor,
                 0.6 * bankroll_penalty_factor,
                 1.0
             )
@@ -205,7 +217,7 @@ with tab1:
             # Display bankroll management strategy
             st.markdown(f"""
             <div class="trip-info-box">
-                <h4>💰 Bankroll Management Strategy ({strategy_type})</h4>
+                <h4>💰 Bankroll Management Strategy (<span class="{strategy_classes.get(strategy_type, '')}">{strategy_type}</span>)</h4>
                 <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
@@ -214,7 +226,7 @@ with tab1:
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
                 </ul>
-                <p>Games with min bets > ${max_bet * 0.5:,.2f} or high volatility are penalized for small bankrolls.</p>
+                <p>Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility.</p>
             </div>
             """, unsafe_allow_html=True)
             

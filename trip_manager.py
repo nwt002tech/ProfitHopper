@@ -52,7 +52,12 @@ def get_session_bankroll():
     current_bankroll = get_current_bankroll()
     completed_sessions = len(get_current_trip_sessions())
     remaining_sessions = max(1, st.session_state.trip_settings['num_sessions'] - completed_sessions)
-    return current_bankroll / remaining_sessions
+    proportional_bankroll = current_bankroll / remaining_sessions
+    
+    # Cap session bankroll at $500 for large bankrolls
+    if current_bankroll > 1000 and proportional_bankroll > 500:
+        return 500.0
+    return proportional_bankroll
 
 def render_sidebar():
     with st.sidebar:

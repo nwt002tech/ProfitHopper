@@ -72,6 +72,11 @@ def get_css():
         color: #856404;
     }
     
+    .strategy-aggressive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
     @media (max-width: 768px) {
         .compact-summary {
             grid-template-columns: repeat(3, 1fr);
