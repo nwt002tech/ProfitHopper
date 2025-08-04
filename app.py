@@ -1,6 +1,6 @@
 import streamlit as st
 import numpy as np
-from templates import get_css, get_header
+from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games
 from data_loader import load_game_data
 from analytics import render_analytics
@@ -281,9 +281,11 @@ with tab1:
                     # Add swipe/not available button
                     if st.button(f"🚫 Not Available - {row['game_name']}", 
                                 key=f"not_available_{row['game_name']}_{i}",
-                                use_container_width=True):
+                                use_container_width=True,
+                                type="primary"):
                         blacklist_game(row['game_name'])
                         st.success(f"Replaced {row['game_name']} with a new recommendation")
+                        st.rerun()
                 
                 st.markdown('</div>', unsafe_allow_html=True)
             else:

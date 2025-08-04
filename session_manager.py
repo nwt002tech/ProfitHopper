@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from utils import get_csv_download_link
 from trip_manager import get_current_trip_sessions, get_current_bankroll
-from templates import trip_info_box
+from ui_templates import trip_info_box  # Changed import
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
