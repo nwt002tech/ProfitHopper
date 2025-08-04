@@ -19,7 +19,7 @@ def load_game_data():
             'game_name': ['game_name', 'name', 'title', 'game'],
             'type': ['type', 'game_type', 'category'],
             'tips': ['tips', 'tip', 'strategy'],
-            'image_url': ['image_url', 'image', 'screenshot']  # New image URL mapping
+            'image_url': ['image_url', 'image', 'screenshot']
         }
         
         for standard, variants in col_map.items():
@@ -39,6 +39,7 @@ def load_game_data():
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
         
+        # Handle optional columns
         if 'advantage_play_potential' not in df.columns:
             df['advantage_play_potential'] = 3
         if 'volatility' not in df.columns:
@@ -47,13 +48,15 @@ def load_game_data():
             df['bonus_frequency'] = 0.2
         if 'image_url' not in df.columns:
             df['image_url'] = None
-            
         if 'game_name' not in df.columns:
             df['game_name'] = "Unknown Game"
         if 'type' not in df.columns:
             df['type'] = "Unknown"
         if 'tips' not in df.columns:
             df['tips'] = "No tips available"
+        
+        # Convert NaN values to None for image_url
+        df['image_url'] = df['image_url'].where(pd.notnull(df['image_url']), None)
         
         return df.dropna(subset=['rtp', 'min_bet'])
     except Exception as e:

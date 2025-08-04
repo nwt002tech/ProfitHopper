@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session极bankroll * 0.40
+    stop_loss = session_bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
@@ -61,8 +61,8 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</极div>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e极0;text-align:center;'>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
     </div>
@@ -81,7 +81,7 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#e74c3c;margin-bottom:3px;'>Stop Loss</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#e74c3c;'>{stop_loss:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1极px solid #e0e0e0;text-align:center;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>🌀</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Spins</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{estimated_spins}</div>
@@ -212,7 +212,7 @@ with tab1:
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
-            filtered_games = filtered_games.sort_values('Score', ascending=False)
+            filtered_games = filtered极games.sort_values('Score', ascending=False)
             
             # Get recommended games for the number of sessions
             num_sessions = st.session_state.trip_settings['num_sessions']
@@ -222,7 +222,7 @@ with tab1:
             st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Management Strategy (<span class="{strategy_classes.get(strategy_type, '')}">{strategy_type}</span>)</h4>
-                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
+                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</极p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>

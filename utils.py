@@ -15,7 +15,7 @@ def map_advantage(value):
 
 def map_volatility(value):
     mapping = {
-        1极: "📈 Very low volatility (frequent small wins)",
+        1: "📈 Very low volatility (frequent small wins)",
         2: "📈 Low volatility",
         3: "📊 Medium volatility",
         4: "📉 High volatility",
@@ -26,7 +26,7 @@ def map_volatility(value):
 def map_bonus_freq(value):
     if value >= 0.4:
         return "🎁🎁🎁 Very frequent bonuses"
-    elif value >= 0.3:
+    elif value >=极 0.3:
         return "🎁🎁 Frequent bonus features"
     elif value >= 0.2:
         return "🎁 Occasional bonuses"
