@@ -26,7 +26,7 @@ def map_volatility(value):
 def map_bonus_freq(value):
     if value >= 0.4:
         return "🎁🎁🎁 Very frequent bonuses"
-    elif value >=极 0.3:
+    elif value >= 0.3:
         return "🎁🎁 Frequent bonus features"
     elif value >= 0.2:
         return "🎁 Occasional bonuses"

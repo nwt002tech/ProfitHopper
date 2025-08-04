@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
+from utils import map_volatility, map_advantage, map_bonus_freq, get_game极image_url
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -58,10 +58,10 @@ summary_html = f"""
 <div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px;'>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💰</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3极px;'>Bankroll</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e极0;text-align:center;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
@@ -212,7 +212,7 @@ with tab1:
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
             # Sort by score descending
-            filtered_games = filtered极games.sort_values('Score', ascending=False)
+            filtered_games = filtered_games.sort_values('Score', ascending=False)
             
             # Get recommended games for the number of sessions
             num_sessions = st.session_state.trip_settings['num_sessions']
@@ -222,7 +222,7 @@ with tab1:
             st.markdown(f"""
             <div class="trip-info-box">
                 <h4>💰 Bankroll Management Strategy (<span class="{strategy_classes.get(strategy_type, '')}">{strategy_type}</span>)</h4>
-                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</极p>
+                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
                 <ul>
                     <li><strong>Strategy Type</strong>: {strategy_type}</li>
                     <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
@@ -321,7 +321,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
-                        <div class="ph-game-detail">
+                        <div class极="ph-game-detail">
                             <strong>💸 Min Bet:</strong> ${row['min_bet']:,.2f}
                         </div>
                         <div class="ph-game-detail">
