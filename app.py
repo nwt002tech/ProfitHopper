@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from templates import get_css, get_header
-from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll
+from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
@@ -150,6 +150,11 @@ with tab1:
                 filtered_games['game_name'].str.contains(search_query, case=False)
             ]
         
+        # Exclude blacklisted games
+        blacklisted = get_blacklisted_games()
+        if blacklisted:
+            filtered_games = filtered_games[~filtered_games['game_name'].isin(blacklisted)]
+        
         if not filtered_games.empty:
             # When assigning new columns on a filtered DataFrame, pandas can raise
             # a ``SettingWithCopyWarning`` because the filtered result may be a view
@@ -233,6 +238,7 @@ with tab1:
             # Consolidated game recommendations
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
             st.info("Play games in this order for optimal results:")
+            st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
             if not recommended_games.empty:
                 # Display games in play order with session numbers
@@ -271,6 +277,14 @@ with tab1:
                     </div>
                     """
                     st.markdown(session_card, unsafe_allow_html=True)
+                    
+                    # Add swipe/not available button
+                    if st.button(f"🚫 Not Available - {row['game_name']}", 
+                                key=f"not_available_{row['game_name']}_{i}",
+                                use_container_width=True):
+                        blacklist_game(row['game_name'])
+                        st.success(f"Replaced {row['game_name']} with a new recommendation")
+                
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
                 st.warning("Not enough games match your criteria for all sessions")

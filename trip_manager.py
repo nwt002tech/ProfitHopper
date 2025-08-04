@@ -32,6 +32,10 @@ def initialize_trip_state():
     # Initialize trip bankrolls tracking
     if 'trip_bankrolls' not in st.session_state:
         st.session_state.trip_bankrolls = {1: 100.0}
+    
+    # Initialize game blacklist
+    if 'game_blacklist' not in st.session_state:
+        st.session_state.game_blacklist = {}
 
 def get_current_trip_sessions():
     return [s for s in st.session_state.session_log 
@@ -58,6 +62,17 @@ def get_session_bankroll():
     if current_bankroll > 1000 and proportional_bankroll > 500:
         return 500.0
     return proportional_bankroll
+
+def blacklist_game(game_name):
+    trip_id = st.session_state.current_trip_id
+    if trip_id not in st.session_state.game_blacklist:
+        st.session_state.game_blacklist[trip_id] = set()
+    st.session_state.game_blacklist[trip_id].add(game_name)
+    st.rerun()
+
+def get_blacklisted_games():
+    trip_id = st.session_state.current_trip_id
+    return st.session_state.game_blacklist.get(trip_id, set())
 
 def render_sidebar():
     with st.sidebar:
