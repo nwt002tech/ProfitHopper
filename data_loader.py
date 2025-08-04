@@ -18,7 +18,8 @@ def load_game_data():
             'bonus_frequency': ['bonus_frequency', 'bonus_freq', 'bonus_rate'],
             'game_name': ['game_name', 'name', 'title', 'game'],
             'type': ['type', 'game_type', 'category'],
-            'tips': ['tips', 'tip', 'strategy']
+            'tips': ['tips', 'tip', 'strategy'],
+            'image_url': ['image_url', 'image', 'screenshot']  # New image URL mapping
         }
         
         for standard, variants in col_map.items():
@@ -44,6 +45,8 @@ def load_game_data():
             df['volatility'] = 3
         if 'bonus_frequency' not in df.columns:
             df['bonus_frequency'] = 0.2
+        if 'image_url' not in df.columns:
+            df['image_url'] = None
             
         if 'game_name' not in df.columns:
             df['game_name'] = "Unknown Game"

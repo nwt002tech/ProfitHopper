@@ -5,7 +5,7 @@ from trip_manager import initialize_trip_state, render_sidebar, get_session_bank
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
-from utils import map_volatility, map_advantage, map_bonus_freq
+from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 if session_bankroll < 20:
     strategy_type = "Conservative"
     max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session_bankroll * 0.40
+    stop_loss = session极bankroll * 0.40
     bet_unit = max(0.01, session_bankroll * 0.02)
 elif session_bankroll < 100:
     strategy_type = "Moderate"
@@ -62,7 +62,7 @@ summary_html = f"""
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
+        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</极div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
     </div>
@@ -81,14 +81,13 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#e74c3c;margin-bottom:3px;'>Stop Loss</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#e74c3c;'>{stop_loss:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1极px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>🌀</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Spins</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{estimated_spins}</div>
     </div>
 </div>
 """
-
 
 # Render the HTML summary
 st.markdown(summary_html, unsafe_allow_html=True)
@@ -244,7 +243,7 @@ with tab1:
                 # Display games in play order with session numbers
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                 for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
-                    # Add session number to game card
+                    # Add image link to game card
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
@@ -252,7 +251,15 @@ with tab1:
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
-                        <div class="ph-game-title">🎰 {row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
+                        <div class="ph-game-title">
+                            🎰 <a href="{get_game_image_url(row['game_name'], row.get('image_url'))}" 
+                                target="_blank" 
+                                style="color: #2c3e50; text-decoration: none;">
+                                {row['game_name']} 
+                                <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
+                            </a>
+                            <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span>
+                        </div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
@@ -299,10 +306,18 @@ with tab1:
                 
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                 for _, row in extra_games.head(20).iterrows():
-                    # Create a standard game card for additional games
+                    # Add image link to game card
                     game_card = f"""
                     <div class="ph-game-card">
-                        <div class="ph-game-title">🎰 {row['game_name']} <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span></div>
+                        <div class="ph-game-title">
+                            🎰 <a href="{get_game_image_url(row['game_name'], row.get('image_url'))}" 
+                                target="_blank" 
+                                style="color: #2c3e50; text-decoration: none;">
+                                {row['game_name']} 
+                                <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
+                            </a>
+                            <span style="font-size:0.9rem; color:#27ae60;">⭐ Score: {row['Score']:.1f}/10</span>
+                        </div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>

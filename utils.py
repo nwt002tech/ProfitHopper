@@ -1,6 +1,7 @@
 import re
 import base64
 import pandas as pd
+import urllib.parse
 
 def map_advantage(value):
     mapping = {
@@ -14,7 +15,7 @@ def map_advantage(value):
 
 def map_volatility(value):
     mapping = {
-        1: "📈 Very low volatility (frequent small wins)",
+        1极: "📈 Very low volatility (frequent small wins)",
         2: "📈 Low volatility",
         3: "📊 Medium volatility",
         4: "📉 High volatility",
@@ -41,3 +42,11 @@ def get_csv_download_link(df, filename):
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
     return f'<a href="data:file/csv;base64,{b64}" download="{filename}">Download CSV</a>'
+
+def get_game_image_url(game_name, default_image=None):
+    """Generate a Google image search URL for the game"""
+    if default_image and not pd.isna(default_image):
+        return default_image
+    query = f"{game_name} slot machine"
+    encoded_query = urllib.parse.quote(query)
+    return f"https://www.google.com/search?tbm=isch&q={encoded_query}"
