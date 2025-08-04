@@ -139,6 +139,14 @@ def get_css():
         color: #2c3e50;
     }
     
+    /* NEW: Added styling for game score */
+    .ph-game-score {
+        font-size: 0.9rem;
+        color: #27ae60;
+        margin-top: -5px;
+        margin-bottom: 8px;
+    }
+    
     .ph-game-detail {
         margin: 6px 0;
         padding-left: 25px;
