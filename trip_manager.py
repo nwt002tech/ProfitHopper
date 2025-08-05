@@ -8,7 +8,7 @@ def initialize_trip_state():
     
     # Initialize current trip ID
     if 'current_trip_id' not in st.session_state:
-        st.session_state.current_trip_id = 1
+        st.session_state.current极rip_id = 1
     
     # Initialize casino list
     if 'casino_list' not in st.session_state:
@@ -40,7 +40,7 @@ def initialize_trip_state():
     
     # Initialize session performance tracker
     if 'session_performance' not in st.session_state:
-        st.session_state.session_performance = []
+        st.session_state.session_performance = {}
 
 def get_current_trip_sessions():
     return [s for s in st.session_state.session_log 
@@ -93,15 +93,18 @@ def get_volatility_adjustment():
     
     # Calculate recent volatility (last 5 sessions)
     last_5_profits = [s['profit'] for s in sessions[-5:]]
+    if not last_5_profits:
+        return 1.0
+        
     volatility = np.std(last_5_profits)
     avg_profit = np.mean(last_5_profits)
     
     # High volatility with negative returns -> reduce risk
-    if volatility > (abs(avg_profit) * 1.5 and avg_profit < 0:
+    if volatility > abs(avg_profit) * 1.5 and avg_profit < 0:
         return 0.7
     
     # Low volatility with positive returns -> increase opportunity
-    if volatility < (abs(avg_profit) * 0.8 and avg_profit > 0:
+    if volatility < abs(avg_profit) * 0.8 and avg_profit > 0:
         return 1.3
         
     return 1.0
@@ -109,6 +112,8 @@ def get_volatility_adjustment():
 def record_session_performance(profit):
     """Track session performance for streak analysis"""
     trip_id = st.session_state.current_trip_id
+    if 'session_performance' not in st.session_state:
+        st.session_state.session_performance = {}
     if trip_id not in st.session_state.session_performance:
         st.session_state.session_performance[trip_id] = []
     st.session_state.session_performance[trip_id].append(profit)
@@ -116,6 +121,8 @@ def record_session_performance(profit):
 def get_win_streak_factor():
     """Calculate win streak multiplier (0.8-1.2)"""
     trip_id = st.session_state.current_trip_id
+    if 'session_performance' not in st.session_state:
+        return 1.0
     performances = st.session_state.session_performance.get(trip_id, [])
     
     if len(performances) < 3:
@@ -203,9 +210,10 @@ def render_sidebar():
         # Win streak indicator
         if trip_sessions:
             last_5 = [s['profit'] for s in trip_sessions[-5:]]
-            win_rate = sum(1 for p in last_5 if p > 0) / len(last_5) * 100
-            streak_status = "🔥 Hot Streak!" if win_rate > 70 else "❄️ Cold Streak" if win_rate < 30 else "➖ Neutral"
-            st.markdown(f"**Recent Win Rate:** {win_rate:.0f}% ({streak_status})")
+            if last_5:
+                win_rate = sum(1 for p in last_5 if p > 0) / len(last_5) * 100
+                streak_status = "🔥 Hot Streak!" if win_rate > 70 else "❄️ Cold Streak" if win_rate < 30 else "➖ Neutral"
+                st.markdown(f"**Recent Win Rate:** {win_rate:.0f}% ({streak_status})")
         
         st.markdown("---")
         st.warning("""

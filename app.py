@@ -70,7 +70,7 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2极5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
@@ -201,30 +201,13 @@ with tab1:
             # Risk-adjusted bet comfort
             bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
             
-            # Kelly Criterion: Estimate optimal bet sizing
-            def calculate_kelly_edge(rtp, volatility):
-                # Convert RTP to house edge
-                edge = 1 - (rtp / 100)
-                # Estimate win probability based on volatility
-                win_prob = 0.5 - (edge / 2) + (0.1 / volatility)
-                return win_prob - ((1 - win_prob) / (max_bet / filtered_games['min_bet'].mean()))
-            
-            # Apply Kelly to all games
-            filtered_games['kelly_edge'] = filtered_games.apply(
-                lambda row: calculate_kelly_edge(row['rtp'], row['volatility']), 
-                axis=1
-            )
-            kelly_normalized = (filtered_games['kelly_edge'] - filtered_games['kelly_edge'].min()) / \
-                              (filtered_games['kelly_edge'].max() - filtered_games['kelly_edge'].min())
-            
             # Calculate score with dynamic weights
             filtered_games['Score'] = (
                 (rtp_normalized * 0.30) + 
                 (bonus_normalized * 0.20) +
                 (app_normalized * 0.25) +  # Increased weight for advantage play
                 (volatility_normalized * 0.10) +  # Reduced volatility weight
-                (bet_comfort * 0.05) +
-                (kelly_normalized * 0.10)  # Kelly-based edge factor
+                (bet_comfort * 0.05) 
             ) * 10
             
             # Penalize games that don't fit bankroll strategy
@@ -273,7 +256,6 @@ with tab1:
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
-                    <li><strong>Kelly Optimization</strong>: Applied to game selection</li>
                 </ul>
                 <p>Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility.</p>
             </div>
@@ -304,7 +286,7 @@ with tab1:
                                 <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
                             </a>
                         </div>
-                        <div class="ph-game-score">⭐ Score: {row['Score']:.1f}/10 (Kelly Edge: {row['kelly_edge']:.2f})</div>
+                        <div class="ph-game-score">⭐ Score: {row['Score']:.1f}/10</div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
