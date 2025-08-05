@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from utils import get_csv_download_link
-from trip_manager import get_current_trip_sessions, get_current_bankroll
-from ui_templates import trip_info_box  # Changed import
+from trip_manager import get_current_trip_sessions, get_current_bankroll, blacklist_game, get_blacklisted_games, record_session_performance
+from ui_templates import trip_info_box
 
 def save_session(session_date, game_played, money_in, money_out, session_notes):
     profit = money_out - money_in
@@ -28,6 +28,9 @@ def save_session(session_date, game_played, money_in, money_out, session_notes):
             st.session_state.trip_settings['starting_bankroll']
         )
     st.session_state.trip_bankrolls[current_trip_id] += profit
+    
+    # Record performance for streak analysis
+    record_session_performance(profit)
     
     # Force immediate rerun to update all displays
     st.session_state.last_session_added = datetime.now()
@@ -105,6 +108,32 @@ def render_session_tracker(game_df, session_bankroll):
             </div>
             """
             st.markdown(session_card, unsafe_allow_html=True)
+        
+        # Calculate session analytics
+        profits = [s['profit'] for s in sorted_sessions]
+        avg_profit = sum(profits) / len(profits)
+        max_drawdown = min(profits)
+        win_rate = sum(1 for p in profits if p > 0) / len(profits) * 100
+        
+        st.markdown(f"""
+        <div class="compact-summary" style="margin:20px 0;">
+            <div class="summary-card">
+                <div class="summary-icon">📊</div>
+                <div class="summary-label">Avg Profit/Session</div>
+                <div class="summary-value">${avg_profit:+,.2f}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">📉</div>
+                <div class="summary-label">Max Drawdown</div>
+                <div class="summary-value">${max_drawdown:+,.2f}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">🏆</div>
+                <div class="summary-label">Win Rate</div>
+                <div class="summary-value">{win_rate:.1f}%</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         # Export sessions to CSV
         st.subheader("Export Data")

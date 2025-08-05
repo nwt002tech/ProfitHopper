@@ -1,4 +1,5 @@
 import streamlit as st
+import numpy as np
 
 def initialize_trip_state():
     # Ensure session_log is always initialized
@@ -36,6 +37,10 @@ def initialize_trip_state():
     # Initialize game blacklist
     if 'game_blacklist' not in st.session_state:
         st.session_state.game_blacklist = {}
+    
+    # Initialize session performance tracker
+    if 'session_performance' not in st.session_state:
+        st.session_state.session_performance = []
 
 def get_current_trip_sessions():
     return [s for s in st.session_state.session_log 
@@ -53,15 +58,21 @@ def get_current_bankroll():
     return starting + get_trip_profit()
 
 def get_session_bankroll():
+    """Improved conservative bankroll allocation with profit protection"""
     current_bankroll = get_current_bankroll()
     completed_sessions = len(get_current_trip_sessions())
     remaining_sessions = max(1, st.session_state.trip_settings['num_sessions'] - completed_sessions)
-    proportional_bankroll = current_bankroll / remaining_sessions
     
-    # Cap session bankroll at $500 for large bankrolls
-    if current_bankroll > 1000 and proportional_bankroll > 500:
-        return 500.0
-    return proportional_bankroll
+    # Base session = 20% of starting bankroll
+    base_session = st.session_state.trip_settings['starting_bankroll'] * 0.20
+    
+    # Progressive adjustment: Never risk more than 30% of profits
+    if current_bankroll > st.session_state.trip_settings['starting_bankroll']:
+        profit = current_bankroll - st.session_state.trip_settings['starting_bankroll']
+        return min(base_session + (profit * 0.3), 500)  # Cap at $500
+    
+    # Loss protection: Never risk more than base session during losing streaks
+    return min(base_session, current_bankroll / remaining_sessions)
 
 def blacklist_game(game_name):
     trip_id = st.session_state.current_trip_id
@@ -73,6 +84,53 @@ def blacklist_game(game_name):
 def get_blacklisted_games():
     trip_id = st.session_state.current_trip_id
     return st.session_state.game_blacklist.get(trip_id, set())
+
+def get_volatility_adjustment():
+    """Calculate volatility-based adjustment factor (0.7-1.3)"""
+    sessions = get_current_trip_sessions()
+    if len(sessions) < 3:
+        return 1.0  # Neutral if not enough data
+    
+    # Calculate recent volatility (last 5 sessions)
+    last_5_profits = [s['profit'] for s in sessions[-5:]]
+    volatility = np.std(last_5_profits)
+    avg_profit = np.mean(last_5_profits)
+    
+    # High volatility with negative returns -> reduce risk
+    if volatility > (abs(avg_profit) * 1.5 and avg_profit < 0:
+        return 0.7
+    
+    # Low volatility with positive returns -> increase opportunity
+    if volatility < (abs(avg_profit) * 0.8 and avg_profit > 0:
+        return 1.3
+        
+    return 1.0
+
+def record_session_performance(profit):
+    """Track session performance for streak analysis"""
+    trip_id = st.session_state.current_trip_id
+    if trip_id not in st.session_state.session_performance:
+        st.session_state.session_performance[trip_id] = []
+    st.session_state.session_performance[trip_id].append(profit)
+
+def get_win_streak_factor():
+    """Calculate win streak multiplier (0.8-1.2)"""
+    trip_id = st.session_state.current_trip_id
+    performances = st.session_state.session_performance.get(trip_id, [])
+    
+    if len(performances) < 3:
+        return 1.0
+    
+    # Calculate last 5 session win rate
+    last_5 = performances[-5:]
+    win_rate = sum(1 for p in last_5 if p > 0) / len(last_5)
+    
+    # Adjust strategy based on recent performance
+    if win_rate > 0.7:  # Winning streak
+        return 1.2
+    elif win_rate < 0.3:  # Losing streak
+        return 0.8
+    return 1.0
 
 def render_sidebar():
     with st.sidebar:
@@ -141,6 +199,13 @@ def render_sidebar():
         st.markdown(f"**Starting Bankroll:** ${st.session_state.trip_settings['starting_bankroll']:,.2f}")
         st.markdown(f"**Current Bankroll:** ${current_bankroll:,.2f}")
         st.markdown(f"**Sessions Completed:** {len(trip_sessions)}/{st.session_state.trip_settings['num_sessions']}")
+        
+        # Win streak indicator
+        if trip_sessions:
+            last_5 = [s['profit'] for s in trip_sessions[-5:]]
+            win_rate = sum(1 for p in last_5 if p > 0) / len(last_5) * 100
+            streak_status = "🔥 Hot Streak!" if win_rate > 70 else "❄️ Cold Streak" if win_rate < 30 else "➖ Neutral"
+            st.markdown(f"**Recent Win Rate:** {win_rate:.0f}% ({streak_status})")
         
         st.markdown("---")
         st.warning("""

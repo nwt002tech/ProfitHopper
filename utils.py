@@ -6,7 +6,7 @@ import urllib.parse
 def map_advantage(value):
     mapping = {
         5: "⭐️⭐️⭐️⭐️⭐️ Excellent advantage opportunities",
-        4: "⭐️⭐️⭐️⭐️ Strong potential for skilled players",
+        4: "⭐️⭐极⭐️⭐️ Strong potential for skilled players",
         3: "⭐️⭐️⭐️ Moderate advantage play value",
         2: "⭐️⭐️ Low advantage value",
         1: "⭐️ Minimal advantage potential"
@@ -50,3 +50,18 @@ def get_game_image_url(game_name, default_image=None):
     query = f"{game_name} slot machine"
     encoded_query = urllib.parse.quote(query)
     return f"https://www.google.com/search?tbm=isch&q={encoded_query}"
+
+def calculate_kelly_fraction(win_prob, payout_ratio):
+    """
+    Calculate optimal Kelly bet fraction
+    Formula: f = (bp - q) / b
+    Where:
+      f = fraction of bankroll to bet
+      b = net odds received (payout ratio)
+      p = probability of winning
+      q = probability of losing (1-p)
+    """
+    q = 1 - win_prob
+    if payout_ratio <= 0:
+        return 0
+    return max(0, (win_prob * payout_ratio - q) / payout_ratio)

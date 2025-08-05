@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
-from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games
+from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
 from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
@@ -20,6 +20,10 @@ render_sidebar()
 current_bankroll = get_current_bankroll()
 session_bankroll = get_session_bankroll()
 
+# Dynamic strategy adjustments
+volatility_adjustment = get_volatility_adjustment()
+win_streak_factor = get_win_streak_factor()
+
 # Enhanced bankroll-sensitive calculations
 if session_bankroll < 20:
     strategy_type = "Conservative"
@@ -31,7 +35,7 @@ elif session_bankroll < 100:
     max_bet = session_bankroll * 0.15
     stop_loss = session_bankroll * 0.50
     bet_unit = max(0.05, session_bankroll * 0.03)
-elif session极bankroll < 500:
+elif session_bankroll < 500:
     strategy_type = "Standard"
     max_bet = session_bankroll * 0.25
     stop_loss = session_bankroll * 0.60
@@ -42,10 +46,15 @@ else:
     stop_loss = session_bankroll * 0.70
     bet_unit = max(0.25, session_bankroll * 0.06)
 
+# Apply dynamic adjustments
+max_bet *= win_streak_factor * volatility_adjustment
+stop_loss *= (2 - win_streak_factor)  # Inverse relationship to streak
+bet_unit *= win_streak_factor * volatility_adjustment
+
 # Calculate session duration estimate
 estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-# Display compact session summary with icons
+# Strategy classes for styling
 strategy_classes = {
     "Conservative": "strategy-conservative",
     "Moderate": "strategy-moderate",
@@ -73,7 +82,7 @@ summary_html = f"""
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>⬆️</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3极;'>Max Bet</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Max Bet</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{max_bet:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
@@ -86,6 +95,28 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Spins</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{estimated_spins}</div>
     </div>
+</div>
+"""
+
+# Add streak indicators
+if win_streak_factor > 1:
+    streak_indicator = f"🔥 Hot Streak Boost: +{int((win_streak_factor-1)*100)}%"
+elif win_streak_factor < 1:
+    streak_indicator = f"❄️ Cold Streak Reduction: -{int((1-win_streak_factor)*100)}%"
+else:
+    streak_indicator = "➖ Neutral Streak"
+
+if volatility_adjustment > 1:
+    vol_indicator = f"📈 Low Volatility: +{int((volatility_adjustment-1)*100)}%"
+elif volatility_adjustment < 1:
+    vol_indicator = f"📉 High Volatility: -{int((1-volatility_adjustment)*100)}%"
+else:
+    vol_indicator = "📊 Medium Volatility"
+
+summary_html += f"""
+<div style="display:flex; justify-content:space-between; margin:10px 0; font-size:0.9em;">
+    <div style="padding:5px 10px; background:#f0f7ff; border-radius:5px;">{streak_indicator}</div>
+    <div style="padding:5px 10px; background:#f0f7ff; border-radius:5px;">{vol_indicator}</div>
 </div>
 """
 
@@ -155,13 +186,9 @@ with tab1:
             filtered_games = filtered_games[~filtered_games['game_name'].isin(blacklisted)]
         
         if not filtered_games.empty:
-            # When assigning new columns on a filtered DataFrame, pandas can raise
-            # a ``SettingWithCopyWarning`` because the filtered result may be a view
-            # on the original ``game_df``. Make a shallow copy to ensure
-            # modifications don't propagate unintendedly and avoid the warning.
             filtered_games = filtered_games.copy()
 
-            # Enhanced scoring algorithm
+            # Enhanced scoring algorithm with Kelly Criterion
             # Normalize factors to comparable scales
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
             bonus_normalized = filtered_games['bonus_frequency']  # Already 0-1
@@ -174,13 +201,30 @@ with tab1:
             # Risk-adjusted bet comfort
             bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
             
+            # Kelly Criterion: Estimate optimal bet sizing
+            def calculate_kelly_edge(rtp, volatility):
+                # Convert RTP to house edge
+                edge = 1 - (rtp / 100)
+                # Estimate win probability based on volatility
+                win_prob = 0.5 - (edge / 2) + (0.1 / volatility)
+                return win_prob - ((1 - win_prob) / (max_bet / filtered_games['min_bet'].mean()))
+            
+            # Apply Kelly to all games
+            filtered_games['kelly_edge'] = filtered_games.apply(
+                lambda row: calculate_kelly_edge(row['rtp'], row['volatility']), 
+                axis=1
+            )
+            kelly_normalized = (filtered_games['kelly_edge'] - filtered_games['kelly_edge'].min()) / \
+                              (filtered_games['kelly_edge'].max() - filtered_games['kelly_edge'].min())
+            
             # Calculate score with dynamic weights
             filtered_games['Score'] = (
-                (rtp_normalized * 0.35) + 
+                (rtp_normalized * 0.30) + 
                 (bonus_normalized * 0.20) +
-                (app_normalized * 0.20) +
-                (volatility_normalized * 0.15) +
-                (bet_comfort * 0.10)
+                (app_normalized * 0.25) +  # Increased weight for advantage play
+                (volatility_normalized * 0.10) +  # Reduced volatility weight
+                (bet_comfort * 0.05) +
+                (kelly_normalized * 0.10)  # Kelly-based edge factor
             ) * 10
             
             # Penalize games that don't fit bankroll strategy
@@ -229,6 +273,7 @@ with tab1:
                     <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
                     <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
                     <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
+                    <li><strong>Kelly Optimization</strong>: Applied to game selection</li>
                 </ul>
                 <p>Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility.</p>
             </div>
@@ -259,7 +304,7 @@ with tab1:
                                 <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
                             </a>
                         </div>
-                        <div class="ph-game-score">⭐ Score: {row['Score']:.1f}/10</div>
+                        <div class="ph-game-score">⭐ Score: {row['Score']:.1f}/10 (Kelly Edge: {row['kelly_edge']:.2f})</div>
                         <div class="ph-game-detail">
                             <strong>🗂️ Type:</strong> {row['type']}
                         </div>
