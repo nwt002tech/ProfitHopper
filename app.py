@@ -74,12 +74,12 @@ summary_html = f"""
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
-        <div style='font-size:0.7极;color:#7f8c8d;margin-bottom:3px;'>Session</div>
+        <div style='font-size:0.7;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>🪙</div>
-        <极div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
+        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
