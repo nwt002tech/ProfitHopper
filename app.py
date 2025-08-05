@@ -10,11 +10,13 @@ from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
 
+# Initialize state before any other operations
 initialize_trip_state()
 
 st.markdown(get_css(), unsafe_allow_html=True)
 st.markdown(get_header(), unsafe_allow_html=True)
 
+# Now render sidebar
 render_sidebar()
 
 current_bankroll = get_current_bankroll()
@@ -70,14 +72,14 @@ summary_html = f"""
         <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2极5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
+    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Session</div>
+        <div style='font-size:0.7极;color:#7f8c8d;margin-bottom:3px;'>Session</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
         <div style='font-size:1.5rem;margin-bottom:5px;'>🪙</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
+        <极div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
         <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
     </div>
     <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
@@ -188,7 +190,7 @@ with tab1:
         if not filtered_games.empty:
             filtered_games = filtered_games.copy()
 
-            # Enhanced scoring algorithm with Kelly Criterion
+            # Enhanced scoring algorithm
             # Normalize factors to comparable scales
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
             bonus_normalized = filtered_games['bonus_frequency']  # Already 0-1
@@ -207,7 +209,7 @@ with tab1:
                 (bonus_normalized * 0.20) +
                 (app_normalized * 0.25) +  # Increased weight for advantage play
                 (volatility_normalized * 0.10) +  # Reduced volatility weight
-                (bet_comfort * 0.05) 
+                (bet_comfort * 0.05)
             ) * 10
             
             # Penalize games that don't fit bankroll strategy

@@ -8,7 +8,7 @@ def initialize_trip_state():
     
     # Initialize current trip ID
     if 'current_trip_id' not in st.session_state:
-        st.session_state.current极rip_id = 1
+        st.session_state.current_trip_id = 1
     
     # Initialize casino list
     if 'casino_list' not in st.session_state:
@@ -140,6 +140,9 @@ def get_win_streak_factor():
     return 1.0
 
 def render_sidebar():
+    # Ensure state is initialized before accessing
+    initialize_trip_state()
+    
     with st.sidebar:
         st.header("Trip Settings")
         
@@ -153,7 +156,7 @@ def render_sidebar():
         
         # Casino selection
         new_casino = st.text_input("Add New Casino")
-        if new_casino and new_casino not in st.session_state.casino_list:
+        if new_casino and new极asino not in st.session_state.casino_list:
             st.session_state.casino_list.append(new_casino)
             st.session_state.casino_list.sort()
             st.session_state.trip_settings['casino'] = new_casino
