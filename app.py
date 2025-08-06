@@ -19,7 +19,58 @@ st.markdown(get_header(), unsafe_allow_html=True)
 # Now render sidebar
 render_sidebar()
 
-# [Previous calculations remain the same...]
+# Strategy border colors - DEFINED AT THE TOP
+border_colors = {
+    "Conservative": "#28a745",
+    "Moderate": "#17a2b8", 
+    "Standard": "#ffc107",
+    "Aggressive": "#dc3545"
+}
+
+try:
+    current_bankroll = get_current_bankroll()
+    session_bankroll = get_session_bankroll()
+    volatility_adjustment = get_volatility_adjustment()
+    win_streak_factor = get_win_streak_factor()
+
+    # Enhanced bankroll-sensitive calculations
+    if session_bankroll < 20:
+        strategy_type = "Conservative"
+        max_bet = max(0.01, session_bankroll * 0.10)
+        stop_loss = session_bankroll * 0.40
+        bet_unit = max(0.01, session_bankroll * 0.02)
+    elif session_bankroll < 100:
+        strategy_type = "Moderate"
+        max_bet = session_bankroll * 0.15
+        stop_loss = session_bankroll * 0.50
+        bet_unit = max(0.05, session_bankroll * 0.03)
+    elif session_bankroll < 500:
+        strategy_type = "Standard"
+        max_bet = session_bankroll * 0.25
+        stop_loss = session_bankroll * 0.60
+        bet_unit = max(0.10, session_bankroll * 0.05)
+    else:
+        strategy_type = "Aggressive"
+        max_bet = session_bankroll * 0.30
+        stop_loss = session_bankroll * 0.70
+        bet_unit = max(0.25, session_bankroll * 0.06)
+
+    # Apply dynamic adjustments
+    max_bet *= win_streak_factor * volatility_adjustment
+    stop_loss *= (2 - win_streak_factor)
+    bet_unit *= win_streak_factor * volatility_adjustment
+
+    # Calculate session duration estimate
+    estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
+
+except Exception as e:
+    st.error(f"Error calculating strategy: {str(e)}")
+    # Fallback values
+    strategy_type = "Standard"
+    max_bet = 25.0
+    stop_loss = 100.0
+    bet_unit = 5.0
+    estimated_spins = 50
 
 # --- SESSION SUMMARY SECTION ---
 # Strategy Card (full width)
@@ -107,5 +158,5 @@ with metric_cols[2]:
     </div>
     """, unsafe_allow_html=True)
 
-# [Rest of your code remains exactly the same...]
+# [Rest of your original code remains exactly the same...]
 # All game cards and other functionality is preserved
