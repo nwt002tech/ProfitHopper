@@ -31,7 +31,7 @@ try:
     current_bankroll = get_current_bankroll()
     session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
-    win_st极ak_factor = get_win_streak_factor()
+    win_streak_factor = get_win_streak_factor()
 
     if session_bankroll < 20:
         strategy_type = "Conservative"
@@ -378,7 +378,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
-                        </极>
+                        </>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
                         </div>
