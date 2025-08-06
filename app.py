@@ -72,7 +72,7 @@ strategy_classes = {
     "Aggressive": "strategy-aggressive"
 }
 
-# Create compact session summary
+# --- COMPACT SESSION SUMMARY HTML ---
 summary_html = f"""
 <style>
 .summary-row {{
@@ -107,7 +107,7 @@ summary_html = f"""
             <div style="text-align:center;">
                 <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
                 <div style="font-size:0.8rem; color:#7f8c8d;">
-                    Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Unit: ${bet_unit:,.2f}
+                    Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
                 </div>
             </div>
         </div>
@@ -139,36 +139,6 @@ summary_html = f"""
             <div>
                 <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
                 <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="summary-row">
-    <div class="third-width-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    <div class="third-width-card stop-loss">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
-            <div>
-                <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
-                <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    <div class="third-width-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
-                <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
             </div>
         </div>
     </div>
