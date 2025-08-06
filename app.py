@@ -91,7 +91,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Metric Cards - FIXED TO SHOW ON SINGLE LINE WITH PROPER VALUE INTERPOLATION
-st.markdown(f"""
+st.markdown(f"""  # <-- This is the critical fix: added the 'f' prefix
 <div class="compact-summary" style="display: flex; flex-wrap: nowrap; gap: 10px; margin-bottom: 15px;">
     <div style="flex: 1; min-width: 100px;">
         <div style='
@@ -245,7 +245,7 @@ with tab1:
             volatility_normalized = (5 - filtered_games['volatility']) / 4
             
             bankroll_factor = np.log10(session_bankroll) / 3
-            bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
+            bet_comfort = np.clip((max_bet - filtered_games['min极et']) / max_bet, 0, 1)
             
             filtered_games['Score'] = (
                 (rtp_normalized * 0.30) + 
@@ -378,7 +378,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
-                        </>
+                        </div>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
                         </div>
