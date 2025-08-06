@@ -20,7 +20,7 @@ st.markdown(get_header(), unsafe_allow_html=True)
 render_sidebar()
 
 current_bankroll = get_current_bankroll()
-session_bankroll = get_session_bankroll()
+session_bankroll = get_session极ankroll()
 
 # Dynamic strategy adjustments
 volatility_adjustment = get_volatility_adjustment()
@@ -64,38 +64,44 @@ strategy_classes = {
     "Aggressive": "strategy-aggressive"
 }
 
-# Create the HTML content for the summary
+# Create consolidated session summary with strategy badge
 summary_html = f"""
-<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px;'>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>💰</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Bankroll</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${current_bankroll:,.2f}</div>
+<div class="compact-summary">
+    <div class="summary-card">
+        <div class="summary-icon">💰</div>
+        <div class="summary-label">Bankroll</div>
+        <div class="summary-value">${current_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>💵</div>
-        <div style='font-size:0.7;color:#7f8c8d;margin-bottom:3px;'>Session</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>${session_bankroll:,.2f}</div>
+    <div class="summary-card">
+        <div class="summary-icon">💵</div>
+        <div class="summary-label">Session</div>
+        <div class="summary-value">${session_bankroll:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>🪙</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Unit</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{bet_unit:,.2f}</div>
+    <div class="summary-card">
+        <div class="summary-icon">🪙</div>
+        <div class="summary-label">Unit Size</div>
+        <div class="summary-value">${bet_unit:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>⬆️</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Max Bet</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{max_bet:,.2f}</div>
+    <div class="summary-card">
+        <div class="summary-icon">⬆️</div>
+        <div class="summary-label">Max Bet</div>
+        <div class="summary-value">${max_bet:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>🛑</div>
-        <div style='font-size:0.7rem;color:#e74c3c;margin-bottom:3px;'>Stop Loss</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#e74c3c;'>{stop_loss:,.2f}</div>
+    <div class="summary-card stop-loss">
+        <div class="summary-icon">🛑</div>
+        <div class="summary-label">Stop Loss</div>
+        <div class="summary-value">${stop_loss:,.2f}</div>
     </div>
-    <div style='background:#fff;border-radius:10px;padding:8px;box-shadow:0 2px 5px rgba(0,0,0,0.05);border:1px solid #e0e0e0;text-align:center;'>
-        <div style='font-size:1.5rem;margin-bottom:5px;'>🌀</div>
-        <div style='font-size:0.7rem;color:#7f8c8d;margin-bottom:3px;'>Spins</div>
-        <div style='font-size:0.95rem;font-weight:bold;color:#2c3e50;'>{estimated_spins}</div>
+    <div class="summary-card">
+        <div class="summary-icon">🌀</div>
+        <div class="summary-label">Est. Spins</div>
+        <div class="summary-value">{estimated_spins}</div>
+    </div>
+    <div class="summary-card {strategy_classes[strategy_type]}">
+        <div class="summary-icon">📊</div>
+        <div class="summary-label">Strategy</div>
+        <div class="summary-value">{strategy_type}</div>
+        <div class="strategy-tag {strategy_classes[strategy_type]}">{strategy_type}</div>
     </div>
 </div>
 """
@@ -247,25 +253,10 @@ with tab1:
             num_sessions = st.session_state.trip_settings['num_sessions']
             recommended_games = filtered_games.head(num_sessions)
             
-            # Display bankroll management strategy
-            st.markdown(f"""
-            <div class="trip-info-box">
-                <h4>💰 Bankroll Management Strategy (<span class="{strategy_classes.get(strategy_type, '')}">{strategy_type}</span>)</h4>
-                <p>Recommendations optimized for your <strong>${session_bankroll:,.2f} session bankroll</strong>:</p>
-                <ul>
-                    <li><strong>Strategy Type</strong>: {strategy_type}</li>
-                    <li><strong>Max Bet</strong>: ${max_bet:,.2f} ({max_bet/session_bankroll:.0%} of bankroll)</li>
-                    <li><strong>Stop Loss</strong>: ${stop_loss:,.2f} ({stop_loss/session_bankroll:.0%} of bankroll)</li>
-                    <li><strong>Bet Unit</strong>: ${bet_unit:,.2f} (Recommended bet size)</li>
-                    <li><strong>Estimated Spins</strong>: {estimated_spins} (at unit size)</li>
-                </ul>
-                <p>Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility.</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
             # Consolidated game recommendations
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
-            st.info("Play games in this order for optimal results:")
+            st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
+            st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility")
             st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
             if not recommended_games.empty:

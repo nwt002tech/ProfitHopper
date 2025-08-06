@@ -10,7 +10,7 @@ def get_css():
         box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     
-    /* New compact summary styles */
+    /* Enhanced compact summary styles */
     .compact-summary {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -21,25 +21,32 @@ def get_css():
     .summary-card {
         background: white;
         border-radius: 10px;
-        padding: 10px;
+        padding: 12px;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         border: 1px solid #e0e0e0;
         text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
     
     .summary-icon {
-        font-size: 1.5rem;
-        margin-bottom: 5px;
+        font-size: 1.8rem;
+        margin-bottom: 8px;
     }
     
     .summary-label {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         color: #7f8c8d;
-        margin-bottom: 3px;
+        margin-bottom: 4px;
+        font-weight: 600;
     }
     
     .summary-value {
-        font-size: 0.95rem;
+        font-size: 1.05rem;
         font-weight: bold;
         color: #2c3e50;
     }
@@ -52,27 +59,44 @@ def get_css():
         display: inline-block;
         padding: 4px 10px;
         border-radius: 20px;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: bold;
         margin-top: 8px;
     }
     
+    /* Strategy-specific colors */
     .strategy-conservative {
+        border-top: 4px solid #28a745;
+    }
+    
+    .strategy-conservative .strategy-tag {
         background: #d4edda;
         color: #155724;
     }
     
     .strategy-moderate {
+        border-top: 4px solid #17a2b8;
+    }
+    
+    .strategy-moderate .strategy-tag {
         background: #cce5ff;
         color: #004085;
     }
     
     .strategy-standard {
+        border-top: 4px solid #ffc107;
+    }
+    
+    .strategy-standard .strategy-tag {
         background: #fff3cd;
         color: #856404;
     }
     
     .strategy-aggressive {
+        border-top: 4px solid #dc3545;
+    }
+    
+    .strategy-aggressive .strategy-tag {
         background: #f8d7da;
         color: #721c24;
     }
@@ -118,7 +142,7 @@ def get_css():
         }
         
         .summary-card {
-            padding: 8px;
+            padding: 10px;
         }
     }
     
@@ -139,7 +163,6 @@ def get_css():
         color: #2c3e50;
     }
     
-    /* NEW: Added styling for game score */
     .ph-game-score {
         font-size: 0.9rem;
         color: #27ae60;
