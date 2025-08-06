@@ -67,93 +67,96 @@ except Exception as e:
 # Strategy border colors
 border_colors = {
     "Conservative": "#28a745",
-    "Moderate": "#17a2b8",
+    "Moderate": "#17a2b8", 
     "Standard": "#ffc107",
     "Aggressive": "#dc3545"
 }
 
-# Add CSS styles first
-st.markdown("""
-<style>
-.summary-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-.strategy-card {
-    width: 100%;
-    background: white;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-left: 4px solid #ffc107;
-}
-.metrics-row {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-}
-.metric-card {
-    flex: 1;
-    background: white;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid #e0e0e0;
-    min-width: 0;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# Add the HTML content with dynamic values
+# --- SESSION SUMMARY SECTION ---
+# Strategy Card (full width)
 st.markdown(f"""
-<div class="summary-container">
-    <div class="strategy-card" style="border-left-color: {border_colors.get(strategy_type, '#ffc107')}">
-        <div style="display:flex; align-items:center; justify-content:center;">
-            <div style="font-size:1.5rem; margin-right:15px;">📊</div>
-            <div style="text-align:center;">
-                <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
-                <div style="font-size:0.8rem; color:#7f8c8d;">
-                    Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="metrics-row">
-        <div class="metric-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">💰</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="metric-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">💵</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="metric-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
-                </div>
+<div style='
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
+    margin-bottom: 8px;
+'>
+    <div style='display:flex; align-items:center; justify-content:center;'>
+        <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
+        <div style='text-align:center;'>
+            <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
+            <div style='font-size:0.8rem; color:#7f8c8d;'>
+                Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
             </div>
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
+
+# Metric Cards (in columns)
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>💰</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Bankroll</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>💵</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Session</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        height: 100%;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>🪙</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Unit</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${bet_unit:,.2f}</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # Active adjustment indicators
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
@@ -170,9 +173,9 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
         
     if indicators:
         st.markdown(f"""
-        <div style="display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;">
-            <div style="font-weight:bold;">Active Adjustments:</div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <div style='display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;'>
+            <div style='font-weight:bold;'>Active Adjustments:</div>
+            <div style='display:flex; gap:8px; flex-wrap:wrap;'>
                 {''.join([f'<div>{ind}</div>' for ind in indicators])}
             </div>
         </div>
@@ -208,8 +211,8 @@ with tab1:
                                                ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
                 search_query = st.text_input("Search Game Name")
 
-        # Rest of your tab1 content...
-        # [Keep all your existing game recommendation logic here]
+        # Rest of tab1 content remains unchanged
+        # [Keep all existing game recommendation logic]
 
 with tab2:
     game_df = load_game_data()
