@@ -20,7 +20,7 @@ st.markdown(get_header(), unsafe_allow_html=True)
 render_sidebar()
 
 current_bankroll = get_current_bankroll()
-session_bankroll = get_session极ankroll()
+session_bankroll = get_session_bankroll()
 
 # Dynamic strategy adjustments
 volatility_adjustment = get_volatility_adjustment()
