@@ -1,4 +1,8 @@
 import streamlit as st
+
+# Fix for inotify instance limit - MUST BE FIRST STREAMLIT COMMAND
+st.set_option('server.fileWatcherType', 'poll')
+
 import numpy as np
 from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
@@ -7,15 +11,12 @@ from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 
-# Fix for inotify instance limit
-st.set_option('server.fileWatcherType', 'poll')
-
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
 
 initialize_trip_state()
 
-st.markdown(get_css(), unsafe_allow_html=True)
+st.markdown(get_css(), unsafe极allow_html=True)
 st.markdown(get_header(), unsafe_allow_html=True)
 
 render_sidebar()
@@ -38,7 +39,7 @@ try:
         max_bet = max(0.01, session_bankroll * 0.10)
         stop_loss = session_bankroll * 0.40
         bet_unit = max(0.01, session_bankroll * 0.02)
-    elif session极ankroll < 100:
+    elif session_bankroll < 100:
         strategy_type = "Moderate"
         max_bet = session_bankroll * 0.15
         stop_loss = session_bankroll * 0.50
@@ -122,7 +123,7 @@ st.markdown(f"""
                     <div style='font-size:0.7rem; color:#7f8c8d;'>Session</div>
                     <div style='font-size:0.9rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
                 </div>
-            </div>
+            </极>
         </div>
     </div>
     
