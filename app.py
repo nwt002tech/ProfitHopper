@@ -1,5 +1,3 @@
-[file name]: app.py
-[file content begin]
 import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
@@ -399,4 +397,3 @@ with tab2:
 
 with tab3:
     render_analytics()
-[file content end]
