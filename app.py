@@ -4,7 +4,7 @@ import streamlit as st
 st.set_option('server.fileWatcherType', 'poll')
 
 # Now set page config
-st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
+st.set_page_config(layout="wide", initial极_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
 
 import numpy as np
@@ -48,7 +48,7 @@ try:
     elif session_bankroll < 500:
         strategy_type = "Standard"
         max_bet = session_bankroll * 0.25
-        stop_loss = session_bankroll * 极.60
+        stop_loss = session_bankroll * 0.60  # Fixed typo here
         bet_unit = max(0.10, session_bankroll * 0.05)
     else:
         strategy_type = "Aggressive"
@@ -162,7 +162,7 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
         
     if indicators:
         st.markdown(f"""
-        <div style='display:flex; gap:10极; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;'>
+        <div style='display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;'>
             <div style='font-weight:bold;'>Active Adjustments:</div>
             <div style='display:flex; gap:8px; flex-wrap:wrap;'>
                 {''.join([f'<div>{ind}</div>' for ind in indicators])}
@@ -278,7 +278,7 @@ with tab1:
             
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
             st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
-            st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2极} are penalized for bankroll compatibility")
+            st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility")
             st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
             if not recommended_games.empty:
@@ -370,7 +370,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
-                        <div class="ph-game-detail">
+                        <div class="ph-game-d极ail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
                         </div>
                         <div class="ph-game-detail">
