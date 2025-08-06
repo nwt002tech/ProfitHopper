@@ -106,7 +106,6 @@ st.markdown(f"""
 </style>
 
 <div class="summary-container">
-    <!-- STRATEGY CARD -->
     <div class="strategy-card">
         <div style="display:flex; align-items:center; justify-content:center;">
             <div style="font-size:1.5rem; margin-right:15px;">📊</div>
@@ -119,7 +118,6 @@ st.markdown(f"""
         </div>
     </div>
 
-    <!-- METRICS ROW -->
     <div class="metrics-row">
         <div class="metric-card">
             <div style="display:flex; align-items:center;">
