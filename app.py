@@ -1,3 +1,5 @@
+[file name]: app.py
+[file content begin]
 import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
@@ -31,7 +33,7 @@ try:
     current_bankroll = get_current_bankroll()
     session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
-    win_streak_factor = get_win_streak_factor()
+    win_st极ak_factor = get_win_streak_factor()
 
     if session_bankroll < 20:
         strategy_type = "Conservative"
@@ -132,7 +134,7 @@ st.markdown(f"""
     <div style="flex: 1; min-width: 100px;">
         <div style='
             background: white;
-            border-radius: 8极;
+            border-radius: 8px;
             padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border: 1px solid #e0e0e0;
@@ -218,7 +220,7 @@ with tab1:
         elif advantage_filter == "Low (1-2)":
             filtered_games = filtered_games[filtered_games['advantage_play_potential'] <= 2]
             
-        if volatility_filter == "Low (极-2)":
+        if volatility_filter == "Low (1-2)":
             filtered_games = filtered_games[filtered_games['volatility'] <= 2]
         elif volatility_filter == "Medium (3)":
             filtered_games = filtered_games[filtered_games['volatility'] == 3]
@@ -378,7 +380,7 @@ with tab1:
                         </div>
                         <div class="ph-game-detail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
-                        </div>
+                        </极>
                         <div class="ph-game-detail">
                             <strong>💡 Tips:</strong> {row['tips']}
                         </div>
@@ -397,3 +399,4 @@ with tab2:
 
 with tab3:
     render_analytics()
+[file content end]
