@@ -24,7 +24,7 @@ session_bankroll = get_session_bankroll()
 
 # Dynamic strategy adjustments
 volatility_adjustment = get_volatility_adjustment()
-win_streak_factor = get_win_streak_factor()
+win_st极eak_factor = get_win_streak_factor()
 
 # Enhanced bankroll-sensitive calculations
 if session_bankroll < 20:
@@ -64,69 +64,100 @@ strategy_classes = {
     "Aggressive": "strategy-aggressive"
 }
 
-# Create consolidated session summary with strategy badge
+# Create compact session summary
 summary_html = f"""
-<div class="compact-summary">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
     <div class="summary-card">
-        <div class="summary-icon">💰</div>
-        <div class="summary-label">Bankroll</div>
-        <div class="summary-value">${current_bankroll:,.2f}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">💰</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
+            </div>
+        </div>
     </div>
     <div class="summary-card">
-        <div class="summary-icon">💵</div>
-        <div class="summary-label">Session</div>
-        <div class="summary-value">${session_bankroll:,.2f}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">💵</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
+            </div>
+        </div>
     </div>
     <div class="summary-card">
-        <div class="summary-icon">🪙</div>
-        <div class="summary-label">Unit Size</div>
-        <div class="summary-value">${bet_unit:,.2f}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
+            </极div>
+        </div>
     </div>
     <div class="summary-card">
-        <div class="summary-icon">⬆️</div>
-        <div class="summary-label">Max Bet</div>
-        <div class="summary-value">${max_bet:,.2f}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
+            </div>
+        </div>
     </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
     <div class="summary-card stop-loss">
-        <div class="summary-icon">🛑</div>
-        <div class="summary-label">Stop Loss</div>
-        <div class="summary-value">${stop_loss:,.2f}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
+            <div>
+                <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
+                <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
+            </div>
+        </div>
     </div>
     <div class="summary-card">
-        <div class="summary-icon">🌀</div>
-        <div class="summary-label">Est. Spins</div>
-        <div class="summary-value">{estimated_spins}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
+                <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
+            </div>
+        </div>
     </div>
     <div class="summary-card {strategy_classes[strategy_type]}">
-        <div class="summary-icon">📊</div>
-        <div class="summary-label">Strategy</div>
-        <div class="summary-value">{strategy_type}</div>
-        <div class="strategy-tag {strategy_classes[strategy_type]}">{strategy_type}</div>
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">📊</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Strategy</div>
+                <div style="font-size:0.9rem; font-weight:bold;">{strategy_type}</div>
+            </div>
+        </div>
     </div>
 </div>
 """
 
-# Add streak indicators
-if win_streak_factor > 1:
-    streak_indicator = f"🔥 Hot Streak Boost: +{int((win_streak_factor-1)*100)}%"
-elif win_streak_factor < 1:
-    streak_indicator = f"❄️ Cold Streak Reduction: -{int((1-win_streak_factor)*100)}%"
-else:
-    streak_indicator = "➖ Neutral Streak"
-
-if volatility_adjustment > 1:
-    vol_indicator = f"📈 Low Volatility: +{int((volatility_adjustment-1)*100)}%"
-elif volatility_adjustment < 1:
-    vol_indicator = f"📉 High Volatility: -{int((1-volatility_adjustment)*100)}%"
-else:
-    vol_indicator = "📊 Medium Volatility"
-
-summary_html += f"""
-<div style="display:flex; justify-content:space-between; margin:10px 0; font-size:0.9em;">
-    <div style="padding:5px 10px; background:#f0f7ff; border-radius:5px;">{streak_indicator}</div>
-    <div style="padding:5px 10px; background:#f0f7ff; border-radius:5px;">{vol_indicator}</div>
-</div>
-"""
+# Add compact streak indicators
+if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
+    indicators = []
+    if win_streak_factor > 1:
+        indicators.append(f"🔥 +{int((win_streak_factor-1)*100)}%")
+    elif win_streak_factor < 1:
+        indicators.append(f"❄️ -{int((1-win_streak_factor)*100)}%")
+        
+    if volatility_adjustment > 1:
+        indicators.append(f"📈 +{int((volatility_adjustment-1)*100)}%")
+    elif volatility_adjustment < 1:
+        indicators.append(f"📉 -{int((1-volatility_adjustment)*100)}%")
+        
+    if indicators:
+        summary_html += f"""
+        <div style="display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;">
+            <div style="font-weight:bold;">Active Adjustments:</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                {''.join([f'<div>{ind}</div>' for ind in indicators])}
+            </div>
+        </div>
+        """
 
 # Render the HTML summary
 st.markdown(summary_html, unsafe_allow_html=True)

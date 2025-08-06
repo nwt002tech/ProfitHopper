@@ -156,7 +156,7 @@ def render_sidebar():
         
         # Casino selection
         new_casino = st.text_input("Add New Casino")
-        if new_casino and new极asino not in st.session_state.casino_list:
+        if new_casino and new_casino not in st.session_state.casino_list:
             st.session_state.casino_list.append(new_casino)
             st.session_state.casino_list.sort()
             st.session_state.trip_settings['casino'] = new_casino
