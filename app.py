@@ -90,8 +90,8 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Metric Cards - FIXED TO SHOW ON SINGLE LINE
-st.markdown("""
+# Metric Cards - FIXED TO SHOW ON SINGLE LINE WITH PROPER VALUE INTERPOLATION
+st.markdown(f"""
 <div class="compact-summary" style="display: flex; flex-wrap: nowrap; gap: 10px; margin-bottom: 15px;">
     <div style="flex: 1; min-width: 100px;">
         <div style='
@@ -132,7 +132,7 @@ st.markdown("""
     <div style="flex: 1; min-width: 100px;">
         <div style='
             background: white;
-            border-radius: 8px;
+            border-radius: 8极;
             padding: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             border: 1px solid #e0e0e0;
@@ -218,7 +218,7 @@ with tab1:
         elif advantage_filter == "Low (1-2)":
             filtered_games = filtered_games[filtered_games['advantage_play_potential'] <= 2]
             
-        if volatility_filter == "Low (1-2)":
+        if volatility_filter == "Low (极-2)":
             filtered_games = filtered_games[filtered_games['volatility'] <= 2]
         elif volatility_filter == "Medium (3)":
             filtered_games = filtered_games[filtered_games['volatility'] == 3]
