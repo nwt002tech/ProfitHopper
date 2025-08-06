@@ -64,15 +64,7 @@ except Exception as e:
     bet_unit = 5.0
     estimated_spins = 50
 
-# Strategy classes for styling
-strategy_classes = {
-    "Conservative": "strategy-conservative",
-    "Moderate": "strategy-moderate",
-    "Standard": "strategy-standard",
-    "Aggressive": "strategy-aggressive"
-}
-
-# --- COMPACT SESSION SUMMARY HTML ---
+# Create compact session summary
 summary_html = f"""
 <style>
 .summary-container {{
@@ -92,7 +84,7 @@ summary_html = f"""
         'Moderate': '#17a2b8', 
         'Standard': '#ffc107',
         'Aggressive': '#dc3545'
-    }}[strategy_type];
+    }}['{strategy_type}'];
 }}
 .metrics-row {{
     display: flex;
@@ -106,7 +98,7 @@ summary_html = f"""
     padding: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     border: 1px solid #e0e0e0;
-    min-width: 0; /* Allows text truncation */
+    min-width: 0;
 }}
 </style>
 
@@ -129,9 +121,9 @@ summary_html = f"""
         <div class="metric-card">
             <div style="display:flex; align-items:center;">
                 <div style="font-size:1.2rem; margin-right:8px;">💰</div>
-                <div style="overflow:hidden;">
-                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Bankroll</div>
-                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${current_bankroll:,.2f}</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
                 </div>
             </div>
         </div>
@@ -139,9 +131,9 @@ summary_html = f"""
         <div class="metric-card">
             <div style="display:flex; align-items:center;">
                 <div style="font-size:1.2rem; margin-right:8px;">💵</div>
-                <div style="overflow:hidden;">
-                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Session</div>
-                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${session_bankroll:,.2f}</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
                 </div>
             </div>
         </div>
@@ -149,9 +141,9 @@ summary_html = f"""
         <div class="metric-card">
             <div style="display:flex; align-items:center;">
                 <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
-                <div style="overflow:hidden;">
-                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Unit</div>
-                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${bet_unit:,.2f}</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
                 </div>
             </div>
         </div>
@@ -159,7 +151,7 @@ summary_html = f"""
 </div>
 """
 
-# Active adjustment indicators...
+# Active adjustment indicators
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
     if win_streak_factor > 1:
