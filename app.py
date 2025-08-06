@@ -7,19 +7,19 @@ from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 
+# Fix for inotify instance limit
+st.set_option('server.fileWatcherType', 'poll')
+
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
 
-# Initialize state before any other operations
 initialize_trip_state()
 
 st.markdown(get_css(), unsafe_allow_html=True)
 st.markdown(get_header(), unsafe_allow_html=True)
 
-# Now render sidebar
 render_sidebar()
 
-# Strategy border colors - DEFINED AT THE TOP
 border_colors = {
     "Conservative": "#28a745",
     "Moderate": "#17a2b8", 
@@ -38,7 +38,7 @@ try:
         max_bet = max(0.01, session_bankroll * 0.10)
         stop_loss = session_bankroll * 0.40
         bet_unit = max(0.01, session_bankroll * 0.02)
-    elif session_bankroll < 100:
+    elif session极ankroll < 100:
         strategy_type = "Moderate"
         max_bet = session_bankroll * 0.15
         stop_loss = session_bankroll * 0.50
@@ -67,8 +67,6 @@ except Exception as e:
     bet_unit = 5.0
     estimated_spins = 50
 
-# --- SESSION SUMMARY SECTION ---
-# Strategy Card (full width)
 st.markdown(f"""
 <div style='
     background: white;
@@ -90,8 +88,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Metric Cards - FIXED TO SHOW ON SINGLE LINE WITH PROPER VALUE INTERPOLATION
-st.markdown(f"""  # <-- This is the critical fix: added the 'f' prefix
+st.markdown(f"""
 <div class="compact-summary" style="display: flex; flex-wrap: nowrap; gap: 10px; margin-bottom: 15px;">
     <div style="flex: 1; min-width: 100px;">
         <div style='
@@ -149,7 +146,6 @@ st.markdown(f"""  # <-- This is the critical fix: added the 'f' prefix
 </div>
 """, unsafe_allow_html=True)
 
-# Active adjustment indicators
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
     if win_streak_factor > 1:
@@ -172,7 +168,6 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
         </div>
         """, unsafe_allow_html=True)
 
-# Main tabs - YOUR GAME CARDS ARE ALL HERE!
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
 with tab1:
@@ -202,7 +197,6 @@ with tab1:
                                                ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
                 search_query = st.text_input("Search Game Name")
 
-        # Apply filters
         filtered_games = game_df[
             (game_df['min_bet'] <= max_min_bet) &
             (game_df['rtp'] >= min_rtp)
@@ -230,7 +224,6 @@ with tab1:
                 filtered_games['game_name'].str.contains(search_query, case=False)
             ]
         
-        # Exclude blacklisted games
         blacklisted = get_blacklisted_games()
         if blacklisted:
             filtered_games = filtered_games[~filtered_games['game_name'].isin(blacklisted)]
@@ -238,14 +231,13 @@ with tab1:
         if not filtered_games.empty:
             filtered_games = filtered_games.copy()
 
-            # Enhanced scoring algorithm
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
             bonus_normalized = filtered_games['bonus_frequency']
             app_normalized = filtered_games['advantage_play_potential'] / 5
             volatility_normalized = (5 - filtered_games['volatility']) / 4
             
             bankroll_factor = np.log10(session_bankroll) / 3
-            bet_comfort = np.clip((max_bet - filtered_games['min极et']) / max_bet, 0, 1)
+            bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
             
             filtered_games['Score'] = (
                 (rtp_normalized * 0.30) + 
