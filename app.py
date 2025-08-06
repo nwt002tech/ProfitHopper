@@ -72,29 +72,29 @@ border_colors = {
     "Aggressive": "#dc3545"
 }
 
-# --- SESSION SUMMARY SECTION ---
-st.markdown(f"""
+# Add CSS styles first
+st.markdown("""
 <style>
-.summary-container {{
+.summary-container {
     display: flex;
     flex-direction: column;
     gap: 8px;
     margin-bottom: 15px;
-}}
-.strategy-card {{
+}
+.strategy-card {
     width: 100%;
     background: white;
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
-}}
-.metrics-row {{
+    border-left: 4px solid #ffc107;
+}
+.metrics-row {
     display: flex;
     gap: 8px;
     width: 100%;
-}}
-.metric-card {{
+}
+.metric-card {
     flex: 1;
     background: white;
     border-radius: 8px;
@@ -102,11 +102,14 @@ st.markdown(f"""
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     border: 1px solid #e0e0e0;
     min-width: 0;
-}}
+}
 </style>
+""", unsafe_allow_html=True)
 
+# Add the HTML content with dynamic values
+st.markdown(f"""
 <div class="summary-container">
-    <div class="strategy-card">
+    <div class="strategy-card" style="border-left-color: {border_colors.get(strategy_type, '#ffc107')}">
         <div style="display:flex; align-items:center; justify-content:center;">
             <div style="font-size:1.5rem; margin-right:15px;">📊</div>
             <div style="text-align:center;">
@@ -204,9 +207,9 @@ with tab1:
                 volatility_filter = st.selectbox("Volatility", 
                                                ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
                 search_query = st.text_input("Search Game Name")
-        
-        # Apply filters and scoring (rest of tab1 content remains the same)
-        # ... [rest of your existing tab1 code]
+
+        # Rest of your tab1 content...
+        # [Keep all your existing game recommendation logic here]
 
 with tab2:
     game_df = load_game_data()
