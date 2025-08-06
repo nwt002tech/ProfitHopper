@@ -1,12 +1,7 @@
+import os
+os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'poll'
+
 import streamlit as st
-
-# Fix for inotify instance limit - MUST BE FIRST STREAMLIT COMMAND
-st.set_option('server.fileWatcherType', 'poll')
-
-# Now set page config
-st.set_page_config(layout="wide", initial极_sidebar_state="expanded", 
-                  page_title="Profit Hopper Casino Manager")
-
 import numpy as np
 from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
@@ -14,6 +9,9 @@ from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
+
+st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
+                  page_title="Profit Hopper Casino Manager")
 
 initialize_trip_state()
 
@@ -48,7 +46,7 @@ try:
     elif session_bankroll < 500:
         strategy_type = "Standard"
         max_bet = session_bankroll * 0.25
-        stop_loss = session_bankroll * 0.60  # Fixed typo here
+        stop_loss = session_bankroll * 0.60
         bet_unit = max(0.10, session_bankroll * 0.05)
     else:
         strategy_type = "Aggressive"
@@ -78,7 +76,7 @@ st.markdown(f"""
     border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
     margin-bottom: 8px;
 '>
-    <div style='display:flex; align-items:center; justify-content:center;'>
+    <div style='display:极flex; align-items:center; justify-content:center;'>
         <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
         <div style='text-align:center;'>
             <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
@@ -370,7 +368,7 @@ with tab1:
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
                         </div>
-                        <div class="ph-game-d极ail">
+                        <div class="ph-game-detail">
                             <strong>🔢 RTP:</strong> {row['rtp']:.2f}%
                         </div>
                         <div class="ph-game-detail">
