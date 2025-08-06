@@ -75,33 +75,44 @@ strategy_classes = {
 # --- COMPACT SESSION SUMMARY HTML ---
 summary_html = f"""
 <style>
-.summary-row {{
+.summary-container {{
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 8px;
-    margin-bottom: 8px;
+    margin-bottom: 15px;
 }}
-.full-width-card {{
-    flex: 1 0 100%;
+.strategy-card {{
+    width: 100%;
     background: white;
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid #e0e0e0;
+    border-left: 4px solid {{
+        'Conservative': '#28a745',
+        'Moderate': '#17a2b8', 
+        'Standard': '#ffc107',
+        'Aggressive': '#dc3545'
+    }}[strategy_type];
 }}
-.third-width-card {{
+.metrics-row {{
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}}
+.metric-card {{
     flex: 1;
-    min-width: 200px;
     background: white;
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     border: 1px solid #e0e0e0;
+    min-width: 0; /* Allows text truncation */
 }}
 </style>
 
-<div class="summary-row">
-    <div class="full-width-card {strategy_classes[strategy_type]}">
+<div class="summary-container">
+    <!-- STRATEGY CARD (FULL WIDTH) -->
+    <div class="strategy-card">
         <div style="display:flex; align-items:center; justify-content:center;">
             <div style="font-size:1.5rem; margin-right:15px;">📊</div>
             <div style="text-align:center;">
@@ -112,40 +123,43 @@ summary_html = f"""
             </div>
         </div>
     </div>
-</div>
 
-<div class="summary-row">
-    <div class="third-width-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">💰</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
+    <!-- METRICS ROW (BANKROLL, SESSION, UNIT) -->
+    <div class="metrics-row">
+        <div class="metric-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">💰</div>
+                <div style="overflow:hidden;">
+                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Bankroll</div>
+                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${current_bankroll:,.2f}</div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="third-width-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">💵</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
+        
+        <div class="metric-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">💵</div>
+                <div style="overflow:hidden;">
+                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Session</div>
+                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${session_bankroll:,.2f}</div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="third-width-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
+        
+        <div class="metric-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
+                <div style="overflow:hidden;">
+                    <div style="font-size:0.7rem; color:#7f8c8d; white-space:nowrap;">Unit</div>
+                    <div style="font-size:0.9rem; font-weight:bold; overflow:hidden; text-overflow:ellipsis;">${bet_unit:,.2f}</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 """
 
-# Active adjustment indicators
+# Active adjustment indicators...
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
     if win_streak_factor > 1:
