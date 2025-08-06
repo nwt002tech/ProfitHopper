@@ -77,70 +77,78 @@ strategy_classes = {
 
 # --- COMPACT SESSION SUMMARY HTML ---
 summary_html = f"""
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
-    <div class="summary-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">💰</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
+<div style="margin-bottom: 15px;">
+    <!-- STRATEGY CARD (FULL WIDTH) -->
+    <div class="summary-card {strategy_classes[strategy_type]}" style="margin-bottom: 8px;">
+        <div style="display:flex; align-items:center; justify-content: center;">
+            <div style="font-size:1.5rem; margin-right:15px;">📊</div>
+            <div style="text-align: center;">
+                <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
+                <div style="font-size:0.8rem; color:#7f8c8d;">
+                    Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Unit: ${bet_unit:,.2f}
+                </div>
             </div>
         </div>
     </div>
-    <div class="summary-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">💵</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    <div class="summary-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    <div class="summary-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
-                <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px;">
-    <div class="summary-card stop-loss">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
-            <div>
-                <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
-                <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
+    <!-- SECOND ROW: BANKROLL, SESSION, UNIT -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
+        <div class="summary-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">💰</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
+                </div>
+            </div>
+        </div>
+        <div class="summary-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">💵</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
+                </div>
+            </div>
+        </div>
+        <div class="summary-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="summary-card">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
-                <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
+
+    <!-- THIRD ROW: MAX BET, STOP LOSS, SPINS -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+        <div class="summary-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="summary-card {strategy_classes[strategy_type]}">
-        <div style="display:flex; align-items:center;">
-            <div style="font-size:1.2rem; margin-right:8px;">📊</div>
-            <div>
-                <div style="font-size:0.7rem; color:#7f8c8d;">Strategy</div>
-                <div style="font-size:0.9rem; font-weight:bold;">{strategy_type}</div>
+        <div class="summary-card stop-loss">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
+                    <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
+                </div>
+            </div>
+        </div>
+        <div class="summary-card">
+            <div style="display:flex; align-items:center;">
+                <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
+                <div>
+                    <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
+                    <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
+                </div>
             </div>
         </div>
     </div>
