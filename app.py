@@ -19,42 +19,53 @@ st.markdown(get_header(), unsafe_allow_html=True)
 # Now render sidebar
 render_sidebar()
 
-current_bankroll = get_current_bankroll()
-session_bankroll = get_session_bankroll()
+# --- DYNAMIC STRATEGY CALCULATIONS (WITH ERROR HANDLING) ---
+try:
+    current_bankroll = get_current_bankroll()
+    session_bankroll = get_session_bankroll()
+    volatility_adjustment = get_volatility_adjustment()
+    win_streak_factor = get_win_streak_factor()  # CORRECTED VARIABLE NAME
 
-# Dynamic strategy adjustments
-volatility_adjustment = get_volatility_adjustment()
-win_st极eak_factor = get_win_streak_factor()
+    # Bankroll-sensitive strategy
+    if session_bankroll < 20:
+        strategy_type = "Conservative"
+        max_bet = max(0.01, session_bankroll * 0.10)
+        stop_loss = session_bankroll * 0.40
+        bet_unit = max(0.01, session_bankroll * 0.02)
+    elif session_bankroll < 100:
+        strategy_type = "Moderate"
+        max_bet = session_bankroll * 0.15
+        stop_loss = session_bankroll * 0.50
+        bet_unit = max(0.05, session_bankroll * 0.03)
+    elif session_bankroll < 500:
+        strategy_type = "Standard"
+        max_bet = session_bankroll * 0.25
+        stop_loss = session_bankroll * 0.60
+        bet_unit = max(0.10, session_bankroll * 0.05)
+    else:
+        strategy_type = "Aggressive"
+        max_bet = session_bankroll * 0.30
+        stop_loss = session_bankroll * 0.70
+        bet_unit = max(0.25, session_bankroll * 0.06)
 
-# Enhanced bankroll-sensitive calculations
-if session_bankroll < 20:
-    strategy_type = "Conservative"
-    max_bet = max(0.01, session_bankroll * 0.10)
-    stop_loss = session_bankroll * 0.40
-    bet_unit = max(0.01, session_bankroll * 0.02)
-elif session_bankroll < 100:
-    strategy_type = "Moderate"
-    max_bet = session_bankroll * 0.15
-    stop_loss = session_bankroll * 0.50
-    bet_unit = max(0.05, session_bankroll * 0.03)
-elif session_bankroll < 500:
+    # Apply dynamic adjustments
+    max_bet *= win_streak_factor * volatility_adjustment
+    stop_loss *= (2 - win_streak_factor)
+    bet_unit *= win_streak_factor * volatility_adjustment
+
+    # Calculate session duration estimate
+    estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
+
+except Exception as e:
+    st.error(f"⚠️ Strategy calculation error: Using fallback values. Error: {str(e)}")
+    # Fallback defaults
     strategy_type = "Standard"
-    max_bet = session_bankroll * 0.25
-    stop_loss = session_bankroll * 0.60
-    bet_unit = max(0.10, session_bankroll * 0.05)
-else:
-    strategy_type = "Aggressive"
-    max_bet = session_bankroll * 0.30
-    stop_loss = session_bankroll * 0.70
-    bet_unit = max(0.25, session_bankroll * 0.06)
-
-# Apply dynamic adjustments
-max_bet *= win_streak_factor * volatility_adjustment
-stop_loss *= (2 - win_streak_factor)  # Inverse relationship to streak
-bet_unit *= win_streak_factor * volatility_adjustment
-
-# Calculate session duration estimate
-estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
+    max_bet = 25.0
+    stop_loss = 100.0
+    bet_unit = 5.0
+    estimated_spins = 50
+    win_streak_factor = 1.0
+    volatility_adjustment = 1.0
 
 # Strategy classes for styling
 strategy_classes = {
@@ -64,7 +75,7 @@ strategy_classes = {
     "Aggressive": "strategy-aggressive"
 }
 
-# Create compact session summary
+# --- COMPACT SESSION SUMMARY HTML ---
 summary_html = f"""
 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px;">
     <div class="summary-card">
@@ -91,7 +102,7 @@ summary_html = f"""
             <div>
                 <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
                 <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
-            </极div>
+            </div>
         </div>
     </div>
     <div class="summary-card">
@@ -136,7 +147,7 @@ summary_html = f"""
 </div>
 """
 
-# Add compact streak indicators
+# Active adjustment indicators
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
     if win_streak_factor > 1:
@@ -159,9 +170,9 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
         </div>
         """
 
-# Render the HTML summary
 st.markdown(summary_html, unsafe_allow_html=True)
 
+# --- MAIN TAB INTERFACE ---
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
 with tab1:
@@ -228,73 +239,57 @@ with tab1:
             filtered_games = filtered_games.copy()
 
             # Enhanced scoring algorithm
-            # Normalize factors to comparable scales
             rtp_normalized = (filtered_games['rtp'] - 85) / (99.9 - 85)
-            bonus_normalized = filtered_games['bonus_frequency']  # Already 0-1
+            bonus_normalized = filtered_games['bonus_frequency']
             app_normalized = filtered_games['advantage_play_potential'] / 5
-            volatility_normalized = (5 - filtered_games['volatility']) / 4  # Invert scale
+            volatility_normalized = (5 - filtered_games['volatility']) / 4
             
-            # Bankroll-adjusted factors
-            bankroll_factor = np.log10(session_bankroll) / 3  # Scale based on bankroll size
-            
-            # Risk-adjusted bet comfort
+            bankroll_factor = np.log10(session_bankroll) / 3
             bet_comfort = np.clip((max_bet - filtered_games['min_bet']) / max_bet, 0, 1)
             
-            # Calculate score with dynamic weights
             filtered_games['Score'] = (
                 (rtp_normalized * 0.30) + 
                 (bonus_normalized * 0.20) +
-                (app_normalized * 0.25) +  # Increased weight for advantage play
-                (volatility_normalized * 0.10) +  # Reduced volatility weight
+                (app_normalized * 0.25) +
+                (volatility_normalized * 0.10) +
                 (bet_comfort * 0.05)
             ) * 10
             
-            # Penalize games that don't fit bankroll strategy
-            # Higher penalty for small bankrolls
             bankroll_penalty_factor = 1.5 if session_bankroll < 20 else 1.0
             
-            # Define threshold for min_bet penalty based on strategy
             if strategy_type == "Aggressive":
                 threshold_factor = 0.75
             else:
                 threshold_factor = 0.5
                 
-            # Min bet penalty
             min_bet_penalty = np.where(
                 filtered_games['min_bet'] > max_bet * threshold_factor,
                 0.6 * bankroll_penalty_factor,
                 1.0
             )
             
-            # Volatility penalty
             volatility_penalty = np.where(
                 (session_bankroll < 50) & (filtered_games['volatility'] >= 4),
                 0.7,
                 1.0
             )
             
-            # Apply penalties
             filtered_games['Score'] = filtered_games['Score'] * min_bet_penalty
             filtered_games['Score'] = filtered_games['Score'] * volatility_penalty
             
-            # Sort by score descending
             filtered_games = filtered_games.sort_values('Score', ascending=False)
             
-            # Get recommended games for the number of sessions
             num_sessions = st.session_state.trip_settings['num_sessions']
             recommended_games = filtered_games.head(num_sessions)
             
-            # Consolidated game recommendations
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
             st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
             st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility")
             st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
             if not recommended_games.empty:
-                # Display games in play order with session numbers
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                 for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
-                    # Add image link to game card
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
@@ -336,7 +331,6 @@ with tab1:
                     """
                     st.markdown(session_card, unsafe_allow_html=True)
                     
-                    # Add swipe/not available button
                     if st.button(f"🚫 Not Available - {row['game_name']}", 
                                 key=f"not_available_{row['game_name']}_{i}",
                                 use_container_width=True,
@@ -349,7 +343,6 @@ with tab1:
             else:
                 st.warning("Not enough games match your criteria for all sessions")
             
-            # Show additional matching games
             extra_games = filtered_games[~filtered_games.index.isin(recommended_games.index)]
             if not extra_games.empty:
                 st.subheader(f"➕ {len(extra_games)} Additional Recommended Games")
@@ -357,7 +350,6 @@ with tab1:
                 
                 st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                 for _, row in extra_games.head(20).iterrows():
-                    # Add image link to game card
                     game_card = f"""
                     <div class="ph-game-card">
                         <div class="ph-game-title">
