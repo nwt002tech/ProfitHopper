@@ -19,14 +19,13 @@ st.markdown(get_header(), unsafe_allow_html=True)
 # Now render sidebar
 render_sidebar()
 
-# --- DYNAMIC STRATEGY CALCULATIONS (WITH ERROR HANDLING) ---
 try:
     current_bankroll = get_current_bankroll()
     session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
-    win_streak_factor = get_win_streak_factor()  # CORRECTED VARIABLE NAME
+    win_streak_factor = get_win_streak_factor()
 
-    # Bankroll-sensitive strategy
+    # Enhanced bankroll-sensitive calculations
     if session_bankroll < 20:
         strategy_type = "Conservative"
         max_bet = max(0.01, session_bankroll * 0.10)
@@ -57,15 +56,13 @@ try:
     estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 except Exception as e:
-    st.error(f"⚠️ Strategy calculation error: Using fallback values. Error: {str(e)}")
-    # Fallback defaults
+    st.error(f"Error calculating strategy: {str(e)}")
+    # Fallback values
     strategy_type = "Standard"
     max_bet = 25.0
     stop_loss = 100.0
     bet_unit = 5.0
     estimated_spins = 50
-    win_streak_factor = 1.0
-    volatility_adjustment = 1.0
 
 # Strategy classes for styling
 strategy_classes = {
@@ -75,14 +72,39 @@ strategy_classes = {
     "Aggressive": "strategy-aggressive"
 }
 
-# --- COMPACT SESSION SUMMARY HTML ---
+# Create compact session summary
 summary_html = f"""
-<div style="margin-bottom: 15px;">
-    <!-- STRATEGY CARD (FULL WIDTH) -->
-    <div class="summary-card {strategy_classes[strategy_type]}" style="margin-bottom: 8px;">
-        <div style="display:flex; align-items:center; justify-content: center;">
+<style>
+.summary-row {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}}
+.full-width-card {{
+    flex: 1 0 100%;
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e0e0e0;
+}}
+.third-width-card {{
+    flex: 1;
+    min-width: 200px;
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e0e0e0;
+}}
+</style>
+
+<div class="summary-row">
+    <div class="full-width-card {strategy_classes[strategy_type]}">
+        <div style="display:flex; align-items:center; justify-content:center;">
             <div style="font-size:1.5rem; margin-right:15px;">📊</div>
-            <div style="text-align: center;">
+            <div style="text-align:center;">
                 <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
                 <div style="font-size:0.8rem; color:#7f8c8d;">
                     Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Unit: ${bet_unit:,.2f}
@@ -90,65 +112,63 @@ summary_html = f"""
             </div>
         </div>
     </div>
+</div>
 
-    <!-- SECOND ROW: BANKROLL, SESSION, UNIT -->
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
-        <div class="summary-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">💰</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
-                </div>
-            </div>
-        </div>
-        <div class="summary-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">💵</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
-                </div>
-            </div>
-        </div>
-        <div class="summary-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
-                </div>
+<div class="summary-row">
+    <div class="third-width-card">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">💰</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Bankroll</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${current_bankroll:,.2f}</div>
             </div>
         </div>
     </div>
+    <div class="third-width-card">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">💵</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Session</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${session_bankroll:,.2f}</div>
+            </div>
+        </div>
+    </div>
+    <div class="third-width-card">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🪙</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Unit</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${bet_unit:,.2f}</div>
+            </div>
+        </div>
+    </div>
+</div>
 
-    <!-- THIRD ROW: MAX BET, STOP LOSS, SPINS -->
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-        <div class="summary-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
-                </div>
+<div class="summary-row">
+    <div class="third-width-card">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">⬆️</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Max Bet</div>
+                <div style="font-size:0.9rem; font-weight:bold;">${max_bet:,.2f}</div>
             </div>
         </div>
-        <div class="summary-card stop-loss">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
-                    <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
-                </div>
+    </div>
+    <div class="third-width-card stop-loss">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🛑</div>
+            <div>
+                <div style="font-size:0.7rem; color:#e74c3c;">Stop Loss</div>
+                <div style="font-size:0.9rem; font-weight:bold; color:#e74c3c;">${stop_loss:,.2f}</div>
             </div>
         </div>
-        <div class="summary-card">
-            <div style="display:flex; align-items:center;">
-                <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
-                <div>
-                    <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
-                    <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
-                </div>
+    </div>
+    <div class="third-width-card">
+        <div style="display:flex; align-items:center;">
+            <div style="font-size:1.2rem; margin-right:8px;">🌀</div>
+            <div>
+                <div style="font-size:0.7rem; color:#7f8c8d;">Spins</div>
+                <div style="font-size:0.9rem; font-weight:bold;">{estimated_spins}</div>
             </div>
         </div>
     </div>
@@ -180,7 +200,6 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
 
 st.markdown(summary_html, unsafe_allow_html=True)
 
-# --- MAIN TAB INTERFACE ---
 tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
 
 with tab1:
