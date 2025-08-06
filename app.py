@@ -29,7 +29,7 @@ border_colors = {
 
 try:
     current_bankroll = get_current_bankroll()
-    session_bankroll = get_session_bankroll()
+    session_bankroll = get_session极ankroll()
     volatility_adjustment = get_volatility_adjustment()
     win_streak_factor = get_win_streak_factor()
 
@@ -76,7 +76,7 @@ st.markdown(f"""
     border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
     margin-bottom: 8px;
 '>
-    <div style='display:极flex; align-items:center; justify-content:center;'>
+    <div style='display:flex; align-items:center; justify-content:center;'>
         <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
         <div style='text-align:center;'>
             <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
@@ -88,63 +88,65 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(f"""
-<div class="compact-summary" style="display: flex; flex-wrap: nowrap; gap: 10px; margin-bottom: 15px;">
-    <div style="flex: 1; min-width: 100px;">
-        <div style='
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
-        '>
-            <div style='display:flex; align-items:center;'>
-                <div style='font-size:1.2rem; margin-right:8px;'>💰</div>
-                <div>
-                    <div style='font-size:0.7rem; color:#7f8c8d;'>Bankroll</div>
-                    <div style='font-size:0.9rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
-                </div>
+# Metric Cards - FIXED TO SHOW ON SINGLE LINE WITH PROPER VALUE INTERPOLATION
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>💰</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Bankroll</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
             </div>
         </div>
     </div>
-    
-    <div style="flex: 1; min-width: 100px;">
-        <div style='
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
-        '>
-            <div style='display:flex; align-items:center;'>
-                <div style='font-size:1.2rem; margin-right:8px;'>💵</div>
-                <div>
-                    <div style='font-size:0.7rem; color:#7f8c8d;'>Session</div>
-                    <div style='font-size:0.9rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
-                </div>
+    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
+
+with col2:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>💵</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Session</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
             </div>
         </div>
     </div>
-    
-    <div style="flex: 1; min-width: 100px;">
-        <div style='
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
-        '>
-            <div style='display:flex; align-items:center;'>
-                <div style='font-size:1.2rem; margin-right:8px;'>🪙</div>
-                <div>
-                    <div style='font-size:0.7rem; color:#7f8c8d;'>Unit</div>
-                    <div style='font-size:0.9rem; font-weight:bold;'>${bet_unit:,.2f}</div>
-                </div>
+    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
+
+with col3:
+    st.markdown(f"""
+    <div style='
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+    '>
+        <div style='display:flex; align-items:center;'>
+            <div style='font-size:1.2rem; margin-right:8px;'>🪙</div>
+            <div>
+                <div style='font-size:0.7rem; color:#7f8c8d;'>Unit</div>
+                <div style='font-size:0.9rem; font-weight:bold;'>${bet_unit:,.2f}</div>
             </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
 
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
@@ -285,7 +287,7 @@ with tab1:
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
-                                    border-radius:50%; width:30px; height:30px; display:flex; 
+                                    border-radius:50%; width:30极; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
