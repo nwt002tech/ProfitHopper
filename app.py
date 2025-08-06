@@ -29,7 +29,7 @@ border_colors = {
 
 try:
     current_bankroll = get_current_bankroll()
-    session_bankroll = get_session极ankroll()
+    session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
     win_streak_factor = get_win_streak_factor()
 
