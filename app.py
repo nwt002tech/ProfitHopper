@@ -80,7 +80,7 @@ st.markdown(f"""
         <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
         <div style='text-align:center;'>
             <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
-            <极div style='font-size:0.8rem; color:#7f8c8d;'>
+            <div style='font-size:0.8rem; color:#7f8c8d;'>
                 Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
             </div>
         </div>
