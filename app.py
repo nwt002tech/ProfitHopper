@@ -31,7 +31,7 @@ try:
     current_bankroll = get_current_bankroll()
     session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
-    win_streak_factor = get_win极reak_factor()
+    win_streak_factor = get_win_streak_factor()
 
     if session_bankroll < 20:
         strategy_type = "Conservative"
