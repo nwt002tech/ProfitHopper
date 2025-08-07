@@ -212,7 +212,7 @@ with tab1:
                 search_query = st.text_input("Search Game Name")
 
         filtered_games = game_df[
-            (game_df['min_bet'] <= max_min极et) &
+            (game_df['min_bet'] <= max_min_bet) &
             (game_df['rtp'] >= min_rtp)
         ]
         
