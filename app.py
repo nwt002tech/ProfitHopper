@@ -7,7 +7,7 @@ from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
 from data_loader import load_game_data
 from analytics import render_analytics
-from session_manager import render_session_tracker
+from session_manager import render_session极racker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
@@ -88,50 +88,32 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# BULLETPROF SOLUTION - Using identical height containers
+# GUARANTEED SOLUTION - Using Streamlit's native st.metric
 col1, col2, col3 = st.columns(3)
 
-# Define a common container style
-card_style = """
-    background: white;
-    border-radius: 8px;
-    padding: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid #e0e0e0;
-    height: 85px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-"""
-
+# Bankroll Card
 with col1:
-    st.markdown(f"""
-    <div style='{card_style}'>
-        <div style='font-size:1.5rem;'>💰</div>
-        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Bankroll</div>
-        <div style='font-size:1.1rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        label="💰 Bankroll",
+        value=f"${current_bankroll:,.2f}",
+        label_visibility="visible"
+    )
 
+# Session Card
 with col2:
-    st.markdown(f"""
-    <div style='{card_style}'>
-        <div style='font-size:1.5rem;'>💵</div>
-        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Session</div>
-        <div style='font-size:1.1rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        label="💵 Session",
+        value=f"${session_bankroll:,.2f}",
+        label_visibility="visible"
+    )
 
+# Unit Card
 with col3:
-    st.markdown(f"""
-    <div style='{card_style}'>
-        <div style='font-size:1.5rem;'>🪙</div>
-        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Unit</div>
-        <div style='font-size:1.1rem; font-weight:bold;'>${bet_unit:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.metric(
+        label="🪙 Unit",
+        value=f"${bet_unit:,.2f}",
+        label_visibility="visible"
+    )
 
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
@@ -350,7 +332,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                            <strong极>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
