@@ -88,35 +88,47 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# SIMPLE FIX - Using Streamlit columns with fixed height containers
+# BULLETPROF SOLUTION - Using identical height containers
 col1, col2, col3 = st.columns(3)
 
+# Define a common container style
+card_style = """
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #e0e0e0;
+    height: 85px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+"""
+
 with col1:
-    container = st.container(height=90)
-    container.markdown(f"""
-    <div style='text-align:center; padding:10px;'>
+    st.markdown(f"""
+    <div style='{card_style}'>
         <div style='font-size:1.5rem;'>💰</div>
-        <div style='font-size:0.8rem; color:#7f8c8d;'>Bankroll</div>
+        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Bankroll</div>
         <div style='font-size:1.1rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col2:
-    container = st.container(height=90)
-    container.markdown(f"""
-    <div style='text-align:center; padding:10px;'>
+    st.markdown(f"""
+    <div style='{card_style}'>
         <div style='font-size:1.5rem;'>💵</div>
-        <div style='font-size:0.8rem; color:#7f8c8d;'>Session</div>
+        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Session</div>
         <div style='font-size:1.1rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
     </div>
     """, unsafe_allow_html=True)
 
 with col3:
-    container = st.container(height=90)
-    container.markdown(f"""
-    <div style='text-align:center; padding:10px;'>
+    st.markdown(f"""
+    <div style='{card_style}'>
         <div style='font-size:1.5rem;'>🪙</div>
-        <div style='font-size:0.8rem; color:#7f8c8d;'>Unit</div>
+        <div style='font-size:0.8rem; color:#7f8c8d; margin-top:5px;'>Unit</div>
         <div style='font-size:1.1rem; font-weight:bold;'>${bet_unit:,.2f}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -269,7 +281,7 @@ with tab1:
                                 target="_blank" 
                                 style="color: #2c3e50; text-decoration: none;">
                                 {row['game_name']} 
-                                <span style="font-size:0.8em; color:#7极8c8d;">(view image ↗)</span>
+                                <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
                             </a>
                         </div>
                         <div class="ph-game-score">⭐ Score: {row['Score']:.1f}/10</div>
