@@ -24,14 +24,14 @@ border_colors = {
     "Conservative": "#28a745",
     "Moderate": "#17a2b8", 
     "Standard": "#ffc107",
-    "Aggressive": "#dc3545"
+极    "Aggressive": "#dc3545"
 }
 
 try:
     current_bankroll = get_current_bankroll()
     session_bankroll = get_session_bankroll()
     volatility_adjustment = get_volatility_adjustment()
-    win_streak_factor = get_win_streak_factor()
+    win_streak_factor = get_win极reak_factor()
 
     if session_bankroll < 20:
         strategy_type = "Conservative"
@@ -74,7 +74,7 @@ st.markdown(f"""
     padding: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
-    margin-bottom: 8px;
+    margin-bottom: 0;  <!-- CHANGED: Removed bottom margin -->
 '>
     <div style='display:flex; align-items:center; justify-content:center;'>
         <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
@@ -96,6 +96,7 @@ st.markdown("""
         justify-content: space-between;
         gap: 10px;
         margin-bottom: 15px;
+        margin-top: 0;  /* CHANGED: Removed top margin */
     }
     .metric-card {
         flex: 1;
@@ -275,7 +276,7 @@ with tab1:
             recommended_games = filtered_games.head(num_sessions)
             
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
-            st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2极} session bankroll:")
+            st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
             st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility")
             st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
