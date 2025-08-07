@@ -142,35 +142,48 @@ def render_sidebar():
         </div>
         """, unsafe_allow_html=True)
         # Casino selection
+        # New casino text input: simply add to the casino list but do not modify trip settings yet
         new_casino = st.text_input("Add New Casino")
         if new_casino and new_casino not in st.session_state.casino_list:
             st.session_state.casino_list.append(new_casino)
             st.session_state.casino_list.sort()
-            st.session_state.trip_settings['casino'] = new_casino
             st.success(f"Added {new_casino} to casino list")
-        casino = st.selectbox("Casino",
-                             options=st.session_state.casino_list,
-                             index=st.session_state.casino_list.index(
-                                 st.session_state.trip_settings['casino']
-                             ) if st.session_state.trip_settings['casino'] in st.session_state.casino_list else 0,
-                             key='casino_select')
-        st.session_state.trip_settings['casino'] = casino
+        # Use the previously selected casino from trip_settings as the default index for the selectbox
+        default_casino_idx = 0
+        if st.session_state.trip_settings.get('casino') in st.session_state.casino_list:
+            default_casino_idx = st.session_state.casino_list.index(st.session_state.trip_settings['casino'])
+        # Present the casino selection widget but avoid writing to trip_settings on every rerender
+        selected_casino = st.selectbox(
+            "Casino",
+            options=st.session_state.casino_list,
+            index=default_casino_idx,
+            key='casino_select'
+        )
         # Bankroll and sessions inputs
-        starting_bankroll = st.number_input("Starting Bankroll ($)",
-                                           min_value=0.0,
-                                           value=st.session_state.trip_settings['starting_bankroll'],
-                                           step=100.0,
-                                           format="%.2f",
-                                           key='bankroll_input')
-        st.session_state.trip_settings['starting_bankroll'] = starting_bankroll
-        num_sessions = st.number_input("Number of Sessions",
-                                      min_value=1,
-                                      value=st.session_state.trip_settings['num_sessions'],
-                                      step=1,
-                                      key='session_count_input')
-        st.session_state.trip_settings['num_sessions'] = num_sessions
+        # These widgets use keys to maintain internal state; do not update trip_settings on each rerender
+        default_bankroll = st.session_state.trip_settings.get('starting_bankroll', 100.0)
+        starting_bankroll = st.number_input(
+            "Starting Bankroll ($)",
+            min_value=0.0,
+            value=default_bankroll,
+            step=100.0,
+            format="%.2f",
+            key='bankroll_input'
+        )
+        default_sessions = st.session_state.trip_settings.get('num_sessions', 10)
+        num_sessions = st.number_input(
+            "Number of Sessions",
+            min_value=1,
+            value=int(default_sessions),
+            step=1,
+            key='session_count_input'
+        )
         # Start new trip button with trip_started logic
         if st.button("Start New Trip"):
+            # When the user starts a new trip, commit the selected values to trip_settings
+            st.session_state.trip_settings['casino'] = selected_casino
+            st.session_state.trip_settings['starting_bankroll'] = float(starting_bankroll)
+            st.session_state.trip_settings['num_sessions'] = int(num_sessions)
             if not st.session_state.trip_started:
                 # First time starting a trip
                 st.session_state.trip_started = True
@@ -183,7 +196,11 @@ def render_sidebar():
                 # Subsequent trips increment trip ID and reset logs
                 st.session_state.current_trip_id += 1
                 st.session_state.session_log = []
-                st.session_state.session_performance[st.session_state.current_trip_id] = [] if 'session_performance' in st.session_state else []
+                # Initialize session performance for the new trip
+                if 'session_performance' not in st.session_state:
+                    st.session_state.session_performance = {}
+                st.session_state.session_performance[st.session_state.current_trip_id] = []
+                # Initialize bankroll for new trip
                 st.session_state.trip_bankrolls[st.session_state.current_trip_id] = (
                     st.session_state.trip_settings['starting_bankroll']
                 )
