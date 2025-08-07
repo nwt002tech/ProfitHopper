@@ -56,7 +56,7 @@ try:
 
     max_bet *= win_streak_factor * volatility_adjustment
     stop_loss *= (2 - win_streak_factor)
-    bet_unit *= win极reak_factor * volatility_adjustment
+    bet_unit *= win_streak_factor * volatility_adjustment
     estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 except Exception as e:
