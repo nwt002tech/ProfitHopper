@@ -80,7 +80,7 @@ st.markdown(f"""
         <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
         <div style='text-align:center;'>
             <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
-            <div style='font-size:0.8rem; color:#7f8c8d;'>
+            <极div style='font-size:0.8rem; color:#7f8c8d;'>
                 Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
             </div>
         </div>
@@ -88,32 +88,63 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# GUARANTEED SOLUTION - Using Streamlit's native st.metric
-col1, col2, col3 = st.columns(3)
+# GUARANTEED SOLUTION - Flex container for cards
+st.markdown("""
+<style>
+    .card-container {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .metric-card {
+        flex: 1;
+        background: white;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        height: 100px;
+    }
+    .metric-icon {
+        font-size: 1.5rem;
+        margin-bottom: 5px;
+    }
+    .metric-label {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+    }
+    .metric-value {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Bankroll Card
-with col1:
-    st.metric(
-        label="💰 Bankroll",
-        value=f"${current_bankroll:,.2f}",
-        label_visibility="visible"
-    )
-
-# Session Card
-with col2:
-    st.metric(
-        label="💵 Session",
-        value=f"${session_bankroll:,.2f}",
-        label_visibility="visible"
-    )
-
-# Unit Card
-with col3:
-    st.metric(
-        label="🪙 Unit",
-        value=f"${bet_unit:,.2f}",
-        label_visibility="visible"
-    )
+st.markdown(f"""
+<div class="card-container">
+    <div class="metric-card">
+        <div class="metric-icon">💰</div>
+        <div class="metric-label">Bankroll</div>
+        <div class="metric-value">${current_bankroll:,.2f}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon">💵</div>
+        <div class="metric-label">Session</div>
+        <div class="metric-value">${session_bankroll:,.2f}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-icon">🪙</div>
+        <div class="metric-label">Unit</div>
+        <div class="metric-value">${bet_unit:,.2f}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
@@ -244,7 +275,7 @@ with tab1:
             recommended_games = filtered_games.head(num_sessions)
             
             st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
-            st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
+            st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2极} session bankroll:")
             st.caption(f"Games with min bets > ${max_bet * threshold_factor:,.2f} are penalized for bankroll compatibility")
             st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
             
@@ -332,7 +363,7 @@ with tab1:
                             <strong>🧠 Advantage Play:</strong> {map_advantage(int(row['advantage_play_potential']))}
                         </div>
                         <div class="ph-game-detail">
-                            <strong极>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
+                            <strong>🎲 Volatility:</strong> {map_volatility(int(row['volatility']))}
                         </div>
                         <div class="ph-game-detail">
                             <strong>🎁 Bonus Frequency:</strong> {map_bonus_freq(row['bonus_frequency'])}
