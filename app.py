@@ -24,7 +24,7 @@ border_colors = {
     "Conservative": "#28a745",
     "Moderate": "#17a2b8", 
     "Standard": "#ffc107",
-极    "Aggressive": "#dc3545"
+    "Aggressive": "#dc3545"
 }
 
 try:
