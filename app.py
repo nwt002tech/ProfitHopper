@@ -56,7 +56,7 @@ try:
 
     max_bet *= win_streak_factor * volatility_adjustment
     stop_loss *= (2 - win_streak_factor)
-    bet_unit *= win_streak_factor * volatility_adjustment
+    bet_unit *= win极reak_factor * volatility_adjustment
     estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
 except Exception as e:
@@ -89,76 +89,87 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Metric Cards - FIXED TO SHOW ON SINGLE LINE
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f"""
-    <div style='
-        background: white;
-        border-radius: 8px;
-        padding: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1极 solid #e0e0e0;
-        height: 80px;
+st.markdown("""
+<style>
+    .metric-row {
         display: flex;
-        align-items: center;
-        justify-content: center;
-    '>
-        <div style='display:flex; align-items:center;'>
-            <div style='font-size:1.2rem; margin-right:8px;'>💰</div>
-            <div>
-                <div style='font-size:0.7rem; color:#7f8c8d;'>Bankroll</div>
-                <div style='font-size:0.9rem; font-weight:bold;'>${current_bankroll:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div style='
+        flex-direction: row;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .metric-card {
+        flex: 1;
         background: white;
         border-radius: 8px;
-        padding: 8px;
+        padding: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border: 1px solid #e0e0e0;
         height: 80px;
         display: flex;
         align-items: center;
         justify-content: center;
-    '>
-        <div style='display:flex; align-items:center;'>
-            <div style='font-size:1.2rem; margin-right:8px;'>💵</div>
-            <div>
-                <div style='font-size:0.7rem; color:#7f8c8d;'>Session</div>
-                <div style='font-size:0.9rem; font-weight:bold;'>${session_bankroll:,.2f}</div>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div style='
-        background: white;
-        border-radius: 8px;
-        padding: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
-        height: 80px;
+    }
+    .metric-inner {
         display: flex;
         align-items: center;
-        justify-content: center;
-    '>
-        <div style='display:flex; align-items:center;'>
-            <div style='font-size:1.2rem; margin-right:8px;'>🪙</div>
-            <div>
-                <div style='font-size:0.7rem; color:#7f8c8d;'>Unit</div>
-                <div style='font-size:0.9rem; font-weight:bold;'>${bet_unit:,.2f}</div>
-            </div>
+    }
+    .metric-icon {
+        font-size: 1.5rem;
+        margin-right: 10px;
+    }
+    .metric-label {
+        font-size: 0.8rem;
+        color: #7f8c8d;
+    }
+    .metric-value {
+        font-size: 1.1rem;
+        font-weight: bold;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="metric-row">', unsafe_allow_html=True)
+
+# Bankroll Card
+st.markdown(f"""
+<div class="metric-card">
+    <div class="metric-inner">
+        <div class="metric-icon">💰</div>
+        <div>
+            <div class="metric-label">Bankroll</div>
+            <div class="metric-value">${current_bankroll:,.2f}</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
+
+# Session Card
+st.markdown(f"""
+<div class="metric-card">
+    <div class="metric-inner">
+        <div class="metric-icon">💵</div>
+        <div>
+            <div class="metric-label">Session</div>
+            <div class="metric-value">${session_bankroll:,.2f}</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Unit Card
+st.markdown(f"""
+<div class="metric-card">
+    <div class="metric-inner">
+        <div class="metric-icon">🪙</div>
+        <div>
+            <div class="metric-label">Unit</div>
+            <div class="metric-value">${bet_unit:,.2f}</div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)
 
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
