@@ -88,7 +88,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Metric Cards - FIXED TO SHOW ON SINGLE LINE WITH PROPER VALUE INTERPOLATION
+# Metric Cards - FIXED TO SHOW ON SINGLE LINE
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -96,9 +96,13 @@ with col1:
     <div style='
         background: white;
         border-radius: 8px;
-        padding: 12px;
+        padding: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1px solid #e0e0e0;
+        border: 1极 solid #e0e0e0;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     '>
         <div style='display:flex; align-items:center;'>
             <div style='font-size:1.2rem; margin-right:8px;'>💰</div>
@@ -108,16 +112,20 @@ with col1:
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
+    """, unsafe_allow_html=True)
 
 with col2:
     st.markdown(f"""
     <div style='
         background: white;
         border-radius: 8px;
-        padding: 12px;
+        padding: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border: 1px solid #e0e0e0;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     '>
         <div style='display:flex; align-items:center;'>
             <div style='font-size:1.2rem; margin-right:8px;'>💵</div>
@@ -127,16 +135,20 @@ with col2:
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
+    """, unsafe_allow_html=True)
 
 with col3:
     st.markdown(f"""
     <div style='
         background: white;
         border-radius: 8px;
-        padding: 12px;
+        padding: 8px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         border: 1px solid #e0e0e0;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     '>
         <div style='display:flex; align-items:center;'>
             <div style='font-size:1.2rem; margin-right:8px;'>🪙</div>
@@ -146,7 +158,7 @@ with col3:
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)  # Added unsafe_allow_html=True here
+    """, unsafe_allow_html=True)
 
 if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
     indicators = []
@@ -200,7 +212,7 @@ with tab1:
                 search_query = st.text_input("Search Game Name")
 
         filtered_games = game_df[
-            (game_df['min_bet'] <= max_min_bet) &
+            (game_df['min_bet'] <= max_min极et) &
             (game_df['rtp'] >= min_rtp)
         ]
         
@@ -287,7 +299,7 @@ with tab1:
                     session_card = f"""
                     <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
                         <div style="position:absolute; top:10px; right:10px; background:#1976d2; color:white; 
-                                    border-radius:50%; width:30极; height:30px; display:flex; 
+                                    border-radius:50%; width:30px; height:30px; display:flex; 
                                     align-items:center; justify-content:center; font-weight:bold;">
                             {i}
                         </div>
