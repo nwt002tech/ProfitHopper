@@ -27,30 +27,23 @@ CSV_FALLBACK_URL = "https://raw.githubusercontent.com/nwt002tech/profit-hopper/m
 
 
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Standardize column names to snake_case and ensure expected columns exist."""
     df = df.copy()
-    # Normalize column names
-    df.columns = [re.sub(r"\W+", "_", col.strip()).lower() for col in df.columns]
-    # Ensure required and optional columns exist
-    for col in [
-        "tips",
-        "type",
-        "game_type",
-        "rtp",
-        "volatility",
-        "bonus_frequency",
-        "min_bet",
-        "advantage_play_potential",
-        "best_casino_type",
-        "bonus_trigger_clues",
-        "image_url",
-        "source_url",
-    ]:
+    # Normalize headers
+    df.columns = [re.sub(r"\W+","_",c.strip()).lower() for c in df.columns]
+    # Ensure name/game_name both exist for compatibility
+    if "name" not in df.columns and "game_name" in df.columns:
+        df["name"] = df["game_name"]
+    if "game_name" not in df.columns and "name" in df.columns:
+        df["game_name"] = df["name"]
+    # Ensure expected fields are present
+    expected_text = ["tips","type","game_type","best_casino_type","bonus_trigger_clues","image_url","source_url"]
+    expected_num  = ["rtp","volatility","bonus_frequency","min_bet","advantage_play_potential"]
+    for col in expected_text:
         if col not in df.columns:
-            if col in ("rtp", "volatility", "bonus_frequency", "min_bet", "advantage_play_potential"):
-                df[col] = None
-            else:
-                df[col] = ""
+            df[col] = ""
+    for col in expected_num:
+        if col not in df.columns:
+            df[col] = None
     # Derive game_type if missing
     if "game_type" not in df.columns or df["game_type"].eq("").all():
         def norm_type(val: str) -> str:
@@ -64,7 +57,6 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             return "unknown"
         df["game_type"] = df["type"].apply(norm_type)
     return df
-
 
 def _tip_sanity_filter(df: pd.DataFrame) -> pd.DataFrame:
     """Clean up and clarify game tips based on game type and name."""
