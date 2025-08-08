@@ -3,3 +3,7 @@ pandas
 altair
 numpy
 urllib3
+supabase
+postgrest
+gotrue
+requests
