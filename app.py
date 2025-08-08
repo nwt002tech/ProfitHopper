@@ -183,6 +183,20 @@ else:
     with tab1:
         st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
         game_df = load_game_data()
+        # Refine generic tip text after loading. If a tip starts with
+        # "Play when bonus frequency", replace it with a more specific explanation
+        # of what constitutes a high or low bonus frequency. High bonus frequency
+        # implies bonus rounds occur roughly every 30–40 spins; low frequency means
+        # 50+ spins per bonus【778567328630233†L105-L125】【555999948454253†L117-L121】.
+        def refine_tip(tip: str) -> str:
+            if isinstance(tip, str) and tip.strip().lower().startswith("play when bonus frequency"):
+                return (
+                    "Play when bonus frequency is high (≈30–40 spins per bonus). "
+                    "If you find it takes more than about 50 spins to trigger a bonus, switch to a different game as the bonus is relatively rare."  # noqa: E501
+                )
+            return tip
+        if not game_df.empty and 'tips' in game_df.columns:
+            game_df['tips'] = game_df['tips'].apply(refine_tip)
         if not game_df.empty:
             with st.expander("🔍 Game Filters", expanded=False):
                 col1, col2, col3 = st.columns(3)
