@@ -5,7 +5,7 @@ import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
-from data_loader import load_game_data
+from data_loader_supabase import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
