@@ -4,7 +4,16 @@ os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'poll'
 import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
-from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
+from trip_manager import (
+    initialize_trip_state,
+    render_sidebar,
+    get_session_bankroll,
+    get_current_bankroll,
+    blacklist_game,
+    get_blacklisted_games,
+    get_volatility_adjustment,
+    get_win_streak_factor,
+)
 # Prefer Supabase-integrated loader if available
 from data_loader_supabase import load_game_data
 from analytics import render_analytics
@@ -12,8 +21,37 @@ from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 from admin_panel import show_admin_panel
 
+
+def _is_admin_authenticated() -> bool:
+    """
+    Simple admin auth gate:
+    - Checks ADMIN_PASS in Streamlit secrets or environment
+    - Warns if SUPABASE_SERVICE_ROLE_KEY is missing (writes will fail)
+    """
+    expected = None
+    if hasattr(st, "secrets"):
+        expected = st.secrets.get("ADMIN_PASS", None)
+    if expected is None:
+        expected = os.environ.get("ADMIN_PASS")
+
+    has_service_key = bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+
+    st.subheader("Admin Login")
+    pwd = st.text_input("Enter admin password", type="password")
+    ok = st.button("Log in")
+
+    if ok:
+        if not expected:
+            st.error("ADMIN_PASS not configured in secrets or environment.")
+            return False
+        if not has_service_key:
+            st.warning("SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.")
+        return pwd == expected
+    return False
+
+
 st.set_page_config(layout="wide", initial_sidebar_state="expanded",
-                  page_title="Profit Hopper Casino Manager")
+                   page_title="Profit Hopper Casino Manager")
 
 initialize_trip_state()
 
@@ -39,10 +77,7 @@ else:
         volatility_adjustment = get_volatility_adjustment()
         win_streak_factor = get_win_streak_factor()
 
-        # Determine base strategy tiers based on session bankroll. These tiers
-        # reflect conservative risk management recommendations from bankroll
-        # management literature: smaller bankrolls warrant lower bet fractions
-        # and tighter loss limits【3202499585933†L105-L133】【962936390273927†L110-L128】.
+        # Determine base strategy tiers based on session bankroll.
         if session_bankroll < 20:
             strategy_type = "Very Conservative"
             max_bet = max(0.01, session_bankroll * 0.05)
@@ -64,9 +99,7 @@ else:
             stop_loss = session_bankroll * 0.60
             bet_unit = max(0.25, session_bankroll * 0.04)
 
-        # Adjust betting parameters using win streak and volatility factors. A
-        # winning streak justifies slightly larger bets and stop-losses, while
-        # periods of poor performance or high volatility demand caution【829292623680176†L84-L98】.
+        # Adjust betting parameters using win streak and volatility factors.
         max_bet *= win_streak_factor * volatility_adjustment
         stop_loss *= (2 - win_streak_factor)
         bet_unit *= win_streak_factor * volatility_adjustment
@@ -180,53 +213,26 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
+    # Add Admin tab (🛠️) without touching existing tabs' content
     tab1, tab2, tab3, tab4 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics", "🛠️ Admin"])
 
     with tab1:
         st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
         game_df = load_game_data()
-        # Refine generic tip text after loading. If a tip starts with
-        # "Play when bonus frequency", replace it with a more specific explanation
-        # of what constitutes a high or low bonus frequency. High bonus frequency
-        # implies bonus rounds occur roughly every 30–40 spins; low frequency means
-        # 50+ spins per bonus【778567328630233†L105-L125】【555999948454253†L117-L121】.
 
-def _is_admin_authenticated() -> bool:
-    # Accept password from Streamlit secrets or environment
-    expected = (
-        st.secrets.get("ADMIN_PASS", None)
-        if hasattr(st, "secrets") else None
-    ) or os.environ.get("ADMIN_PASS")
-
-    # Also require Supabase Service Role Key to be present for write ops
-    has_service_key = bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
-
-    with st.container():
-        st.subheader("Admin Login")
-        pwd = st.text_input("Enter admin password", type="password")
-        ok = st.button("Log in")
-
-    if ok:
-        if not expected:
-            st.error("ADMIN_PASS not configured in secrets or environment.")
-            return False
-        if not has_service_key:
-            st.error("SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions will fail.")
-            # Still allow login, but warn. Return True so UI is visible.
-            return pwd == expected
-        return pwd == expected
-
-    return False
-
-    def refine_tip(tip: str) -> str:
+        # Refine generic tip text after loading.
+        def refine_tip(tip: str) -> str:
             if isinstance(tip, str) and tip.strip().lower().startswith("play when bonus frequency"):
                 return (
                     "Play when bonus frequency is high (≈30–40 spins per bonus). "
-                    "If you find it takes more than about 50 spins to trigger a bonus, switch to a different game as the bonus is relatively rare."  # noqa: E501
+                    "If you find it takes more than about 50 spins to trigger a bonus, "
+                    "switch to a different game as the bonus is relatively rare."
                 )
             return tip
+
         if not game_df.empty and 'tips' in game_df.columns:
             game_df['tips'] = game_df['tips'].apply(refine_tip)
+
         if not game_df.empty:
             with st.expander("🔍 Game Filters", expanded=False):
                 col1, col2, col3 = st.columns(3)
@@ -234,21 +240,25 @@ def _is_admin_authenticated() -> bool:
                     min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
                     game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
                 with col2:
-                    max_min_bet = st.slider("Max Min Bet", 
-                                           float(game_df['min_bet'].min()), 
-                                           float(game_df['min_bet'].max() * 2), 
-                                           float(max_bet), 
-                                           step=1.0)
-                    advantage_filter = st.selectbox("Advantage Play Potential", 
-                                                  ["All", "High (4-5)", "Medium (3)", "Low (1-2)"])
+                    max_min_bet = st.slider(
+                        "Max Min Bet",
+                        float(game_df['min_bet'].min()),
+                        float(game_df['min_bet'].max() * 2),
+                        float(max_bet),
+                        step=1.0,
+                    )
+                    advantage_filter = st.selectbox(
+                        "Advantage Play Potential",
+                        ["All", "High (4-5)", "Medium (3)", "Low (1-2)"],
+                    )
                 with col3:
-                    volatility_filter = st.selectbox("Volatility", 
-                                                   ["All", "Low (1-2)", "Medium (3)", "High (4-5)"])
+                    volatility_filter = st.selectbox(
+                        "Volatility",
+                        ["All", "Low (1-2)", "Medium (3)", "High (4-5)"],
+                    )
                     search_query = st.text_input("Search Game Name")
-            filtered_games = game_df[
-                (game_df['min_bet'] <= max_min_bet) &
-                (game_df['rtp'] >= min_rtp)
-            ]
+
+            filtered_games = game_df[(game_df['min_bet'] <= max_min_bet) & (game_df['rtp'] >= min_rtp)]
             if game_type != "All":
                 filtered_games = filtered_games[filtered_games['type'] == game_type]
             if advantage_filter == "High (4-5)":
@@ -264,21 +274,14 @@ def _is_admin_authenticated() -> bool:
             elif volatility_filter == "High (4-5)":
                 filtered_games = filtered_games[filtered_games['volatility'] >= 4]
             if search_query:
-                filtered_games = filtered_games[
-                    filtered_games['game_name'].str.contains(search_query, case=False)
-                ]
+                filtered_games = filtered_games[filtered_games['game_name'].str.contains(search_query, case=False)]
             blacklisted = get_blacklisted_games()
             if blacklisted:
                 filtered_games = filtered_games[~filtered_games['game_name'].isin(blacklisted)]
+
             if not filtered_games.empty:
                 # Copy to avoid modifying original DataFrame
                 games = filtered_games.copy()
-                # Calculate suitability metrics for each game based on research:
-                # - House edge: lower is better【412033640411085†L118-L170】
-                # - Advantage play potential: gives player edge【935812346186569†L144-L160】
-                # - Bonus frequency: more frequent bonuses add value【730932054797511†L135-L157】
-                # - Volatility: lower volatility reduces risk, especially for smaller bankrolls【829292623680176†L107-L132】
-                # - Min bet relative to recommended bet: ensure affordability
 
                 def compute_score(row):
                     # House edge component
@@ -300,16 +303,16 @@ def _is_admin_authenticated() -> bool:
                         volatility_penalty = 0.7
                     # Weighted sum; weights sum to 1
                     score = (
-                        0.25 * rtp_component +
-                        0.35 * adv_factor +
-                        0.15 * bonus_component +
-                        0.15 * vol_factor +
-                        0.10 * bet_penalty
+                        0.25 * rtp_component
+                        + 0.35 * adv_factor
+                        + 0.15 * bonus_component
+                        + 0.15 * vol_factor
+                        + 0.10 * bet_penalty
                     ) * volatility_penalty
                     return score
 
                 def compute_recommended_bet(row):
-                    # Base bet fraction (3% of bankroll) adjusted for volatility: higher volatility -> smaller bet
+                    # Base bet fraction (3% of bankroll) adjusted for volatility
                     base_fraction = 0.03 * (3 / row['volatility'])
                     # Cap fraction to 5% for very low volatility
                     bet_fraction = min(max(base_fraction, 0.01), 0.05)
@@ -327,11 +330,13 @@ def _is_admin_authenticated() -> bool:
                 games = games.sort_values('Score', ascending=False)
                 num_sessions = st.session_state.trip_settings['num_sessions']
                 recommended_games = games.head(num_sessions)
+
                 st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
                 st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
                 st.caption("Recommendations prioritize high expected return, advantage play potential, affordability, and risk management.")
                 st.caption("Games with high volatility or high minimum bets relative to your bankroll are automatically penalized.")
                 st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
+
                 if not recommended_games.empty:
                     st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                     for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
@@ -382,16 +387,19 @@ def _is_admin_authenticated() -> bool:
                         </div>
                         """
                         st.markdown(session_card, unsafe_allow_html=True)
-                        if st.button(f"🚫 Not Available - {row['game_name']}", 
-                                    key=f"not_available_{row['game_name']}_{i}",
-                                    use_container_width=True,
-                                    type="primary"):
+                        if st.button(
+                            f"🚫 Not Available - {row['game_name']}",
+                            key=f"not_available_{row['game_name']}_{i}",
+                            use_container_width=True,
+                            type="primary",
+                        ):
                             blacklist_game(row['game_name'])
                             st.success(f"Replaced {row['game_name']} with a new recommendation")
                             st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.warning("Not enough games match your criteria for all sessions")
+
                 # Extra games suggestions
                 extra_games = games[~games.index.isin(recommended_games.index)]
                 if not extra_games.empty:
@@ -444,17 +452,18 @@ def _is_admin_authenticated() -> bool:
                 st.warning("No games match your current filters. Try adjusting your criteria.")
         else:
             st.error("Failed to load game data. Please check the CSV format and column names.")
+
     with tab2:
         game_df = load_game_data()
         render_session_tracker(game_df, session_bankroll)
+
     with tab3:
         render_analytics()
 
     with tab4:
-    st.info("Admin tools are protected. Configure ADMIN_PASS in secrets or env. "
-            "Requires SUPABASE_SERVICE_ROLE_KEY for upserts.")
-
-    if _is_admin_authenticated():
-        show_admin_panel()
-    else:
-        st.stop()
+        st.info("Admin tools are protected. Configure ADMIN_PASS in secrets or env. "
+                "Requires SUPABASE_SERVICE_ROLE_KEY for upserts.")
+        if _is_admin_authenticated():
+            show_admin_panel()
+        else:
+            st.stop()
