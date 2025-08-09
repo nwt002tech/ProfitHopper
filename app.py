@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import streamlit as st
 
 from supabase_client import get_supabase, fetch_games  # Supabase only
+from admin_panel import show_admin_panel               # ← NEW import (Admin panel renderer)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Page config / Styles
@@ -53,7 +54,6 @@ def normalized_game(row: Dict[str, Any]) -> Dict[str, Any]:
         "type": safe_get(row, "type", "category", default="Slot"),
         "rtp": float(safe_get(row, "rtp", "RTP", default=0) or 0),
         "min_bet": float(safe_get(row, "min_bet", "minbet", "min", "Min_Bet", "MinBet", default=0) or 0),
-        # keep original volatility (can be 1–5 or 'low/medium/high')
         "volatility": safe_get(row, "volatility", "risk", default="Medium"),
         "denoms": safe_get(row, "denoms", "denominations", "denom_options", "Denoms", "Denominations", default=["$0.01"]),
         "image_url": safe_get(row, "image_url", "image", "Image_URL", "Image", default=None),
@@ -62,20 +62,13 @@ def normalized_game(row: Dict[str, Any]) -> Dict[str, Any]:
         "adv": safe_get(row, "advantage_play_potential", "ap_potential", "Advantage_Play_Potential", default=None),
     }
 
-def _volatility_penalty(vol_value: Any) -> float:
-    """
-    Map volatility to a penalty. Accepts 1–5 scale or 'low/medium/high' text.
-    Lower (safer) volatility → smaller penalty.
-    """
-    # numeric scale (1 very low ... 5 very high)
+def _vol_pen(vol_value: Any) -> float:
+    # Accept 1–5 or text labels
     try:
-        v = float(vol_value)
-        # gentle curve: 1→0.00, 2→-0.02, 3→-0.05, 4→-0.09, 5→-0.12
-        mapping = {1: 0.00, 2: -0.02, 3: -0.05, 4: -0.09, 5: -0.12}
-        return mapping.get(int(round(v)), -0.05)
+        v = int(round(float(vol_value)))
+        return {1: 0.00, 2: -0.02, 3: -0.05, 4: -0.09, 5: -0.12}.get(v, -0.05)
     except Exception:
         pass
-    # text labels
     s = str(vol_value or "").strip().lower()
     return {"very low": 0.00, "low": 0.00, "medium": -0.05, "high": -0.12, "very high": -0.12}.get(s, -0.03)
 
@@ -86,9 +79,8 @@ def get_game_image_url(name: str, image_url: Optional[str]) -> str:
     return f"https://via.placeholder.com/800x450?text={safe_text}"
 
 def score_game(g: Dict[str, Any], session_bankroll: float, max_bet: float, stop_loss: float) -> float:
-    """Simple scoring using RTP, volatility penalty, and feasibility of min bet."""
     rtp_component = (float(g.get("rtp") or 0)) / 100.0
-    vol_pen = _volatility_penalty(g.get("volatility"))
+    vol_pen = _vol_pen(g.get("volatility"))
     min_bet = float(g.get("min_bet") or 0)
     playable = 1.0 if (min_bet > 0 and min_bet <= max_bet and min_bet <= session_bankroll) else 0.5
     return rtp_component + vol_pen + 0.15 * playable
@@ -96,8 +88,8 @@ def score_game(g: Dict[str, Any], session_bankroll: float, max_bet: float, stop_
 def calc_session_plan(total_bankroll: float, num_sessions: int) -> Dict[str, float]:
     num_sessions = max(1, int(num_sessions))
     session_bankroll = max(5.0, total_bankroll / num_sessions)
-    max_bet = round(max(0.2, session_bankroll * 0.05), 2)       # ~5% of session bankroll
-    stop_loss = round(max(2.0, session_bankroll * 0.60), 2)     # ~60% of session bankroll
+    max_bet = round(max(0.2, session_bankroll * 0.05), 2)
+    stop_loss = round(max(2.0, session_bankroll * 0.60), 2)
     if abs(stop_loss - session_bankroll) < 0.01:
         stop_loss -= 1.0
     return {
@@ -113,7 +105,6 @@ def recommend_games(games: List[Dict[str, Any]], total_bankroll: float, num_sess
     s_loss = plan["stop_loss"]
 
     normalized = [normalized_game(g) for g in games]
-
     for g in normalized:
         g["_score"] = score_game(g, s_bank, m_bet, s_loss)
         g["_session_bankroll"] = s_bank
@@ -124,7 +115,7 @@ def recommend_games(games: List[Dict[str, Any]], total_bankroll: float, num_sess
     return normalized[:top_n], plan
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Sidebar / Inputs
+# Sidebar / Inputs (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
 st.sidebar.header("🎛️ Session Settings")
 total_bankroll = st.sidebar.number_input("💰 Total Trip Bankroll", min_value=10.0, value=100.0, step=5.0)
@@ -132,7 +123,7 @@ num_sessions = st.sidebar.number_input("🎯 Number of Sessions (games to play)"
 list_size = st.sidebar.slider("📋 How many games to list", 5, 50, 20)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Data (Supabase only) + Recommendations
+# Data (Supabase only) + Recommendations (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
 client = get_supabase()
 if client is None:
@@ -152,7 +143,7 @@ if not games:
 recs, plan = recommend_games(games, total_bankroll, num_sessions, top_n=list_size)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Header + Summary
+# Header + Summary (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown("## 🐸 Profit Hopper — Game Plan")
 st.write("Based on your bankroll and target session count, here’s a compact plan and ranked games to build profit steadily.")
@@ -170,27 +161,26 @@ st.markdown(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Recommendations List
+# Recommendations List (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
 st.markdown("### 🧠 Recommended Games (best chances to build bankroll)")
 for g in recs:
     name = g.get("name") or "Unknown Game"
     gtype = g.get("type") or "Slot"
-    rtp = float(g.get("rtp") or 0)
+    rtp = g.get("rtp") or 0
     vol = g.get("volatility") or "Medium"
     variant = g.get("variant")
     tips = g.get("tips") or ""
-    min_bet = float(g.get("min_bet") or 0.0)
+    min_bet = g.get("min_bet") or 0.0
     img = get_game_image_url(name, g.get("image_url"))
 
     meta_bits = [f"🎰 {gtype}", f"💵 Min Bet: ${min_bet:.2f}", f"📈 RTP: {rtp:.2f}%"]
-    # Show a friendly volatility tag regardless of numeric/text source
-    try:
-        vnum = int(round(float(vol)))
-        vol_label = {1:"Very Low",2:"Low",3:"Medium",4:"High",5:"Very High"}.get(vnum, "Medium")
-    except Exception:
-        vol_label = str(vol).capitalize()
-    if vol_label:
+    if vol:
+        try:
+            vnum = int(round(float(vol)))
+            vol_label = {1:"Very Low",2:"Low",3:"Medium",4:"High",5:"Very High"}.get(vnum, "Medium")
+        except Exception:
+            vol_label = str(vol).capitalize()
         meta_bits.append(f"⚖️ Vol: {vol_label}")
     if variant:
         meta_bits.append(f"🧩 {variant}")
@@ -213,3 +203,27 @@ for g in recs:
     if tips:
         st.markdown(f"**💡 Tips:** {tips}")
     st.markdown("</div>", unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Admin (NEW) — tiny expander at the bottom; shows only if enabled + password
+# ──────────────────────────────────────────────────────────────────────────────
+ADMIN_ENABLED = (
+    (st.secrets.get("general", {}).get("ADMIN_ENABLED") if isinstance(st.secrets.get("general"), dict) else None)
+    or os.environ.get("ADMIN_ENABLED")
+)
+
+if str(ADMIN_ENABLED).lower() in ("1","true","yes"):
+    with st.expander("🛠️ Admin", expanded=False):
+        required = (
+            (st.secrets.get("general", {}).get("admin_password") if isinstance(st.secrets.get("general"), dict) else None)
+            or os.environ.get("admin_password")
+            or os.environ.get("ADMIN_PASSWORD")
+            or ""
+        )
+        pw = st.text_input("Admin password", type="password", key="ph_admin_pw")
+        if not required:
+            st.info("Admin password not set. Add `[general].admin_password` or `ADMIN_PASSWORD`.")
+        elif pw and pw == str(required):
+            show_admin_panel()
+        elif pw:
+            st.error("Incorrect password.")
