@@ -10,6 +10,7 @@ from data_loader_supabase import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
+from admin_panel import show_admin_panel
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded",
                   page_title="Profit Hopper Casino Manager")
@@ -179,7 +180,7 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
+    tab1, tab2, tab3, tab4 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics", "🛠️ Admin"])
 
     with tab1:
         st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
@@ -189,6 +190,34 @@ else:
         # of what constitutes a high or low bonus frequency. High bonus frequency
         # implies bonus rounds occur roughly every 30–40 spins; low frequency means
         # 50+ spins per bonus【778567328630233†L105-L125】【555999948454253†L117-L121】.
+
+def _is_admin_authenticated() -> bool:
+    # Accept password from Streamlit secrets or environment
+    expected = (
+        st.secrets.get("ADMIN_PASS", None)
+        if hasattr(st, "secrets") else None
+    ) or os.environ.get("ADMIN_PASS")
+
+    # Also require Supabase Service Role Key to be present for write ops
+    has_service_key = bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+
+    with st.container():
+        st.subheader("Admin Login")
+        pwd = st.text_input("Enter admin password", type="password")
+        ok = st.button("Log in")
+
+    if ok:
+        if not expected:
+            st.error("ADMIN_PASS not configured in secrets or environment.")
+            return False
+        if not has_service_key:
+            st.error("SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions will fail.")
+            # Still allow login, but warn. Return True so UI is visible.
+            return pwd == expected
+        return pwd == expected
+
+    return False
+
         def refine_tip(tip: str) -> str:
             if isinstance(tip, str) and tip.strip().lower().startswith("play when bonus frequency"):
                 return (
@@ -420,3 +449,12 @@ else:
         render_session_tracker(game_df, session_bankroll)
     with tab3:
         render_analytics()
+
+with tab4:
+    st.info("Admin tools are protected. Configure ADMIN_PASS in secrets or env. "
+            "Requires SUPABASE_SERVICE_ROLE_KEY for upserts.")
+
+    if _is_admin_authenticated():
+        show_admin_panel()
+    else:
+        st.stop()
