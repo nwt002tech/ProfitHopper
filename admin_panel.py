@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-# admin_panel.py (patched v2: avoid NameError from annotations; no inner imports)
 import os
 import re
 import pandas as pd
 import streamlit as st
-from typing import Any
 
 try:
     from supabase import create_client
@@ -19,7 +17,7 @@ EXPECTED_COLS = [
     "is_hidden","is_unavailable","score"
 ]
 
-def _norm_cols(df) -> pd.DataFrame:
+def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.columns = [re.sub(r"\W+","_",c.strip()).lower() for c in df.columns]
     if "name" not in df.columns and "game_name" in df.columns:
@@ -34,6 +32,10 @@ def _norm_cols(df) -> pd.DataFrame:
                 df[col] = False
             else:
                 df[col] = ""
+    # Ensure boolean dtype for checkbox columns
+    for b in ("is_hidden","is_unavailable"):
+        if b in df.columns:
+            df[b] = df[b].astype(bool)
     return df
 
 def _admin_client():
@@ -57,7 +59,7 @@ def _upsert_df(client, df: pd.DataFrame):
     for i in range(0, len(rows), 400):
         client.table("games").upsert(rows[i:i+400]).execute()
 
-def _score_row(row: Any, default_bankroll: float = 200.0) -> float:
+def _score_row(row, default_bankroll=200.0):
     rtp = float(row.get("rtp") or 0)
     adv = float(row.get("advantage_play_potential") or 0)
     vol = float(row.get("volatility") or 0)
@@ -100,18 +102,36 @@ def show_admin_panel():
 
     st.divider()
 
-    # Inline edit
+    # Inline edit (with checkboxes up front)
     st.header("Inline edit & save")
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
     if q.strip():
-        try:
-            df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
-        except Exception:
-            pass
+        df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
+    # Reorder columns: is_hidden, is_unavailable, name, then the rest
+    leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
+    trailing = [c for c in df_edit.columns if c not in leading]
+    ordered_cols = leading + trailing
+    df_edit = df_edit[ordered_cols]
+
+    # Column configs for checkboxes
+    col_cfg = {}
+    if "is_hidden" in df_edit.columns:
+        col_cfg["is_hidden"] = st.column_config.CheckboxColumn("is_hidden", help="Hide from recommendations", default=False)
+    if "is_unavailable" in df_edit.columns:
+        col_cfg["is_unavailable"] = st.column_config.CheckboxColumn("is_unavailable", help="Not playable / skip", default=False)
+
+    # SAFE DEFAULT for `edited` in case the editor returns None on a rerun
     edited_default = df_edit.copy()
-    edited_ui = st.data_editor(df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor")
+    edited_ui = st.data_editor(
+        df_edit,
+        num_rows="dynamic",
+        use_container_width=True,
+        key="admin_editor",
+        column_order=ordered_cols,
+        column_config=col_cfg
+    )
     edited = edited_ui if isinstance(edited_ui, pd.DataFrame) else edited_default
 
     if st.button("Save edited rows"):
@@ -123,38 +143,17 @@ def show_admin_panel():
 
     st.divider()
 
-    # Bulk flags
-    st.header("Bulk flags: hidden / unavailable")
-    ids = edited["id"].tolist() if "id" in edited.columns else []
-    if not ids and "id" in df_edit.columns:
-        ids = df_edit["id"].tolist()
-
-    if ids:
-        selection = st.multiselect("Select rows by ID", ids)
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("Mark selected: is_hidden = true"):
-                _upsert_df(client, pd.DataFrame([{"id": i, "is_hidden": True} for i in selection]))
-                st.success(f"Updated {len(selection)} rows.")
-        with col2:
-            if st.button("Mark selected: is_unavailable = true"):
-                _upsert_df(client, pd.DataFrame([{"id": i, "is_unavailable": True} for i in selection]))
-                st.success(f"Updated {len(selection)} rows.")
-        with col3:
-            if st.button("Clear flags on selected"):
-                _upsert_df(client, pd.DataFrame([{"id": i, "is_hidden": False, "is_unavailable": False} for i in selection]))
-                st.success(f"Updated {len(selection)} rows.")
-
-    st.divider()
-
     # Recalc score
     st.header("Recalculate and save scores (optional)")
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
-    if st.button("Recalculate 'score' for filtered set"):
+    if st.button("Recalculate 'score' for current filtered rows"):
         try:
             tmp = edited.copy()
-            tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
-            _upsert_df(client, _norm_cols(tmp[["id","score"]]))
-            st.success("Scores recalculated and saved to 'score'.")
+            if "id" not in tmp.columns:
+                st.error("No 'id' column available to save scores.")
+            else:
+                tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
+                _upsert_df(client, _norm_cols(tmp[["id","score"]]))
+                st.success("Scores recalculated and saved to 'score'.")
         except Exception as e:
             st.error(f"Score update failed: {e}")
