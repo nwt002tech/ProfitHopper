@@ -450,7 +450,7 @@ def _is_admin_authenticated() -> bool:
     with tab3:
         render_analytics()
 
-with tab4:
+    with tab4:
     st.info("Admin tools are protected. Configure ADMIN_PASS in secrets or env. "
             "Requires SUPABASE_SERVICE_ROLE_KEY for upserts.")
 
