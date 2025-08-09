@@ -218,7 +218,7 @@ def _is_admin_authenticated() -> bool:
 
     return False
 
-        def refine_tip(tip: str) -> str:
+    def refine_tip(tip: str) -> str:
             if isinstance(tip, str) and tip.strip().lower().startswith("play when bonus frequency"):
                 return (
                     "Play when bonus frequency is high (≈30–40 spins per bonus). "
