@@ -1,7 +1,7 @@
-# admin_panel.py (patched to avoid UnboundLocalError on `edited`)
+
+# admin_panel.py
 import os
 import re
-import pandas as pd
 import streamlit as st
 
 try:
@@ -54,6 +54,7 @@ def _upsert_df(client, df: pd.DataFrame):
     for i in range(0, len(rows), 400):
         client.table("games").upsert(rows[i:i+400]).execute()
 
+
 def _score_row(row, default_bankroll=200.0):
     rtp = float(row.get("rtp") or 0)
     adv = float(row.get("advantage_play_potential") or 0)
@@ -71,6 +72,7 @@ def _score_row(row, default_bankroll=200.0):
     raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
     return round(raw * minbet_pen * 100.0, 1)
 
+
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
 
@@ -85,7 +87,6 @@ def show_admin_panel():
     st.header("Upload/patch from CSV")
     csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"])
     if csv is not None:
-        import pandas as pd
         try:
             uploaded = pd.read_csv(csv)
             uploaded = _norm_cols(uploaded)
@@ -103,17 +104,8 @@ def show_admin_panel():
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
     if q.strip():
-        try:
-            df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
-        except Exception:
-            pass
-
-    # SAFE DEFAULT for `edited` to avoid UnboundLocalError if Streamlit reruns / widget key clashes
-    edited_default = df_edit.copy()
-    edited_ui = st.data_editor(df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor")
-    # If editor returns something valid, use it; otherwise fall back
-    edited = edited_ui if isinstance(edited_ui, pd.DataFrame) else edited_default
-
+        df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
+    edited = st.data_editor(df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor")
     if st.button("Save edited rows"):
         try:
             _upsert_df(client, _norm_cols(edited))
@@ -125,27 +117,23 @@ def show_admin_panel():
 
     # Bulk flags
     st.header("Bulk flags: hidden / unavailable")
-    # Use the safe `edited` default if anything went wrong above
-    ids = edited["id"].tolist() if "id" in edited.columns else []
-    if not ids and "id" in df_edit.columns:
-        ids = df_edit["id"].tolist()
-
+    if isinstance(edited, pd.DataFrame) and "id" in edited.columns:
+        ids = edited["id"].tolist()
+    else:
+        ids = df_edit.get("id", []).tolist() if hasattr(df_edit, 'get') else []
     if ids:
         selection = st.multiselect("Select rows by ID", ids)
         col1, col2, col3 = st.columns(3)
         with col1:
             if st.button("Mark selected: is_hidden = true"):
-                import pandas as pd
                 _upsert_df(client, pd.DataFrame([{"id": i, "is_hidden": True} for i in selection]))
                 st.success(f"Updated {len(selection)} rows.")
         with col2:
             if st.button("Mark selected: is_unavailable = true"):
-                import pandas as pd
                 _upsert_df(client, pd.DataFrame([{"id": i, "is_unavailable": True} for i in selection]))
                 st.success(f"Updated {len(selection)} rows.")
         with col3:
             if st.button("Clear flags on selected"):
-                import pandas as pd
                 _upsert_df(client, pd.DataFrame([{"id": i, "is_hidden": False, "is_unavailable": False} for i in selection]))
                 st.success(f"Updated {len(selection)} rows.")
 
@@ -156,8 +144,7 @@ def show_admin_panel():
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for filtered set"):
         try:
-            import pandas as pd
-            tmp = edited.copy()
+            tmp = (edited if isinstance(edited, pd.DataFrame) else df_edit).copy()
             tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
             _upsert_df(client, _norm_cols(tmp[["id","score"]]))
             st.success("Scores recalculated and saved to 'score'.")
