@@ -1,8 +1,11 @@
+from __future__ import annotations
 
-# admin_panel.py
+# admin_panel.py (patched v2: avoid NameError from annotations; no inner imports)
 import os
 import re
+import pandas as pd
 import streamlit as st
+from typing import Any
 
 try:
     from supabase import create_client
@@ -16,7 +19,7 @@ EXPECTED_COLS = [
     "is_hidden","is_unavailable","score"
 ]
 
-def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
+def _norm_cols(df) -> pd.DataFrame:
     df = df.copy()
     df.columns = [re.sub(r"\W+","_",c.strip()).lower() for c in df.columns]
     if "name" not in df.columns and "game_name" in df.columns:
@@ -54,8 +57,7 @@ def _upsert_df(client, df: pd.DataFrame):
     for i in range(0, len(rows), 400):
         client.table("games").upsert(rows[i:i+400]).execute()
 
-
-def _score_row(row, default_bankroll=200.0):
+def _score_row(row: Any, default_bankroll: float = 200.0) -> float:
     rtp = float(row.get("rtp") or 0)
     adv = float(row.get("advantage_play_potential") or 0)
     vol = float(row.get("volatility") or 0)
@@ -71,7 +73,6 @@ def _score_row(row, default_bankroll=200.0):
         minbet_pen = max(0.0, min(1.0, minbet_pen))
     raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
     return round(raw * minbet_pen * 100.0, 1)
-
 
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
@@ -104,8 +105,15 @@ def show_admin_panel():
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
     if q.strip():
-        df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
-    edited = st.data_editor(df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor")
+        try:
+            df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
+        except Exception:
+            pass
+
+    edited_default = df_edit.copy()
+    edited_ui = st.data_editor(df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor")
+    edited = edited_ui if isinstance(edited_ui, pd.DataFrame) else edited_default
+
     if st.button("Save edited rows"):
         try:
             _upsert_df(client, _norm_cols(edited))
@@ -117,10 +125,10 @@ def show_admin_panel():
 
     # Bulk flags
     st.header("Bulk flags: hidden / unavailable")
-    if isinstance(edited, pd.DataFrame) and "id" in edited.columns:
-        ids = edited["id"].tolist()
-    else:
-        ids = df_edit.get("id", []).tolist() if hasattr(df_edit, 'get') else []
+    ids = edited["id"].tolist() if "id" in edited.columns else []
+    if not ids and "id" in df_edit.columns:
+        ids = df_edit["id"].tolist()
+
     if ids:
         selection = st.multiselect("Select rows by ID", ids)
         col1, col2, col3 = st.columns(3)
@@ -144,7 +152,7 @@ def show_admin_panel():
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for filtered set"):
         try:
-            tmp = (edited if isinstance(edited, pd.DataFrame) else df_edit).copy()
+            tmp = edited.copy()
             tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
             _upsert_df(client, _norm_cols(tmp[["id","score"]]))
             st.success("Scores recalculated and saved to 'score'.")
