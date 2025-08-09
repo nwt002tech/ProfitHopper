@@ -5,10 +5,11 @@ import streamlit as st
 import numpy as np
 from ui_templates import get_css, get_header
 from trip_manager import initialize_trip_state, render_sidebar, get_session_bankroll, get_current_bankroll, blacklist_game, get_blacklisted_games, get_volatility_adjustment, get_win_streak_factor
-from data_loader_supabase import load_game_data
+from data_loader import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
+from admin_panel import show_admin_panel
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", 
                   page_title="Profit Hopper Casino Manager")
@@ -291,10 +292,10 @@ with tab1:
                             {i}
                         </div>
                         <div class="ph-game-title">
-                            🎰 <a href="{get_game_image_url(row.get('game_name', row.get('name')), row.get('image_url'))}" 
+                            🎰 <a href="{get_game_image_url(row['game_name'], row.get('image_url'))}" 
                                 target="_blank" 
                                 style="color: #2c3e50; text-decoration: none;">
-                                {row.get('game_name', row.get('name'))} 
+                                {row['game_name']} 
                                 <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
                             </a>
                         </div>
@@ -324,12 +325,12 @@ with tab1:
                     """
                     st.markdown(session_card, unsafe_allow_html=True)
                     
-                    if st.button(f"🚫 Not Available - {row.get('game_name', row.get('name'))}", 
-                                key=f"not_available_{row.get('game_name', row.get('name'))}_{i}",
+                    if st.button(f"🚫 Not Available - {row['game_name']}", 
+                                key=f"not_available_{row['game_name']}_{i}",
                                 use_container_width=True,
                                 type="primary"):
-                        blacklist_game(row.get('game_name', row.get('name')))
-                        st.success(f"Replaced {row.get('game_name', row.get('name'))} with a new recommendation")
+                        blacklist_game(row['game_name'])
+                        st.success(f"Replaced {row['game_name']} with a new recommendation")
                         st.rerun()
                 
                 st.markdown('</div>', unsafe_allow_html=True)
@@ -346,10 +347,10 @@ with tab1:
                     game_card = f"""
                     <div class="ph-game-card">
                         <div class="ph-game-title">
-                            🎰 <a href="{get_game_image_url(row.get('game_name', row.get('name')), row.get('image_url'))}" 
+                            🎰 <a href="{get_game_image_url(row['game_name'], row.get('image_url'))}" 
                                 target="_blank" 
                                 style="color: #2c3e50; text-decoration: none;">
-                                {row.get('game_name', row.get('name'))} 
+                                {row['game_name']} 
                                 <span style="font-size:0.8em; color:#7f8c8d;">(view image ↗)</span>
                             </a>
                         </div>
@@ -390,3 +391,17 @@ with tab2:
 
 with tab3:
     render_analytics()
+
+
+with tab4:
+    ADMIN_ENABLED = os.environ.get("ADMIN_ENABLED", "0") == "1"
+    if not ADMIN_ENABLED:
+        st.info("Admin is disabled. Set ADMIN_ENABLED=1 in secrets/env to enable.")
+    else:
+        ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+        pw = st.text_input("Admin password", type="password")
+        if ADMIN_PASSWORD and pw != ADMIN_PASSWORD:
+            st.error("Invalid password.")
+        else:
+            st.success("Admin unlocked.")
+            show_admin_panel()
