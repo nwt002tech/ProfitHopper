@@ -130,11 +130,18 @@ def show_admin_panel():
     if not client:
         return
 
+    # ---------- One-time resets from previous run (before any widgets) ----------
+    if st.session_state.get("_reset_new_casino_name"):
+        st.session_state["_reset_new_casino_name"] = False
+        st.session_state.pop("new_casino_name", None)
+
     # Load once so all sections can use it
     games_df = _fetch_all_games(client)
     st.caption(f"Loaded {len(games_df)} rows from public.games")
 
+    # =========================
     # 0) Manage casinos
+    # =========================
     with st.expander("🏷️ Manage casinos", expanded=False):
         st.caption("Add, rename, and activate/archive casinos used throughout the app.")
         casinos_df = _fetch_casinos(client)
@@ -148,14 +155,14 @@ def show_admin_panel():
             new_active = st.checkbox("Active", value=True, key="new_casino_active")
         with c3:
             if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
-                if not new_name.strip():
+                if not (new_name or "").strip():
                     st.warning("Enter a casino name.")
                 else:
                     ok, msg = _add_casino(client, new_name, new_active)
                     if ok:
                         st.success(msg)
-                        # clear the input after success
-                        st.session_state.new_casino_name = ""
+                        # Trigger clearing the input on the next run (safe with widget keys)
+                        st.session_state["_reset_new_casino_name"] = True
                         st.rerun()
                     else:
                         st.error(msg)
@@ -170,7 +177,7 @@ def show_admin_panel():
             show_only_active = st.checkbox("Show active only", value=False, key="filter_active_only")
 
         edit_df = casinos_df.copy()
-        if filt.strip():
+        if (filt or "").strip():
             edit_df = edit_df[edit_df["name"].str.contains(filt, case=False, na=False)]
         if show_only_active and "is_active" in edit_df.columns:
             edit_df = edit_df[edit_df["is_active"] == True]
@@ -220,7 +227,9 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to save edits: {e}")
 
+    # =========================
     # 1) Upload / patch CSV into games
+    # =========================
     with st.expander("📤 Upload / patch CSV into games", expanded=False):
         csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"], key="upload_csv")
         if csv is not None:
@@ -234,7 +243,9 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to process CSV: {e}")
 
+    # =========================
     # 2) Inline edit & save (games)
+    # =========================
     with st.expander("📝 Inline edit & save (games: checkboxes first, name third)", expanded=False):
         q = st.text_input("Quick filter (name contains):", "", key="inline_filter")
         df_edit = games_df.copy()
@@ -271,7 +282,9 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
+    # =========================
     # 3) Per‑casino availability (delete-then-insert to respect unique index)
+    # =========================
     with st.expander("🏨 Per‑casino availability", expanded=False):
         st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
 
@@ -288,6 +301,7 @@ def show_admin_panel():
                 default_idx = 0
             casino = st.selectbox("Casino", options=casinos, index=default_idx, key="casino_select")
 
+        # Add to unavailable list
         left, right = st.columns([2,1])
         with left:
             st.write("Add games to this casino's unavailable list:")
@@ -404,7 +418,9 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to load per‑casino availability: {e}")
 
+    # =========================
     # 4) Recalculate & save scores (games)
+    # =========================
     with st.expander("🧮 Recalculate & save scores (games)", expanded=False):
         default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0, key="score_bankroll")
         if st.button("Recalculate 'score' for all (filtered via per‑section tools)", key="btn_recalc_scores"):
