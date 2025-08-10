@@ -19,6 +19,11 @@ from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 from admin_panel import show_admin_panel
+# --- Nearby casino filtering & geocoding ---
+from streamlit_geolocation import geolocation
+from data_loader_supabase import get_casinos_full, update_casino_coords
+from utils import geocode_city_state, haversine_miles
+
 
 # ---- Supabase admin helper (optional; for per-casino writes) ----
 try:
