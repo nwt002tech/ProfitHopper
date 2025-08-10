@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 import os
 import pandas as pd
@@ -21,6 +20,40 @@ def _client_readonly():
     if not url or not key:
         raise EnvironmentError("Missing SUPABASE_URL / SUPABASE_ANON_KEY for read access")
     return create_client(url, key)
+
+@st.cache_data(ttl=300)
+def get_casinos():
+    """Return list of casino names from public.casinos (active only).
+    Falls back to a small default set if the table doesn't exist or is empty.
+    """
+    try:
+        client = _client_readonly()
+    except Exception:
+        return [
+            "L’Auberge Lake Charles",
+            "Coushatta Casino Resort",
+            "Golden Nugget Lake Charles",
+            "Horseshoe Bossier City",
+            "Winstar World Casino",
+            "Choctaw Durant",
+            "Other..."
+        ]
+    try:
+        res = client.table("casinos").select("name").eq("is_active", True).order("name").execute()
+        names = [r.get("name") for r in (res.data or []) if r.get("name")]
+        if not names:
+            raise ValueError("No casinos found")
+        return names + ["Other..."]
+    except Exception:
+        return [
+            "L’Auberge Lake Charles",
+            "Coushatta Casino Resort",
+            "Golden Nugget Lake Charles",
+            "Horseshoe Bossier City",
+            "Winstar World Casino",
+            "Choctaw Durant",
+            "Other..."
+        ]
 
 def _norm_games(df: pd.DataFrame) -> pd.DataFrame:
     if "name" in df.columns and "game_name" not in df.columns:

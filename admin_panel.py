@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import os
@@ -11,6 +10,8 @@ try:
 except Exception:
     create_client = None
 
+from data_loader_supabase import get_casinos
+
 EXPECTED_COLS = [
     "id","name","type","game_type","rtp","volatility","bonus_frequency","min_bet",
     "advantage_play_potential","best_casino_type","bonus_trigger_clues",
@@ -20,14 +21,11 @@ EXPECTED_COLS = [
 
 def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    # normalize headers
-    df.columns = [re.sub(r"\W+","_",str(c).strip()).lower() for c in df.columns]
-    # ensure name/game_name
+    df.columns = [re.sub(r"\W+","_", str(c).strip()).lower() for c in df.columns]
     if "name" not in df.columns and "game_name" in df.columns:
         df["name"] = df["game_name"]
     if "game_name" not in df.columns and "name" in df.columns:
         df["game_name"] = df["name"]
-    # add missing expected cols
     for col in EXPECTED_COLS:
         if col not in df.columns:
             if col in ("rtp","volatility","bonus_frequency","min_bet","advantage_play_potential","score"):
@@ -36,7 +34,6 @@ def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
                 df[col] = False
             else:
                 df[col] = ""
-    # types
     for c in ("rtp","bonus_frequency","min_bet"):
         if c in df.columns:
             df[c] = pd.to_numeric(df[c], errors="coerce")
@@ -86,7 +83,9 @@ def _score_row(row, default_bankroll=200.0):
     raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
     return round(raw * minbet_pen * 100.0, 1)
 
-# ---------- UI ----------
+def _safe_uuid(x):
+    s = str(x).strip()
+    return s if s and s.lower() != "nan" else None
 
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
@@ -121,7 +120,6 @@ def show_admin_panel():
     if q.strip():
         df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
-    # Reorder columns: is_hidden, is_unavailable, name, then the rest
     leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
     trailing = [c for c in df_edit.columns if c not in leading]
     ordered_cols = leading + trailing
@@ -153,15 +151,22 @@ def show_admin_panel():
 
     st.divider()
 
-    # ---------- Per‑casino availability (UUID‑safe) ----------
+    # Per‑casino availability (dropdown from casinos table)
     st.header("Per‑casino availability")
     st.caption("Mark games unavailable at the selected casino only (does not affect other casinos).")
 
-    casino = st.text_input("Casino name", value=st.session_state.trip_settings.get("casino",""))
-
-    def _safe_uuid(x):
-        s = str(x).strip()
-        return s if s and s.lower() != 'nan' else None
+    casinos = get_casinos()
+    casinos = [c for c in casinos if c.strip() and c != "Other..."]
+    if not casinos:
+        st.warning("No casinos found. Create entries in public.casinos first.")
+        casino = st.text_input("Casino name (temporary input)")
+    else:
+        default_casino = st.session_state.trip_settings.get("casino","")
+        try:
+            default_idx = casinos.index(default_casino) if default_casino in casinos else 0
+        except Exception:
+            default_idx = 0
+        casino = st.selectbox("Casino", options=casinos, index=default_idx)
 
     left, right = st.columns([2,1])
     with left:
@@ -179,22 +184,21 @@ def show_admin_panel():
         unavailable_flag = st.checkbox("Mark as UNAVAILABLE at this casino", value=True)
 
     if st.button("Save per‑casino availability"):
-        if not casino.strip():
-            st.warning("Enter a casino name first.")
+        if not casino or not str(casino).strip():
+            st.warning("Select a casino first.")
         elif not selected_ids:
             st.warning("Select at least one game.")
         else:
-            rows = [{"game_id": gid, "casino": casino.strip(), "is_unavailable": bool(unavailable_flag)} for gid in selected_ids]
+            rows = [{"game_id": gid, "casino": str(casino).strip(), "is_unavailable": bool(unavailable_flag)} for gid in selected_ids]
             try:
                 client.table("game_availability").upsert(rows).execute()
-                st.success(f"Updated availability for {len(rows)} game(s) at “{casino.strip()}”.")
+                st.success(f"Updated availability for {len(rows)} game(s) at “{str(casino).strip()}”.")
             except Exception as e:
                 st.error(f"Failed saving availability: {e}")
 
-    # Show current availability for this casino
-    if casino.strip():
+    if casino and str(casino).strip():
         try:
-            res = client.table("game_availability").select("*").ilike("casino", casino.strip()).execute()
+            res = client.table("game_availability").select("*").ilike("casino", str(casino).strip()).execute()
             data = res.data or []
             if data:
                 st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
@@ -205,7 +209,6 @@ def show_admin_panel():
 
     st.divider()
 
-    # Recalculate 'score' helper
     st.header("Recalculate and save scores (optional)")
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for current filtered rows"):

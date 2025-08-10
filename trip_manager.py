@@ -1,18 +1,7 @@
-
 from __future__ import annotations
 import streamlit as st
 from typing import List, Dict, Any
-import math
-
-DEFAULT_CASINOS = [
-    "L’Auberge Lake Charles",
-    "Coushatta Casino Resort",
-    "Golden Nugget Lake Charles",
-    "Horseshoe Bossier City",
-    "Winstar World Casino",
-    "Choctaw Durant",
-    "Other..."
-]
+from data_loader_supabase import get_casinos
 
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state:
@@ -42,19 +31,15 @@ def _reset_trip_defaults() -> None:
     }
 
 def _casino_selector(disabled: bool) -> str:
+    casinos = get_casinos()
     current = st.session_state.trip_settings.get("casino", "").strip()
-    options = [c for c in DEFAULT_CASINOS]
-    if current and current not in options and current != "Other...":
-        options = [current] + [c for c in options if c != current]
+    try:
+        default_index = casinos.index(current) if current in casinos else 0
+    except Exception:
         default_index = 0
-    else:
-        default_index = options.index(current) if current in options else 0
-
-    sel = st.selectbox("Casino", options=options, index=default_index, disabled=disabled)
-    custom_name = current if (current and current not in DEFAULT_CASINOS) else ""
+    sel = st.selectbox("Casino", options=casinos, index=default_index, disabled=disabled)
     if sel == "Other...":
-        custom_name = st.text_input("Custom Casino", value=custom_name, disabled=disabled)
-        return custom_name.strip()
+        return st.text_input("Custom Casino", value=current if current not in casinos else "", disabled=disabled).strip()
     return sel.strip()
 
 def render_sidebar() -> None:
@@ -64,21 +49,8 @@ def render_sidebar() -> None:
         disabled = st.session_state.trip_started
 
         casino_choice = _casino_selector(disabled=disabled)
-        start_bankroll = st.number_input(
-            "Total Trip Bankroll ($)",
-            min_value=0.0,
-            value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
-            step=10.0,
-            disabled=disabled,
-        )
-        num_sessions = st.number_input(
-            "Number of Sessions",
-            min_value=1,
-            max_value=50,
-            value=int(st.session_state.trip_settings.get("num_sessions", 3)),
-            step=1,
-            disabled=disabled,
-        )
+        start_bankroll = st.number_input("Total Trip Bankroll ($)", min_value=0.0, value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)), step=10.0, disabled=disabled)
+        num_sessions = st.number_input("Number of Sessions", min_value=1, max_value=50, value=int(st.session_state.trip_settings.get("num_sessions", 3)), step=1, disabled=disabled)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -144,7 +116,8 @@ def get_volatility_adjustment() -> float:
         return 1.0
     mean = sum(profits) / len(profits)
     var = sum((p - mean) ** 2 for p in profits) / len(profits)
-    std = math.sqrt(var)
+    import math as _m
+    std = _m.sqrt(var)
     std_clamped = min(200.0, std)
     return 1.1 - (std_clamped / 200.0) * 0.2
 

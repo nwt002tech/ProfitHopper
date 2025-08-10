@@ -1,4 +1,3 @@
-
 import os
 os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'poll'
 
@@ -33,6 +32,13 @@ def _get_secret(key: str):
         pass
     return val or os.environ.get(key)
 
+def _rerun():
+    # Works on both older and newer Streamlit
+    if hasattr(st, 'experimental_rerun'):
+        st.experimental_rerun()
+    else:
+        st.rerun()
+
 def admin_auth_gate() -> bool:
     if 'admin_authenticated' not in st.session_state:
         st.session_state.admin_authenticated = False
@@ -49,7 +55,7 @@ def admin_auth_gate() -> bool:
             with cols[1]:
                 if st.button('Log out'):
                     st.session_state.admin_authenticated = False
-                    st.experimental_rerun()
+                    _rerun()
             if not has_service_key:
                 st.warning('SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.')
         return True
@@ -66,7 +72,7 @@ def admin_auth_gate() -> bool:
             st.session_state.admin_authenticated = True
             if not has_service_key:
                 st.warning('SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.')
-            st.experimental_rerun()
+            _rerun()
         else:
             st.error('Incorrect password.')
     return False
