@@ -73,12 +73,12 @@ def _score_row(row, default_bankroll=200.0):
     adv = float(row.get("advantage_play_potential") or 0)
     vol = float(row.get("volatility") or 0)
     min_bet = float(row.get("min_bet") or 0)
-    rtp_n = max(0.0, min(1.0, (rtp - 85.0) / (99.9 - 85.0))) if rtp else 0.0
-    adv_n = max(0.0, min(1.0, adv / 5.0)) if adv else 0.0
-    vol_pen = max(0.0, min(1.0, (5.0 - vol) / 5.0)) if vol else 0.5
+    rtp_n = max(0.0, min(1.0), (rtp - 85.0) / (99.9 - 85.0)) if rtp else 0.0  # clamp
+    adv_n = max(0.0, min(1.0, (adv or 0) / 5.0))
+    vol_pen = max(0.0, min(1.0, (5.0 - (vol or 0)) / 5.0))
     minbet_pen = 1.0
     if default_bankroll > 0:
-        ratio = min_bet / default_bankroll if min_bet else 0.0
+        ratio = (min_bet or 0.0) / default_bankroll
         minbet_pen = 1.0 - max(0.0, ratio - 0.03) * 6.0
         minbet_pen = max(0.0, min(1.0, minbet_pen))
     raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
@@ -95,25 +95,38 @@ def _fetch_casinos(client) -> pd.DataFrame:
         data = res.data or []
         df = pd.DataFrame(data)
         if df.empty:
-            return pd.DataFrame(columns=["id","name","is_active","inserted_at","updated_at"])
+            return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
+        for col in ["city","state"]:
+            if col not in df.columns:
+                df[col] = ""
         if "is_active" not in df.columns:
             df["is_active"] = True
-        return df[["id","name","is_active","inserted_at","updated_at"]]
+        return df[["id","name","city","state","is_active","inserted_at","updated_at"]]
     except Exception:
-        return pd.DataFrame(columns=["id","name","is_active","inserted_at","updated_at"])
+        return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
 
-def _add_casino(client, name: str, is_active: bool = True) -> tuple[bool,str]:
+def _add_casino(client, name: str, city: str = "", state: str = "", is_active: bool = True) -> tuple[bool,str]:
     try:
-        client.table("casinos").insert({"name": name.strip(), "is_active": bool(is_active)}).execute()
+        client.table("casinos").insert({
+            "name": name.strip(),
+            "city": city.strip(),
+            "state": state.strip(),
+            "is_active": bool(is_active)
+        }).execute()
         return True, "Casino added."
     except Exception as e:
         return False, f"Add failed: {e}"
 
-def _update_casino(client, cid: str, name: str | None = None, is_active: bool | None = None) -> tuple[bool,str]:
+def _update_casino(client, cid: str, name: str | None = None, city: str | None = None,
+                   state: str | None = None, is_active: bool | None = None) -> tuple[bool,str]:
     try:
         payload = {}
         if name is not None:
             payload["name"] = name.strip()
+        if city is not None:
+            payload["city"] = city.strip()
+        if state is not None:
+            payload["state"] = state.strip()
         if is_active is not None:
             payload["is_active"] = bool(is_active)
         if not payload:
@@ -131,9 +144,11 @@ def show_admin_panel():
         return
 
     # ---------- One-time resets from previous run (before any widgets) ----------
-    if st.session_state.get("_reset_new_casino_name"):
-        st.session_state["_reset_new_casino_name"] = False
-        st.session_state.pop("new_casino_name", None)
+    for reset_key in ["_reset_new_casino_name", "_reset_new_casino_city", "_reset_new_casino_state"]:
+        if st.session_state.get(reset_key):
+            st.session_state[reset_key] = False
+            # drop corresponding widget value key (e.g., new_casino_name)
+            st.session_state.pop(reset_key.replace("_reset_", ""), None)
 
     # Load once so all sections can use it
     games_df = _fetch_all_games(client)
@@ -148,21 +163,27 @@ def show_admin_panel():
 
         # Add new casino
         st.markdown("**Add new casino**")
-        c1, c2, c3 = st.columns([3,1,1])
+        c1, c2, c3, c4, c5 = st.columns([3,2,1,1,1])
         with c1:
             new_name = st.text_input("Casino name", key="new_casino_name")
         with c2:
-            new_active = st.checkbox("Active", value=True, key="new_casino_active")
+            new_city = st.text_input("City", key="new_casino_city")
         with c3:
+            new_state = st.text_input("State", key="new_casino_state")
+        with c4:
+            new_active = st.checkbox("Active", value=True, key="new_casino_active")
+        with c5:
             if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
                 if not (new_name or "").strip():
                     st.warning("Enter a casino name.")
                 else:
-                    ok, msg = _add_casino(client, new_name, new_active)
+                    ok, msg = _add_casino(client, new_name, new_city, new_state, new_active)
                     if ok:
                         st.success(msg)
-                        # Trigger clearing the input on the next run (safe with widget keys)
+                        # Clear inputs on the next run (safe pattern for widget keys)
                         st.session_state["_reset_new_casino_name"] = True
+                        st.session_state["_reset_new_casino_city"] = True
+                        st.session_state["_reset_new_casino_state"] = True
                         st.rerun()
                     else:
                         st.error(msg)
@@ -183,7 +204,7 @@ def show_admin_panel():
             edit_df = edit_df[edit_df["is_active"] == True]
 
         # Put editable columns first
-        lead = [c for c in ["name","is_active"] if c in edit_df.columns]
+        lead = [c for c in ["name","city","state","is_active"] if c in edit_df.columns]
         rest = [c for c in ["id","inserted_at","updated_at"] if c in edit_df.columns]
         edit_df = edit_df[lead + rest]
 
@@ -192,6 +213,8 @@ def show_admin_panel():
             "inserted_at": st.column_config.DatetimeColumn("inserted_at", disabled=True),
             "updated_at": st.column_config.DatetimeColumn("updated_at", disabled=True),
             "name": st.column_config.TextColumn("name", help="Displayed name (must be unique, case-insensitive)"),
+            "city": st.column_config.TextColumn("city", help="City"),
+            "state": st.column_config.TextColumn("state", help="State"),
             "is_active": st.column_config.CheckboxColumn("is_active", help="Uncheck to archive (hide from pickers)")
         }
 
@@ -204,7 +227,7 @@ def show_admin_panel():
             column_config=col_cfg
         )
 
-        # Save edits (rename / toggle active)
+        # Save edits (rename / city / state / toggle active)
         if st.button("💾 Save edits", key="btn_save_casinos"):
             try:
                 updated = 0
@@ -215,9 +238,16 @@ def show_admin_panel():
                         continue
                     original = orig_by_id.get(cid, {})
                     new_name = row.get("name")
+                    new_city = row.get("city")
+                    new_state = row.get("state")
                     new_active = bool(row.get("is_active"))
-                    if (original.get("name") != new_name) or (bool(original.get("is_active")) != new_active):
-                        ok, msg = _update_casino(client, cid, new_name, new_active)
+                    if (
+                        original.get("name") != new_name
+                        or (original.get("city") or "") != (new_city or "")
+                        or (original.get("state") or "") != (new_state or "")
+                        or bool(original.get("is_active")) != new_active
+                    ):
+                        ok, msg = _update_casino(client, cid, new_name, new_city, new_state, new_active)
                         if not ok:
                             st.error(f"{msg} (casino: {new_name})")
                         else:
