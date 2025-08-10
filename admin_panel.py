@@ -5,6 +5,7 @@ import re
 import pandas as pd
 import streamlit as st
 
+# --- Supabase client (service role) ---
 try:
     from supabase import create_client
 except Exception:
@@ -139,28 +140,25 @@ def show_admin_panel():
         casinos_df = _fetch_casinos(client)
 
         # Add new casino
-st.markdown("**Add new casino**")
-c1, c2, c3 = st.columns([3,1,1])
-with c1:
-    new_name = st.text_input(
-        "Casino name", 
-        key="new_casino_name"
-    )
-with c2:
-    new_active = st.checkbox("Active", value=True, key="new_casino_active")
-with c3:
-    if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
-        if not new_name.strip():
-            st.warning("Enter a casino name.")
-        else:
-            ok, msg = _add_casino(client, new_name, new_active)
-            if ok:
-                st.success(msg)
-                # ✅ Clear the input field after success
-                st.session_state.new_casino_name = ""
-                st.rerun()
-            else:
-                st.error(msg)
+        st.markdown("**Add new casino**")
+        c1, c2, c3 = st.columns([3,1,1])
+        with c1:
+            new_name = st.text_input("Casino name", key="new_casino_name")
+        with c2:
+            new_active = st.checkbox("Active", value=True, key="new_casino_active")
+        with c3:
+            if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
+                if not new_name.strip():
+                    st.warning("Enter a casino name.")
+                else:
+                    ok, msg = _add_casino(client, new_name, new_active)
+                    if ok:
+                        st.success(msg)
+                        # clear the input after success
+                        st.session_state.new_casino_name = ""
+                        st.rerun()
+                    else:
+                        st.error(msg)
 
         st.divider()
 
@@ -273,7 +271,7 @@ with c3:
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
-    # 3) Per‑casino availability (delete-then-insert to respect unique index on (game_id, lower(casino)))
+    # 3) Per‑casino availability (delete-then-insert to respect unique index)
     with st.expander("🏨 Per‑casino availability", expanded=False):
         st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
 
@@ -337,7 +335,7 @@ with c3:
                 except Exception as e:
                     st.error(f"Failed saving availability: {e}")
 
-        # Editable grid of current availability (game name first, uncheck to remove)
+        # Editable grid (game name first; uncheck to remove)
         if casino and str(casino).strip():
             try:
                 res = client.table("game_availability") \
