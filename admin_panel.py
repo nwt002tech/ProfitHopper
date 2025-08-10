@@ -97,7 +97,7 @@ def show_admin_panel():
     df = _fetch_all(client)
     st.write(f"Rows in DB: {len(df)}")
 
-    # Upload / Upsert CSV
+    # -- Upload / Upsert CSV --
     st.header("Upload/patch from CSV")
     csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"])
     if csv is not None:
@@ -113,7 +113,7 @@ def show_admin_panel():
 
     st.divider()
 
-    # Inline edit & save
+    # -- Inline edit & save (checkboxes first, name third) --
     st.header("Inline edit & save")
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
@@ -151,7 +151,7 @@ def show_admin_panel():
 
     st.divider()
 
-    # Per‑casino availability (dropdown from casinos table)
+    # -- Per‑casino availability (searchable dropdown + editable grid) --
     st.header("Per‑casino availability")
     st.caption("Mark games unavailable at the selected casino only (does not affect other casinos).")
 
@@ -170,20 +170,22 @@ def show_admin_panel():
 
     left, right = st.columns([2,1])
     with left:
-        st.write("Select games (from filtered list):")
+        st.write("Add games to this casino's unavailable list:")
         options = []
         if "id" in edited.columns and "name" in edited.columns:
             for _, r in edited.iterrows():
                 gid = _safe_uuid(r["id"])
                 if gid:
                     options.append((gid, r["name"]))
+        # sort by game name, then id for stable UX
+        options.sort(key=lambda x: (str(x[1]).lower(), str(x[0]).lower()))
         labels = {gid: f"{name} ({gid[:8]}…)" for gid, name in options}
         ids = [gid for gid, _ in options]
         selected_ids = st.multiselect("Games", ids, format_func=lambda x: labels.get(x, str(x)))
     with right:
         unavailable_flag = st.checkbox("Mark as UNAVAILABLE at this casino", value=True)
 
-    if st.button("Save per‑casino availability"):
+    if st.button("Add / update availability"):
         if not casino or not str(casino).strip():
             st.warning("Select a casino first.")
         elif not selected_ids:
@@ -193,22 +195,82 @@ def show_admin_panel():
             try:
                 client.table("game_availability").upsert(rows).execute()
                 st.success(f"Updated availability for {len(rows)} game(s) at “{str(casino).strip()}”.")
+                st.rerun()
             except Exception as e:
                 st.error(f"Failed saving availability: {e}")
 
+    # -- Editable grid of current availability (game_name first, uncheck to remove) --
     if casino and str(casino).strip():
         try:
-            res = client.table("game_availability").select("*").ilike("casino", str(casino).strip()).execute()
-            data = res.data or []
-            if data:
-                st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+            res = client.table("game_availability") \
+                        .select("*") \
+                        .ilike("casino", str(casino).strip()) \
+                        .order("updated_at", desc=True) \
+                        .execute()
+            avail_rows = res.data or []
+            avail_df = pd.DataFrame(avail_rows)
+
+            if not avail_df.empty:
+                # map game_id -> name from df
+                name_by_id = {}
+                if "id" in df.columns and "name" in df.columns:
+                    name_by_id = dict(zip(df["id"].astype(str), df["name"]))
+
+                if "game_id" in avail_df.columns:
+                    avail_df["game_id"] = avail_df["game_id"].astype(str)
+                    avail_df["game_name"] = avail_df["game_id"].map(name_by_id).fillna("(unknown)")
+
+                if "is_unavailable" not in avail_df.columns:
+                    avail_df["is_unavailable"] = True
+                avail_df["is_unavailable"] = avail_df["is_unavailable"].astype(bool)
+
+                lead = [c for c in ["game_name", "is_unavailable"] if c in avail_df.columns]
+                rest = [c for c in avail_df.columns if c not in lead]
+                avail_df = avail_df[lead + rest]
+
+                st.subheader(f"Current availability at “{str(casino).strip()}”")
+                st.caption("Uncheck **is_unavailable** to remove a game from this casino’s unavailable list, then click **Save changes**.")
+
+                edited_avail = st.data_editor(
+                    avail_df,
+                    key="per_casino_editor",
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "is_unavailable": st.column_config.CheckboxColumn("is_unavailable", help="If unchecked, row will be removed.")
+                    }
+                )
+
+                if st.button("💾 Save changes", key="save_per_casino_changes"):
+                    try:
+                        to_delete = edited_avail[(~edited_avail["is_unavailable"].astype(bool))]
+                        delete_count = 0
+                        if not to_delete.empty:
+                            if "id" in to_delete.columns:
+                                for rid in to_delete["id"].dropna().astype(str).tolist():
+                                    client.table("game_availability").delete().eq("id", rid).execute()
+                                    delete_count += 1
+                            else:
+                                for _, r in to_delete.iterrows():
+                                    gid = str(r.get("game_id") or "").strip()
+                                    cas = str(r.get("casino") or "").strip()
+                                    if gid and cas:
+                                        client.table("game_availability").delete() \
+                                              .eq("game_id", gid).ilike("casino", cas).execute()
+                                        delete_count += 1
+
+                        st.success(f"Saved. Removed {delete_count} game(s) from this casino’s unavailable list.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed saving changes: {e}")
             else:
                 st.info("No per‑casino availability rows found for this casino.")
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Failed to load per‑casino availability: {e}")
 
     st.divider()
 
+    # -- Recalculate scores --
     st.header("Recalculate and save scores (optional)")
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for current filtered rows"):

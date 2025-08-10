@@ -85,131 +85,141 @@ initialize_trip_state()
 st.markdown(get_css(), unsafe_allow_html=True)
 st.markdown(get_header(), unsafe_allow_html=True)
 
+# Sidebar is always visible
 render_sidebar()
 
+# Always create tabs so Admin is reachable even with no trip started
+tab1, tab2, tab3, tab4 = st.tabs(['🎮 Game Plan', '📊 Session Tracker', '📈 Trip Analytics', '🛠️ Admin'])
+
+# ---- GAME PLAN / SESSION / ANALYTICS render only when trip started ----
 if not st.session_state.get('trip_started', False):
-    st.info('No active trip. Use the **Start New Trip** button in the sidebar to begin.')
+    with tab1:
+        st.info('No active trip. Use the **Start New Trip** button in the sidebar to begin.')
+    with tab2:
+        st.info('Start a trip to use the Session Tracker.')
+    with tab3:
+        st.info('Start a trip to see Trip Analytics.')
 else:
-    border_colors = {
-        'Very Conservative': '#28a745',
-        'Conservative': '#28a745',
-        'Moderate': '#17a2b8',
-        'Standard': '#ffc107',
-        'Aggressive': '#dc3545'
-    }
-    try:
-        current_bankroll = get_current_bankroll()
-        session_bankroll = get_session_bankroll()
-        volatility_adjustment = get_volatility_adjustment()
-        win_streak_factor = get_win_streak_factor()
+    with tab1:
+        # ---- Strategy panel (unchanged logic) ----
+        border_colors = {
+            'Very Conservative': '#28a745',
+            'Conservative': '#28a745',
+            'Moderate': '#17a2b8',
+            'Standard': '#ffc107',
+            'Aggressive': '#dc3545'
+        }
+        try:
+            current_bankroll = get_current_bankroll()
+            session_bankroll = get_session_bankroll()
+            volatility_adjustment = get_volatility_adjustment()
+            win_streak_factor = get_win_streak_factor()
 
-        if session_bankroll < 20:
-            strategy_type = 'Very Conservative'
-            max_bet = max(0.01, session_bankroll * 0.05)
-            stop_loss = session_bankroll * 0.30
-            bet_unit = max(0.01, session_bankroll * 0.015)
-        elif session_bankroll < 100:
-            strategy_type = 'Conservative'
-            max_bet = session_bankroll * 0.10
-            stop_loss = session_bankroll * 0.40
-            bet_unit = max(0.05, session_bankroll * 0.02)
-        elif session_bankroll < 500:
-            strategy_type = 'Moderate'
-            max_bet = session_bankroll * 0.20
-            stop_loss = session_bankroll * 0.50
-            bet_unit = max(0.10, session_bankroll * 0.03)
-        else:
-            strategy_type = 'Aggressive'
-            max_bet = session_bankroll * 0.25
-            stop_loss = session_bankroll * 0.60
-            bet_unit = max(0.25, session_bankroll * 0.04)
+            if session_bankroll < 20:
+                strategy_type = 'Very Conservative'
+                max_bet = max(0.01, session_bankroll * 0.05)
+                stop_loss = session_bankroll * 0.30
+                bet_unit = max(0.01, session_bankroll * 0.015)
+            elif session_bankroll < 100:
+                strategy_type = 'Conservative'
+                max_bet = session_bankroll * 0.10
+                stop_loss = session_bankroll * 0.40
+                bet_unit = max(0.05, session_bankroll * 0.02)
+            elif session_bankroll < 500:
+                strategy_type = 'Moderate'
+                max_bet = session_bankroll * 0.20
+                stop_loss = session_bankroll * 0.50
+                bet_unit = max(0.10, session_bankroll * 0.03)
+            else:
+                strategy_type = 'Aggressive'
+                max_bet = session_bankroll * 0.25
+                stop_loss = session_bankroll * 0.60
+                bet_unit = max(0.25, session_bankroll * 0.04)
 
-        max_bet *= win_streak_factor * volatility_adjustment
-        stop_loss *= (2 - win_streak_factor)
-        bet_unit *= win_streak_factor * volatility_adjustment
-        estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
+            max_bet *= win_streak_factor * volatility_adjustment
+            stop_loss *= (2 - win_streak_factor)
+            bet_unit *= win_streak_factor * volatility_adjustment
+            estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
-    except Exception as e:
-        st.error(f'Error calculating strategy: {str(e)}')
-        strategy_type = 'Standard'
-        max_bet = 25.0
-        stop_loss = 100.0
-        bet_unit = 5.0
-        estimated_spins = 50
+        except Exception as e:
+            st.error(f'Error calculating strategy: {str(e)}')
+            strategy_type = 'Standard'
+            max_bet = 25.0
+            stop_loss = 100.0
+            bet_unit = 5.0
+            estimated_spins = 50
 
-    st.markdown(f'''
-    <div style="
-        background: white;
-        border-radius: 8px;
-        padding: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border-left: 4px solid {border_colors.get(strategy_type, '#ffc107')};
-        margin-bottom: 0;
-    ">
-        <div style="display:flex; align-items:center; justify-content:center;">
-            <div style="font-size:1.5rem; margin-right:15px;">📊</div>
-            <div style="text-align:center;">
-                <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
-                <div style="font-size:0.8rem; color:#7f8c8d;">
-                    Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
-                </div>
-            </div>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
-
-    st.markdown('''
-    <style>
-        .card-container { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 15px; margin-top: 0; }
-        .metric-card { flex: 1; background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100px; }
-        .metric-icon { font-size: 1.5rem; margin-bottom: 5px; }
-        .metric-label { font-size: 0.8rem; color: #7f8c8d; }
-        .metric-value { font-size: 1.1rem; font-weight: bold; }
-    </style>
-    ''', unsafe_allow_html=True)
-
-    st.markdown(f'''
-    <div class="card-container">
-        <div class="metric-card">
-            <div class="metric-icon">💰</div>
-            <div class="metric-label">Bankroll</div>
-            <div class="metric-value">${current_bankroll:,.2f}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon">💵</div>
-            <div class="metric-label">Session</div>
-            <div class="metric-value">${session_bankroll:,.2f}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon">🪙</div>
-            <div class="metric-label">Unit</div>
-            <div class="metric-value">${bet_unit:,.2f}</div>
-        </div>
-    </div>
-    ''', unsafe_allow_html=True)
-
-    indicators = []
-    if win_streak_factor > 1:
-        indicators.append(f"🔥 +{int((win_streak_factor-1)*100)}%")
-    elif win_streak_factor < 1:
-        indicators.append(f"❄️ -{int((1-win_streak_factor)*100)}%")
-    if volatility_adjustment > 1:
-        indicators.append(f"📈 +{int((volatility_adjustment-1)*100)}%")
-    elif volatility_adjustment < 1:
-        indicators.append(f"📉 -{int((1-volatility_adjustment)*100)}%")
-    if indicators:
         st.markdown(f'''
-        <div style="display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;">
-            <div style="font-weight:bold;">Active Adjustments:</div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                {''.join([f'<div>{ind}</div>' for ind in indicators])}
+        <div style="
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-left: 4px solid {border_colors.get(strategy_type, '#ffc107')};
+            margin-bottom: 0;
+        ">
+            <div style="display:flex; align-items:center; justify-content:center;">
+                <div style="font-size:1.5rem; margin-right:15px;">📊</div>
+                <div style="text-align:center;">
+                    <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
+                    <div style="font-size:0.8rem; color:#7f8c8d;">
+                        Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
+                    </div>
+                </div>
             </div>
         </div>
         ''', unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs(['🎮 Game Plan', '📊 Session Tracker', '📈 Trip Analytics', '🛠️ Admin'])
+        st.markdown('''
+        <style>
+            .card-container { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 15px; margin-top: 0; }
+            .metric-card { flex: 1; background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100px; }
+            .metric-icon { font-size: 1.5rem; margin-bottom: 5px; }
+            .metric-label { font-size: 0.8rem; color: #7f8c8d; }
+            .metric-value { font-size: 1.1rem; font-weight: bold; }
+        </style>
+        ''', unsafe_allow_html=True)
 
-    with tab1:
+        st.markdown(f'''
+        <div class="card-container">
+            <div class="metric-card">
+                <div class="metric-icon">💰</div>
+                <div class="metric-label">Bankroll</div>
+                <div class="metric-value">${current_bankroll:,.2f}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">💵</div>
+                <div class="metric-label">Session</div>
+                <div class="metric-value">${session_bankroll:,.2f}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">🪙</div>
+                <div class="metric-label">Unit</div>
+                <div class="metric-value">${bet_unit:,.2f}</div>
+            </div>
+        </div>
+        ''', unsafe_allow_html=True)
+
+        indicators = []
+        if win_streak_factor > 1:
+            indicators.append(f"🔥 +{int((win_streak_factor-1)*100)}%")
+        elif win_streak_factor < 1:
+            indicators.append(f"❄️ -{int((1-win_streak_factor)*100)}%")
+        if volatility_adjustment > 1:
+            indicators.append(f"📈 +{int((volatility_adjustment-1)*100)}%")
+        elif volatility_adjustment < 1:
+            indicators.append(f"📉 -{int((1-volatility_adjustment)*100)}%")
+        if indicators:
+            st.markdown(f'''
+            <div style="display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;">
+                <div style="font-weight:bold;">Active Adjustments:</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    {''.join([f'<div>{ind}</div>' for ind in indicators])}
+                </div>
+            </div>
+            ''', unsafe_allow_html=True)
+
+        # ---- Game Plan content ----
         st.info('Find the best games for your bankroll based on RTP, volatility, and advantage play potential')
         game_df = load_game_data(current_casino=st.session_state.trip_settings.get('casino'))
 
@@ -435,15 +445,17 @@ else:
 
     with tab2:
         game_df = load_game_data(current_casino=st.session_state.trip_settings.get('casino'))
+        session_bankroll = get_session_bankroll()
         render_session_tracker(game_df, session_bankroll)
 
     with tab3:
         render_analytics()
 
-    with tab4:
-        st.info('Admin tools are protected. Configure ADMIN_PASS in secrets or env. '
-                'Requires SUPABASE_SERVICE_ROLE_KEY for upserts.')
-        if admin_auth_gate():
-            show_admin_panel()
-        else:
-            st.stop()
+# ---- ADMIN tab is always reachable ----
+with tab4:
+    st.info('Admin tools are protected. Configure ADMIN_PASS in secrets or env. '
+            'Requires SUPABASE_SERVICE_ROLE_KEY for upserts.')
+    if admin_auth_gate():
+        show_admin_panel()
+    else:
+        st.stop()
