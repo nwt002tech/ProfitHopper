@@ -220,3 +220,68 @@ def render_trip_heading():
     st.markdown(f"### {title}")
     if casino:
         st.caption(casino)
+
+# -------- Back-compat exports & aliases (put at the end of trip_manager.py) --------
+
+# Some apps import slightly different function names. Provide aliases:
+# If your app imports render_trip_settings, point it to the new section function.
+try:
+    render_trip_settings
+except NameError:
+    render_trip_settings = render_trip_settings_section  # alias
+
+# If your app imports get_trip_state or similar, map to get_trip_settings
+try:
+    get_trip_state
+except NameError:
+    get_trip_state = get_trip_settings  # alias
+
+# If your app imports trip_active instead of is_trip_active
+try:
+    trip_active
+except NameError:
+    trip_active = is_trip_active  # alias
+
+# If your app imports trip_start / trip_stop
+try:
+    trip_start
+except NameError:
+    trip_start = start_trip  # alias
+
+try:
+    trip_stop
+except NameError:
+    trip_stop = stop_trip  # alias
+
+# Some code expects render_sidebar() to exist.
+try:
+    render_sidebar
+except NameError:
+    def render_sidebar():
+        import streamlit as st
+        with st.sidebar:
+            render_trip_settings_section()
+
+# Some code expects render_trip_header() instead of render_trip_heading()
+try:
+    render_trip_header
+except NameError:
+    render_trip_header = render_trip_heading  # alias
+
+# Explicit export list so "from trip_manager import (...)" works reliably
+__all__ = [
+    "get_trip_settings",
+    "is_trip_active",
+    "start_trip",
+    "stop_trip",
+    "get_trip_heading",
+    "render_trip_heading",
+    "render_trip_settings_section",
+    "render_trip_settings",     # alias
+    "render_sidebar",
+    "get_trip_state",           # alias
+    "trip_active",              # alias
+    "trip_start",               # alias
+    "trip_stop",                # alias
+    "render_trip_header",       # alias
+]
