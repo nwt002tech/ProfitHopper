@@ -97,9 +97,7 @@ def show_admin_panel():
     df = _fetch_all(client)
     st.caption(f"Loaded {len(df)} rows from public.games")
 
-    # =========================
-    # 1) Upload / patch from CSV
-    # =========================
+    # 1) Upload / patch CSV
     with st.expander("📤 Upload / patch CSV into games", expanded=False):
         csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"], key="upload_csv")
         if csv is not None:
@@ -113,9 +111,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to process CSV: {e}")
 
-    # =========================
     # 2) Inline edit & save
-    # =========================
     with st.expander("📝 Inline edit & save (checkboxes first, name third)", expanded=False):
         q = st.text_input("Quick filter (name contains):", "", key="inline_filter")
         df_edit = df.copy()
@@ -152,9 +148,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
-    # =========================
-    # 3) Per‑casino availability
-    # =========================
+    # 3) Per‑casino availability (delete-then-insert to avoid unique conflict)
     with st.expander("🏨 Per‑casino availability", expanded=False):
         st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
 
@@ -171,7 +165,6 @@ def show_admin_panel():
                 default_idx = 0
             casino = st.selectbox("Casino", options=casinos, index=default_idx, key="casino_select")
 
-        # Add to unavailable list
         left, right = st.columns([2,1])
         with left:
             st.write("Add games to this casino's unavailable list:")
@@ -200,10 +193,23 @@ def show_admin_panel():
             elif not selected_ids:
                 st.warning("Select at least one game.")
             else:
-                rows = [{"game_id": gid, "casino": str(casino).strip(), "is_unavailable": bool(unavailable_flag)} for gid in selected_ids]
+                casino_norm = str(casino).strip()
                 try:
-                    client.table("game_availability").upsert(rows).execute()
-                    st.success(f"Updated availability for {len(rows)} game(s) at “{str(casino).strip()}”.")
+                    count = 0
+                    for gid in selected_ids:
+                        # delete any existing row for (game_id, casino ILIKE)
+                        client.table("game_availability").delete() \
+                              .eq("game_id", str(gid)) \
+                              .ilike("casino", casino_norm) \
+                              .execute()
+                        # insert desired state
+                        client.table("game_availability").insert({
+                            "game_id": str(gid),
+                            "casino": casino_norm,
+                            "is_unavailable": bool(unavailable_flag)
+                        }).execute()
+                        count += 1
+                    st.success(f"Updated availability for {count} game(s) at “{casino_norm}”.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed saving availability: {e}")
@@ -277,9 +283,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to load per‑casino availability: {e}")
 
-    # =========================
     # 4) Recalculate & save scores
-    # =========================
     with st.expander("🧮 Recalculate & save scores", expanded=False):
         default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0, key="score_bankroll")
         if st.button("Recalculate 'score' for all (filtered via per‑section tools)", key="btn_recalc_scores"):

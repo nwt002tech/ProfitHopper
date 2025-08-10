@@ -20,7 +20,7 @@ from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 from admin_panel import show_admin_panel
 
-# ---- Supabase admin helper (optional) ----
+# ---- Supabase admin helper (optional; for per-casino writes) ----
 try:
     from supabase import create_client
 except Exception:
@@ -52,19 +52,28 @@ def _admin_client_optional():
         return None
 
 def _mark_unavailable_for_casino(game_id: str, casino: str) -> bool:
-    """Persist 'unavailable here' to public.game_availability. Returns True on success."""
+    """Persist 'unavailable here' to public.game_availability.
+       Works with unique index on (game_id, lower(casino)) by deleting then inserting.
+       Returns True on success, False if write not possible (e.g., missing service role).
+    """
     client = _admin_client_optional()
     if not client or not game_id or not casino:
         return False
     try:
-        payload = {"game_id": str(game_id), "casino": str(casino).strip(), "is_unavailable": True}
-        client.table("game_availability").upsert(payload).execute()
+        casino_norm = str(casino).strip()
+        # Delete any existing row matching this game + casino (case-insensitive)
+        client.table("game_availability").delete() \
+              .eq("game_id", str(game_id)) \
+              .ilike("casino", casino_norm) \
+              .execute()
+        # Insert desired state
+        payload = {"game_id": str(game_id), "casino": casino_norm, "is_unavailable": True}
+        client.table("game_availability").insert(payload).execute()
         return True
     except Exception:
         return False
 
 def _rerun():
-    # Works on both older and newer Streamlit
     if hasattr(st, 'experimental_rerun'):
         st.experimental_rerun()
     else:
@@ -108,6 +117,7 @@ def admin_auth_gate() -> bool:
             st.error('Incorrect password.')
     return False
 
+# ---- App layout ----
 st.set_page_config(layout='wide', initial_sidebar_state='expanded',
                    page_title='Profit Hopper Casino Manager')
 
@@ -122,7 +132,7 @@ render_sidebar()
 # Always create tabs so Admin is reachable even with no trip started
 tab1, tab2, tab3, tab4 = st.tabs(['🎮 Game Plan', '📊 Session Tracker', '📈 Trip Analytics', '🛠️ Admin'])
 
-# ---- GAME PLAN / SESSION / ANALYTICS render only when trip started ----
+# ---- GAME PLAN / SESSION / ANALYTICS only render when trip started ----
 if not st.session_state.get('trip_started', False):
     with tab1:
         st.info('No active trip. Use the **Start New Trip** button in the sidebar to begin.')
@@ -305,7 +315,7 @@ else:
             elif volatility_filter == 'Medium (3)':
                 filtered_games = filtered_games[filtered_games['volatility'] == 3]
             elif volatility_filter == 'High (4-5)':
-                filtered_games = filtered_games[filtered_games['volatility'] >= 4]  # fixed indexing
+                filtered_games = filtered_games[filtered_games['volatility'] >= 4]
             if search_query:
                 filtered_games = filtered_games[filtered_games['game_name'].str.contains(search_query, case=False)]
             blacklisted = get_blacklisted_games()
