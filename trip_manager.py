@@ -4,6 +4,16 @@ import streamlit as st
 from typing import List, Dict, Any
 import math
 
+DEFAULT_CASINOS = [
+    "L’Auberge Lake Charles",
+    "Coushatta Casino Resort",
+    "Golden Nugget Lake Charles",
+    "Horseshoe Bossier City",
+    "Winstar World Casino",
+    "Choctaw Durant",
+    "Other..."
+]
+
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state:
         st.session_state.trip_started = False
@@ -31,6 +41,25 @@ def _reset_trip_defaults() -> None:
         "num_sessions": 3,
     }
 
+def _casino_selector(disabled: bool) -> str:
+    """Render a dropdown for casino with an 'Other...' option for custom entry."""
+    current = st.session_state.trip_settings.get("casino", "").strip()
+    # Build options, preserving current if it's custom
+    options = [c for c in DEFAULT_CASINOS]
+    if current and current not in options and current != "Other...":
+        options = [current] + [c for c in options if c != current]
+        default_index = 0
+    else:
+        # Default to current if present, else first item
+        default_index = options.index(current) if current in options else 0
+
+    sel = st.selectbox("Casino", options=options, index=default_index, disabled=disabled)
+    custom_name = current if (current and current not in DEFAULT_CASINOS) else ""
+    if sel == "Other...":
+        custom_name = st.text_input("Custom Casino", value=custom_name, disabled=disabled)
+        return custom_name.strip()
+    return sel.strip()
+
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -38,12 +67,21 @@ def render_sidebar() -> None:
 
         disabled = st.session_state.trip_started
 
-        casino = st.text_input("Casino", value=st.session_state.trip_settings.get("casino",""), disabled=disabled)
+        casino_choice = _casino_selector(disabled=disabled)
         start_bankroll = st.number_input(
-            "Total Trip Bankroll ($)", min_value=0.0, value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)), step=10.0, disabled=disabled
+            "Total Trip Bankroll ($)",
+            min_value=0.0,
+            value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
+            step=10.0,
+            disabled=disabled,
         )
         num_sessions = st.number_input(
-            "Number of Sessions", min_value=1, max_value=50, value=int(st.session_state.trip_settings.get("num_sessions", 3)), step=1, disabled=disabled
+            "Number of Sessions",
+            min_value=1,
+            max_value=50,
+            value=int(st.session_state.trip_settings.get("num_sessions", 3)),
+            step=1,
+            disabled=disabled,
         )
 
         col1, col2 = st.columns(2)
@@ -53,7 +91,7 @@ def render_sidebar() -> None:
             stop_clicked = st.button("🛑 Stop Trip", use_container_width=True, disabled=not st.session_state.trip_started)
 
         if start_clicked and not st.session_state.trip_started:
-            st.session_state.trip_settings["casino"] = casino.strip()
+            st.session_state.trip_settings["casino"] = casino_choice
             st.session_state.trip_settings["starting_bankroll"] = float(start_bankroll)
             st.session_state.trip_settings["num_sessions"] = int(num_sessions)
 
