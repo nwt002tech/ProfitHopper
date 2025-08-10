@@ -1,3 +1,4 @@
+
 import os
 os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'poll'
 
@@ -14,44 +15,64 @@ from trip_manager import (
     get_volatility_adjustment,
     get_win_streak_factor,
 )
-# Prefer Supabase-integrated loader if available
 from data_loader_supabase import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
 from admin_panel import show_admin_panel
 
+def _get_secret(key: str):
+    val = None
+    try:
+        if hasattr(st, 'secrets'):
+            if key in st.secrets:
+                val = st.secrets[key]
+            elif 'general' in st.secrets and key in st.secrets['general']:
+                val = st.secrets['general'][key]
+    except Exception:
+        pass
+    return val or os.environ.get(key)
 
-def _is_admin_authenticated() -> bool:
-    """
-    Simple admin auth gate:
-    - Checks ADMIN_PASS in Streamlit secrets or environment
-    - Warns if SUPABASE_SERVICE_ROLE_KEY is missing (writes will fail)
-    """
-    expected = None
-    if hasattr(st, "secrets"):
-        expected = st.secrets.get("ADMIN_PASS", None)
-    if expected is None:
-        expected = os.environ.get("ADMIN_PASS")
+def admin_auth_gate() -> bool:
+    if 'admin_authenticated' not in st.session_state:
+        st.session_state.admin_authenticated = False
 
-    has_service_key = bool(os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
+    expected = _get_secret('ADMIN_PASS')
+    has_service_key = bool(_get_secret('SUPABASE_SERVICE_ROLE_KEY'))
 
-    st.subheader("Admin Login")
-    pwd = st.text_input("Enter admin password", type="password")
-    ok = st.button("Log in")
+    if st.session_state.admin_authenticated:
+        top = st.container()
+        with top:
+            cols = st.columns([1,1,4])
+            with cols[0]:
+                st.success('Admin: authenticated')
+            with cols[1]:
+                if st.button('Log out'):
+                    st.session_state.admin_authenticated = False
+                    st.experimental_rerun()
+            if not has_service_key:
+                st.warning('SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.')
+        return True
 
-    if ok:
+    st.subheader('Admin Login')
+    with st.form('admin_login_form', clear_on_submit=False):
+        pwd = st.text_input('Enter admin password', type='password')
+        submitted = st.form_submit_button('Log in')
+    if submitted:
         if not expected:
-            st.error("ADMIN_PASS not configured in secrets or environment.")
+            st.error('ADMIN_PASS not configured in secrets or environment.')
             return False
-        if not has_service_key:
-            st.warning("SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.")
-        return pwd == expected
+        if pwd == expected:
+            st.session_state.admin_authenticated = True
+            if not has_service_key:
+                st.warning('SUPABASE_SERVICE_ROLE_KEY is missing; admin write actions may fail.')
+            st.experimental_rerun()
+        else:
+            st.error('Incorrect password.')
     return False
 
-
-st.set_page_config(layout="wide", initial_sidebar_state="expanded",
-                   page_title="Profit Hopper Casino Manager")
+st.set_page_config(layout='wide', initial_sidebar_state='expanded',
+                   page_title='Profit Hopper Casino Manager')
 
 initialize_trip_state()
 
@@ -60,16 +81,15 @@ st.markdown(get_header(), unsafe_allow_html=True)
 
 render_sidebar()
 
-# Only proceed with main content if a trip has been started
 if not st.session_state.get('trip_started', False):
-    st.info("No active trip. Use the **Start New Trip** button in the sidebar to begin.")
+    st.info('No active trip. Use the **Start New Trip** button in the sidebar to begin.')
 else:
     border_colors = {
-        "Very Conservative": "#28a745",
-        "Conservative": "#28a745",
-        "Moderate": "#17a2b8",
-        "Standard": "#ffc107",
-        "Aggressive": "#dc3545"
+        'Very Conservative': '#28a745',
+        'Conservative': '#28a745',
+        'Moderate': '#17a2b8',
+        'Standard': '#ffc107',
+        'Aggressive': '#dc3545'
     }
     try:
         current_bankroll = get_current_bankroll()
@@ -77,103 +97,72 @@ else:
         volatility_adjustment = get_volatility_adjustment()
         win_streak_factor = get_win_streak_factor()
 
-        # Determine base strategy tiers based on session bankroll.
         if session_bankroll < 20:
-            strategy_type = "Very Conservative"
+            strategy_type = 'Very Conservative'
             max_bet = max(0.01, session_bankroll * 0.05)
             stop_loss = session_bankroll * 0.30
             bet_unit = max(0.01, session_bankroll * 0.015)
         elif session_bankroll < 100:
-            strategy_type = "Conservative"
+            strategy_type = 'Conservative'
             max_bet = session_bankroll * 0.10
             stop_loss = session_bankroll * 0.40
             bet_unit = max(0.05, session_bankroll * 0.02)
         elif session_bankroll < 500:
-            strategy_type = "Moderate"
+            strategy_type = 'Moderate'
             max_bet = session_bankroll * 0.20
             stop_loss = session_bankroll * 0.50
             bet_unit = max(0.10, session_bankroll * 0.03)
         else:
-            strategy_type = "Aggressive"
+            strategy_type = 'Aggressive'
             max_bet = session_bankroll * 0.25
             stop_loss = session_bankroll * 0.60
             bet_unit = max(0.25, session_bankroll * 0.04)
 
-        # Adjust betting parameters using win streak and volatility factors.
         max_bet *= win_streak_factor * volatility_adjustment
         stop_loss *= (2 - win_streak_factor)
         bet_unit *= win_streak_factor * volatility_adjustment
         estimated_spins = int(session_bankroll / bet_unit) if bet_unit > 0 else 0
 
     except Exception as e:
-        st.error(f"Error calculating strategy: {str(e)}")
-        strategy_type = "Standard"
+        st.error(f'Error calculating strategy: {str(e)}')
+        strategy_type = 'Standard'
         max_bet = 25.0
         stop_loss = 100.0
         bet_unit = 5.0
         estimated_spins = 50
 
-    st.markdown(f"""
-    <div style='
+    st.markdown(f'''
+    <div style="
         background: white;
         border-radius: 8px;
         padding: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border-left: 4px solid {border_colors.get(strategy_type, "#ffc107")};
+        border-left: 4px solid {border_colors.get(strategy_type, '#ffc107')};
         margin-bottom: 0;
-    '>
-        <div style='display:flex; align-items:center; justify-content:center;'>
-            <div style='font-size:1.5rem; margin-right:15px;'>📊</div>
-            <div style='text-align:center;'>
-                <div style='font-size:1.1rem; font-weight:bold;'>{strategy_type} Strategy</div>
-                <div style='font-size:0.8rem; color:#7f8c8d;'>
+    ">
+        <div style="display:flex; align-items:center; justify-content:center;">
+            <div style="font-size:1.5rem; margin-right:15px;">📊</div>
+            <div style="text-align:center;">
+                <div style="font-size:1.1rem; font-weight:bold;">{strategy_type} Strategy</div>
+                <div style="font-size:0.8rem; color:#7f8c8d;">
                     Max Bet: ${max_bet:,.2f} | Stop Loss: ${stop_loss:,.2f} | Spins: {estimated_spins}
                 </div>
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
-    # Card styles
-    st.markdown("""
+    st.markdown('''
     <style>
-        .card-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 15px;
-            margin-top: 0;
-        }
-        .metric-card {
-            flex: 1;
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            height: 100px;
-        }
-        .metric-icon {
-            font-size: 1.5rem;
-            margin-bottom: 5px;
-        }
-        .metric-label {
-            font-size: 0.8rem;
-            color: #7f8c8d;
-        }
-        .metric-value {
-            font-size: 1.1rem;
-            font-weight: bold;
-        }
+        .card-container { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 15px; margin-top: 0; }
+        .metric-card { flex: 1; background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e0e0e0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100px; }
+        .metric-icon { font-size: 1.5rem; margin-bottom: 5px; }
+        .metric-label { font-size: 0.8rem; color: #7f8c8d; }
+        .metric-value { font-size: 1.1rem; font-weight: bold; }
     </style>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
-    st.markdown(f"""
+    st.markdown(f'''
     <div class="card-container">
         <div class="metric-card">
             <div class="metric-icon">💰</div>
@@ -191,42 +180,39 @@ else:
             <div class="metric-value">${bet_unit:,.2f}</div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
-    if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 or volatility_adjustment < 1:
-        indicators = []
-        if win_streak_factor > 1:
-            indicators.append(f"🔥 +{int((win_streak_factor-1)*100)}%")
-        elif win_streak_factor < 1:
-            indicators.append(f"❄️ -{int((1-win_streak_factor)*100)}%")
-        if volatility_adjustment > 1:
-            indicators.append(f"📈 +{int((volatility_adjustment-1)*100)}%")
-        elif volatility_adjustment < 1:
-            indicators.append(f"📉 -{int((1-volatility_adjustment)*100)}%")
-        if indicators:
-            st.markdown(f"""
-            <div style='display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;'>
-                <div style='font-weight:bold;'>Active Adjustments:</div>
-                <div style='display:flex; gap:8px; flex-wrap:wrap;'>
-                    {''.join([f'<div>{ind}</div>' for ind in indicators])}
-                </div>
+    indicators = []
+    if win_streak_factor > 1:
+        indicators.append(f"🔥 +{int((win_streak_factor-1)*100)}%")
+    elif win_streak_factor < 1:
+        indicators.append(f"❄️ -{int((1-win_streak_factor)*100)}%")
+    if volatility_adjustment > 1:
+        indicators.append(f"📈 +{int((volatility_adjustment-1)*100)}%")
+    elif volatility_adjustment < 1:
+        indicators.append(f"📉 -{int((1-volatility_adjustment)*100)}%")
+    if indicators:
+        st.markdown(f'''
+        <div style="display:flex; gap:10px; margin:5px 0 15px; font-size:0.85rem; flex-wrap:wrap;">
+            <div style="font-weight:bold;">Active Adjustments:</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                {''.join([f'<div>{ind}</div>' for ind in indicators])}
             </div>
-            """, unsafe_allow_html=True)
+        </div>
+        ''', unsafe_allow_html=True)
 
-    # Add Admin tab (🛠️) without touching existing tabs' content
-    tab1, tab2, tab3, tab4 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics", "🛠️ Admin"])
+    tab1, tab2, tab3, tab4 = st.tabs(['🎮 Game Plan', '📊 Session Tracker', '📈 Trip Analytics', '🛠️ Admin'])
 
     with tab1:
-        st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
-        game_df = load_game_data()
+        st.info('Find the best games for your bankroll based on RTP, volatility, and advantage play potential')
+        game_df = load_game_data(current_casino=st.session_state.trip_settings.get('casino'))
 
-        # Refine generic tip text after loading.
         def refine_tip(tip: str) -> str:
-            if isinstance(tip, str) and tip.strip().lower().startswith("play when bonus frequency"):
+            if isinstance(tip, str) and tip.strip().lower().startswith('play when bonus frequency'):
                 return (
-                    "Play when bonus frequency is high (≈30–40 spins per bonus). "
-                    "If you find it takes more than about 50 spins to trigger a bonus, "
-                    "switch to a different game as the bonus is relatively rare."
+                    'Play when bonus frequency is high (≈30–40 spins per bonus). '
+                    'If you find it takes more than about 50 spins to trigger a bonus, '
+                    'switch to a different game as the bonus is relatively rare.'
                 )
             return tip
 
@@ -234,44 +220,44 @@ else:
             game_df['tips'] = game_df['tips'].apply(refine_tip)
 
         if not game_df.empty:
-            with st.expander("🔍 Game Filters", expanded=False):
+            with st.expander('🔍 Game Filters', expanded=False):
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    min_rtp = st.slider("Minimum RTP (%)", 85.0, 99.9, 92.0, step=0.1)
-                    game_type = st.selectbox("Game Type", ["All"] + list(game_df['type'].unique()))
+                    min_rtp = st.slider('Minimum RTP (%)', 85.0, 99.9, 92.0, step=0.1)
+                    game_type = st.selectbox('Game Type', ['All'] + list(game_df['type'].unique()))
                 with col2:
                     max_min_bet = st.slider(
-                        "Max Min Bet",
+                        'Max Min Bet',
                         float(game_df['min_bet'].min()),
                         float(game_df['min_bet'].max() * 2),
                         float(max_bet),
                         step=1.0,
                     )
                     advantage_filter = st.selectbox(
-                        "Advantage Play Potential",
-                        ["All", "High (4-5)", "Medium (3)", "Low (1-2)"],
+                        'Advantage Play Potential',
+                        ['All', 'High (4-5)', 'Medium (3)', 'Low (1-2)'],
                     )
                 with col3:
                     volatility_filter = st.selectbox(
-                        "Volatility",
-                        ["All", "Low (1-2)", "Medium (3)", "High (4-5)"],
+                        'Volatility',
+                        ['All', 'Low (1-2)', 'Medium (3)', 'High (4-5)'],
                     )
-                    search_query = st.text_input("Search Game Name")
+                    search_query = st.text_input('Search Game Name')
 
             filtered_games = game_df[(game_df['min_bet'] <= max_min_bet) & (game_df['rtp'] >= min_rtp)]
-            if game_type != "All":
+            if game_type != 'All':
                 filtered_games = filtered_games[filtered_games['type'] == game_type]
-            if advantage_filter == "High (4-5)":
+            if advantage_filter == 'High (4-5)':
                 filtered_games = filtered_games[filtered_games['advantage_play_potential'] >= 4]
-            elif advantage_filter == "Medium (3)":
+            elif advantage_filter == 'Medium (3)':
                 filtered_games = filtered_games[filtered_games['advantage_play_potential'] == 3]
-            elif advantage_filter == "Low (1-2)":
+            elif advantage_filter == 'Low (1-2)':
                 filtered_games = filtered_games[filtered_games['advantage_play_potential'] <= 2]
-            if volatility_filter == "Low (1-2)":
+            if volatility_filter == 'Low (1-2)':
                 filtered_games = filtered_games[filtered_games['volatility'] <= 2]
-            elif volatility_filter == "Medium (3)":
+            elif volatility_filter == 'Medium (3)':
                 filtered_games = filtered_games[filtered_games['volatility'] == 3]
-            elif volatility_filter == "High (4-5)":
+            elif volatility_filter == 'High (4-5)':
                 filtered_games = filtered_games[filtered_games['volatility'] >= 4]
             if search_query:
                 filtered_games = filtered_games[filtered_games['game_name'].str.contains(search_query, case=False)]
@@ -279,29 +265,28 @@ else:
             if blacklisted:
                 filtered_games = filtered_games[~filtered_games['game_name'].isin(blacklisted)]
 
+            if 'is_hidden' in filtered_games.columns:
+                filtered_games = filtered_games[~filtered_games['is_hidden'].fillna(False)]
+            if 'is_unavailable' in filtered_games.columns:
+                filtered_games = filtered_games[~filtered_games['is_unavailable'].fillna(False)]
+            if 'unavailable_here' in filtered_games.columns:
+                filtered_games = filtered_games[~filtered_games['unavailable_here'].fillna(False)]
+
             if not filtered_games.empty:
-                # Copy to avoid modifying original DataFrame
                 games = filtered_games.copy()
 
                 def compute_score(row):
-                    # House edge component
                     house_edge = 1.0 - row['rtp'] / 100.0
-                    rtp_component = (1 - house_edge)  # higher is better
-                    # Advantage play component scaled 0-1
+                    rtp_component = (1 - house_edge)
                     adv_factor = max(0, (row['advantage_play_potential'] - 1) / 4)
-                    # Bonus frequency (already 0-1)
                     bonus_component = row['bonus_frequency']
-                    # Volatility risk component: lower risk = higher score
                     vol_factor = max(0, (5 - row['volatility']) / 4)
-                    # Min bet penalty: compare to 3% of session bankroll
                     recommended_bet_base = session_bankroll * 0.03
                     ratio = row['min_bet'] / recommended_bet_base if recommended_bet_base > 0 else 1
-                    bet_penalty = 1 / (1 + max(ratio - 1, 0))  # 1 if ratio <= 1, declines afterwards
-                    # Additional volatility penalty for small bankroll + high volatility
+                    bet_penalty = 1 / (1 + max(ratio - 1, 0))
                     volatility_penalty = 1.0
                     if session_bankroll < 50 and row['volatility'] >= 4:
                         volatility_penalty = 0.7
-                    # Weighted sum; weights sum to 1
                     score = (
                         0.25 * rtp_component
                         + 0.35 * adv_factor
@@ -312,37 +297,29 @@ else:
                     return score
 
                 def compute_recommended_bet(row):
-                    # Base bet fraction (3% of bankroll) adjusted for volatility
                     base_fraction = 0.03 * (3 / row['volatility'])
-                    # Cap fraction to 5% for very low volatility
                     bet_fraction = min(max(base_fraction, 0.01), 0.05)
                     suggested = session_bankroll * bet_fraction
-                    # Ensure bet meets the game's minimum
                     bet_amount = max(row['min_bet'], suggested)
-                    # Don't exceed max_bet defined by strategy
                     bet_amount = min(bet_amount, max_bet)
                     return bet_amount
 
-                # Compute scores and recommended bets
                 games['Score'] = games.apply(compute_score, axis=1)
                 games['RecommendedBet'] = games.apply(compute_recommended_bet, axis=1)
-                # Sort games by score descending
                 games = games.sort_values('Score', ascending=False)
                 num_sessions = st.session_state.trip_settings['num_sessions']
                 recommended_games = games.head(num_sessions)
 
-                st.subheader(f"🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)")
-                st.info(f"Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:")
-                st.caption("Recommendations prioritize high expected return, advantage play potential, affordability, and risk management.")
-                st.caption("Games with high volatility or high minimum bets relative to your bankroll are automatically penalized.")
+                st.subheader(f'🎯 Recommended Play Order ({len(recommended_games)} games for {num_sessions} sessions)')
+                st.info(f'Based on your **{strategy_type}** strategy and ${session_bankroll:,.2f} session bankroll:')
+                st.caption('Recommendations prioritize high expected return, advantage play potential, affordability, and risk management.')
+                st.caption('Games with high volatility or high minimum bets relative to your bankroll are automatically penalized.')
                 st.caption("Don't see a game at your casino? Swipe left (click 'Not Available') to replace it")
 
                 if not recommended_games.empty:
                     st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                     for i, (_, row) in enumerate(recommended_games.iterrows(), start=1):
-                        # Determine risk label based on volatility
                         vol_label = map_volatility(int(row['volatility']))
-                        # Format recommended bet
                         rec_bet_display = f"${row['RecommendedBet']:,.2f}"
                         session_card = f"""
                         <div class="ph-game-card" style="border-left: 6px solid #1976d2; position:relative;">
@@ -398,12 +375,11 @@ else:
                             st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
-                    st.warning("Not enough games match your criteria for all sessions")
+                    st.warning('Not enough games match your criteria for all sessions')
 
-                # Extra games suggestions
                 extra_games = games[~games.index.isin(recommended_games.index)]
                 if not extra_games.empty:
-                    st.subheader(f"➕ {len(extra_games)} Additional Recommended Games")
+                    st.subheader(f'➕ {len(extra_games)} Additional Recommended Games')
                     st.caption("These games also match your criteria but aren't in your session plan:")
                     st.markdown('<div class="ph-game-grid">', unsafe_allow_html=True)
                     for _, row in extra_games.head(20).iterrows():
@@ -448,22 +424,20 @@ else:
                         """
                         st.markdown(game_card, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.warning("No games match your current filters. Try adjusting your criteria.")
         else:
-            st.error("Failed to load game data. Please check the CSV format and column names.")
+            st.error('Failed to load game data. Please check the CSV format and column names.')
 
     with tab2:
-        game_df = load_game_data()
+        game_df = load_game_data(current_casino=st.session_state.trip_settings.get('casino'))
         render_session_tracker(game_df, session_bankroll)
 
     with tab3:
         render_analytics()
 
     with tab4:
-        st.info("Admin tools are protected. Configure ADMIN_PASS in secrets or env. "
-                "Requires SUPABASE_SERVICE_ROLE_KEY for upserts.")
-        if _is_admin_authenticated():
+        st.info('Admin tools are protected. Configure ADMIN_PASS in secrets or env. '
+                'Requires SUPABASE_SERVICE_ROLE_KEY for upserts.')
+        if admin_auth_gate():
             show_admin_panel()
         else:
             st.stop()

@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -32,7 +33,6 @@ def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
                 df[col] = False
             else:
                 df[col] = ""
-    # Ensure boolean dtype for checkbox columns
     for b in ("is_hidden","is_unavailable"):
         if b in df.columns:
             df[b] = df[b].astype(bool)
@@ -86,7 +86,6 @@ def show_admin_panel():
     df = _fetch_all(client)
     st.write(f"Rows in DB: {len(df)}")
 
-    # Upload / Upsert
     st.header("Upload/patch from CSV")
     csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"])
     if csv is not None:
@@ -102,27 +101,23 @@ def show_admin_panel():
 
     st.divider()
 
-    # Inline edit (with checkboxes up front)
     st.header("Inline edit & save")
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
     if q.strip():
         df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
-    # Reorder columns: is_hidden, is_unavailable, name, then the rest
     leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
     trailing = [c for c in df_edit.columns if c not in leading]
     ordered_cols = leading + trailing
     df_edit = df_edit[ordered_cols]
 
-    # Column configs for checkboxes
     col_cfg = {}
     if "is_hidden" in df_edit.columns:
         col_cfg["is_hidden"] = st.column_config.CheckboxColumn("is_hidden", help="Hide from recommendations", default=False)
     if "is_unavailable" in df_edit.columns:
-        col_cfg["is_unavailable"] = st.column_config.CheckboxColumn("is_unavailable", help="Not playable / skip", default=False)
+        col_cfg["is_unavailable"] = st.column_config.CheckboxColumn("is_unavailable", help="Not playable globally / skip", default=False)
 
-    # SAFE DEFAULT for `edited` in case the editor returns None on a rerun
     edited_default = df_edit.copy()
     edited_ui = st.data_editor(
         df_edit,
@@ -143,7 +138,47 @@ def show_admin_panel():
 
     st.divider()
 
-    # Recalc score
+    st.header("Per‑casino availability")
+    st.caption("Mark games unavailable at the selected casino only (does not affect other casinos).")
+
+    casino = st.text_input("Casino name", value=st.session_state.trip_settings.get("casino",""))
+
+    left, right = st.columns([2,1])
+    with left:
+        st.write("Select games (from filtered list):")
+        options = [(int(r["id"]), r["name"]) for _, r in edited.iterrows() if "id" in edited.columns and "name" in edited.columns]
+        labels = {gid: f"{name} ({gid})" for gid, name in options}
+        ids = [gid for gid, _ in options]
+        selected_ids = st.multiselect("Games", ids, format_func=lambda x: labels.get(x, str(x)))
+    with right:
+        unavailable_flag = st.checkbox("Mark as UNAVAILABLE at this casino", value=True)
+
+    if st.button("Save per‑casino availability"):
+        if not casino.strip():
+            st.warning("Enter a casino name first.")
+        elif not selected_ids:
+            st.warning("Select at least one game.")
+        else:
+            rows = [{"game_id": gid, "casino": casino.strip(), "is_unavailable": bool(unavailable_flag)} for gid in selected_ids]
+            try:
+                client.table("game_availability").upsert(rows).execute()
+                st.success(f"Updated availability for {len(rows)} game(s) at “{casino.strip()}”.")
+            except Exception as e:
+                st.error(f"Failed saving availability: {e}")
+
+    if casino.strip():
+        try:
+            res = client.table("game_availability").select("*").ilike("casino", casino.strip()).execute()
+            data = res.data or []
+            if data:
+                st.dataframe(pd.DataFrame(data), use_container_width=True, hide_index=True)
+            else:
+                st.info("No per‑casino availability rows found for this casino.")
+        except Exception:
+            pass
+
+    st.divider()
+
     st.header("Recalculate and save scores (optional)")
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for current filtered rows"):
@@ -153,7 +188,7 @@ def show_admin_panel():
                 st.error("No 'id' column available to save scores.")
             else:
                 tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
-                _upsert_df(client, _norm_cols(tmp[["id","score"]]))
+                client.table("games").upsert(tmp[["id","score"]].to_dict(orient="records")).execute()
                 st.success("Scores recalculated and saved to 'score'.")
         except Exception as e:
             st.error(f"Score update failed: {e}")

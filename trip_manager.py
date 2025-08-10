@@ -42,15 +42,12 @@ def _reset_trip_defaults() -> None:
     }
 
 def _casino_selector(disabled: bool) -> str:
-    """Render a dropdown for casino with an 'Other...' option for custom entry."""
     current = st.session_state.trip_settings.get("casino", "").strip()
-    # Build options, preserving current if it's custom
     options = [c for c in DEFAULT_CASINOS]
     if current and current not in options and current != "Other...":
         options = [current] + [c for c in options if c != current]
         default_index = 0
     else:
-        # Default to current if present, else first item
         default_index = options.index(current) if current in options else 0
 
     sel = st.selectbox("Casino", options=options, index=default_index, disabled=disabled)
@@ -64,7 +61,6 @@ def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.header("🎯 Trip Settings")
-
         disabled = st.session_state.trip_started
 
         casino_choice = _casino_selector(disabled=disabled)
@@ -94,14 +90,11 @@ def render_sidebar() -> None:
             st.session_state.trip_settings["casino"] = casino_choice
             st.session_state.trip_settings["starting_bankroll"] = float(start_bankroll)
             st.session_state.trip_settings["num_sessions"] = int(num_sessions)
-
             st.session_state.trip_started = True
             st.session_state.current_trip_id += 1
             st.session_state.trip_bankrolls[st.session_state.current_trip_id] = float(start_bankroll)
-
             st.session_state.blacklisted_games = set()
             st.session_state.recent_profits = []
-
             st.success(f"Started Trip #{st.session_state.current_trip_id} at {st.session_state.trip_settings['casino'] or 'N/A'}")
             st.rerun()
 
