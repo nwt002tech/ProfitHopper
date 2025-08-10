@@ -139,23 +139,28 @@ def show_admin_panel():
         casinos_df = _fetch_casinos(client)
 
         # Add new casino
-        st.markdown("**Add new casino**")
-        c1, c2, c3 = st.columns([3,1,1])
-        with c1:
-            new_name = st.text_input("Casino name", key="new_casino_name")
-        with c2:
-            new_active = st.checkbox("Active", value=True, key="new_casino_active")
-        with c3:
-            if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
-                if not new_name.strip():
-                    st.warning("Enter a casino name.")
-                else:
-                    ok, msg = _add_casino(client, new_name, new_active)
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
+st.markdown("**Add new casino**")
+c1, c2, c3 = st.columns([3,1,1])
+with c1:
+    new_name = st.text_input(
+        "Casino name", 
+        key="new_casino_name"
+    )
+with c2:
+    new_active = st.checkbox("Active", value=True, key="new_casino_active")
+with c3:
+    if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
+        if not new_name.strip():
+            st.warning("Enter a casino name.")
+        else:
+            ok, msg = _add_casino(client, new_name, new_active)
+            if ok:
+                st.success(msg)
+                # ✅ Clear the input field after success
+                st.session_state.new_casino_name = ""
+                st.rerun()
+            else:
+                st.error(msg)
 
         st.divider()
 
