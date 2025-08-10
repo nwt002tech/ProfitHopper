@@ -20,11 +20,14 @@ EXPECTED_COLS = [
 
 def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.columns = [re.sub(r"\W+","_",c.strip()).lower() for c in df.columns]
+    # normalize headers
+    df.columns = [re.sub(r"\W+","_",str(c).strip()).lower() for c in df.columns]
+    # ensure name/game_name
     if "name" not in df.columns and "game_name" in df.columns:
         df["name"] = df["game_name"]
     if "game_name" not in df.columns and "name" in df.columns:
         df["game_name"] = df["name"]
+    # add missing expected cols
     for col in EXPECTED_COLS:
         if col not in df.columns:
             if col in ("rtp","volatility","bonus_frequency","min_bet","advantage_play_potential","score"):
@@ -33,6 +36,13 @@ def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
                 df[col] = False
             else:
                 df[col] = ""
+    # types
+    for c in ("rtp","bonus_frequency","min_bet"):
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+    for c in ("volatility","advantage_play_potential"):
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
     for b in ("is_hidden","is_unavailable"):
         if b in df.columns:
             df[b] = df[b].astype(bool)
@@ -76,6 +86,8 @@ def _score_row(row, default_bankroll=200.0):
     raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
     return round(raw * minbet_pen * 100.0, 1)
 
+# ---------- UI ----------
+
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
 
@@ -86,6 +98,7 @@ def show_admin_panel():
     df = _fetch_all(client)
     st.write(f"Rows in DB: {len(df)}")
 
+    # Upload / Upsert CSV
     st.header("Upload/patch from CSV")
     csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"])
     if csv is not None:
@@ -101,12 +114,14 @@ def show_admin_panel():
 
     st.divider()
 
+    # Inline edit & save
     st.header("Inline edit & save")
     q = st.text_input("Quick filter (name contains):", "")
     df_edit = df.copy()
     if q.strip():
         df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
+    # Reorder columns: is_hidden, is_unavailable, name, then the rest
     leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
     trailing = [c for c in df_edit.columns if c not in leading]
     ordered_cols = leading + trailing
@@ -138,16 +153,26 @@ def show_admin_panel():
 
     st.divider()
 
+    # ---------- Per‑casino availability (UUID‑safe) ----------
     st.header("Per‑casino availability")
     st.caption("Mark games unavailable at the selected casino only (does not affect other casinos).")
 
     casino = st.text_input("Casino name", value=st.session_state.trip_settings.get("casino",""))
 
+    def _safe_uuid(x):
+        s = str(x).strip()
+        return s if s and s.lower() != 'nan' else None
+
     left, right = st.columns([2,1])
     with left:
         st.write("Select games (from filtered list):")
-        options = [(int(r["id"]), r["name"]) for _, r in edited.iterrows() if "id" in edited.columns and "name" in edited.columns]
-        labels = {gid: f"{name} ({gid})" for gid, name in options}
+        options = []
+        if "id" in edited.columns and "name" in edited.columns:
+            for _, r in edited.iterrows():
+                gid = _safe_uuid(r["id"])
+                if gid:
+                    options.append((gid, r["name"]))
+        labels = {gid: f"{name} ({gid[:8]}…)" for gid, name in options}
         ids = [gid for gid, _ in options]
         selected_ids = st.multiselect("Games", ids, format_func=lambda x: labels.get(x, str(x)))
     with right:
@@ -166,6 +191,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed saving availability: {e}")
 
+    # Show current availability for this casino
     if casino.strip():
         try:
             res = client.table("game_availability").select("*").ilike("casino", casino.strip()).execute()
@@ -179,6 +205,7 @@ def show_admin_panel():
 
     st.divider()
 
+    # Recalculate 'score' helper
     st.header("Recalculate and save scores (optional)")
     default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0)
     if st.button("Recalculate 'score' for current filtered rows"):
