@@ -68,11 +68,10 @@ def stop_trip(reset_to_defaults: bool = True):
         st.session_state.trip_settings = dict(DEFAULT_TRIP_SETTINGS)
 
 def get_trip_heading() -> str:
-    """Return a heading like: 'Trip #N' and the selected casino name (for your Session Tracker tab)."""
+    """Return a heading like: 'Trip #N' and the selected casino name."""
     _ensure_trip_state()
     n = st.session_state.trip_number
     casino = st.session_state.trip_settings.get("casino", "")
-    # Return plain strings so caller can style; many use st.markdown with small caption
     return f"Trip #{n or 1}", casino
 
 
@@ -88,7 +87,6 @@ def _render_trip_location_filter(disabled: bool) -> list[str]:
     all_names = casinos_df["name"].dropna().astype(str).tolist()
 
     if disabled:
-        # When trip is active, do not filter; return the previously shown set
         return all_names
 
     st.caption("Filter casinos near you (requires location permission)")
@@ -116,17 +114,17 @@ def _render_trip_location_filter(disabled: bool) -> list[str]:
         return all_names
 
     if geolocation is None:
-        st.info("Location library not installed. Add 'streamlit-geolocation' to requirements.txt or turn off 'Use my location'.")
+        st.info("Location library not installed. Add 'streamlit-geolocation' to requirements.txt.")
         return all_names
 
     coords = geolocation("Get current location")
     if not (coords and "latitude" in coords and "longitude" in coords):
-        st.info("Click the button above to grant location access, or uncheck 'Use my location'.")
+        st.info("Click above to grant location access, or uncheck 'Use my location'.")
         return all_names
 
     user_lat, user_lon = coords["latitude"], coords["longitude"]
 
-    # Lazy enrich: geocode & save coordinates for casinos that are missing them
+    # Lazy enrich: geocode & save coordinates for casinos missing them
     missing = casinos_df[casinos_df["latitude"].isna() | casinos_df["longitude"].isna()]
     for _, row in missing.iterrows():
         cid = str(row["id"])
@@ -154,21 +152,15 @@ def _render_trip_location_filter(disabled: bool) -> list[str]:
 
 
 def render_trip_settings_section():
-    """
-    Render the Trip Settings UI.
-    - When a trip is active: widgets are disabled.
-    - When you stop a trip: settings reset to defaults.
-    """
+    """Render the Trip Settings UI."""
     _ensure_trip_state()
 
     st.subheader("Trip Settings")
 
     disabled = bool(st.session_state.trip_active)
 
-    # Location filter + options list
     casino_options = _render_trip_location_filter(disabled=disabled)
 
-    # Keep previous selection if still available
     current_sel = st.session_state.trip_settings.get("casino", "")
     if current_sel not in casino_options and casino_options:
         current_sel = casino_options[0]
@@ -184,7 +176,6 @@ def render_trip_settings_section():
 
     st.divider()
 
-    # Start / Stop Trip controls
     col1, col2 = st.columns([1, 1])
     with col1:
         if st.button("▶️ Start Trip", disabled=is_trip_active(), use_container_width=True):
@@ -195,80 +186,57 @@ def render_trip_settings_section():
     with col2:
         if st.button("⏹ Stop Trip", disabled=not is_trip_active(), use_container_width=True):
             stop_trip(reset_to_defaults=True)
-            st.info("Trip stopped. Settings reset to defaults.")
+            st.info("Trip stopped. Settings reset.")
             st.rerun()
 
 
-# ----------------------------
-# Optional: Sidebar wrapper
-# ----------------------------
 def render_sidebar():
     """Call this from your app's sidebar to render Trip Settings."""
     with st.sidebar:
         render_trip_settings_section()
 
 
-# ----------------------------
-# Optional: Heading helper for Session Tracker tab
-# ----------------------------
 def render_trip_heading():
-    """
-    Render a heading for the Session Tracker tab:
-    Shows 'Trip #N' and the casino name in smaller text beneath.
-    """
+    """Render heading for Session Tracker tab."""
     title, casino = get_trip_heading()
     st.markdown(f"### {title}")
     if casino:
         st.caption(casino)
 
-# -------- Back-compat exports & aliases (put at the end of trip_manager.py) --------
 
-# Some apps import slightly different function names. Provide aliases:
-# If your app imports render_trip_settings, point it to the new section function.
-try:
-    render_trip_settings
-except NameError:
-    render_trip_settings = render_trip_settings_section  # alias
+# ----------------------------
+# Back-compat aliases
+# ----------------------------
+render_trip_settings = render_trip_settings_section
+get_trip_state = get_trip_settings
+trip_active = is_trip_active
+trip_start = start_trip
+trip_stop = stop_trip
+render_trip_header = render_trip_heading
 
-# If your app imports get_trip_state or similar, map to get_trip_settings
-try:
-    get_trip_state
-except NameError:
-    get_trip_state = get_trip_settings  # alias
+def get_trip_number() -> int:
+    _ensure_trip_state()
+    return int(st.session_state.trip_number or 0)
 
-# If your app imports trip_active instead of is_trip_active
-try:
-    trip_active
-except NameError:
-    trip_active = is_trip_active  # alias
+def get_trip_id() -> str | None:
+    _ensure_trip_state()
+    return st.session_state.trip_id
 
-# If your app imports trip_start / trip_stop
-try:
-    trip_start
-except NameError:
-    trip_start = start_trip  # alias
+def current_trip() -> dict:
+    _ensure_trip_state()
+    return {
+        "id": st.session_state.trip_id,
+        "number": int(st.session_state.trip_number or 0),
+        "active": bool(st.session_state.trip_active),
+        "casino": st.session_state.trip_settings.get("casino", ""),
+    }
 
-try:
-    trip_stop
-except NameError:
-    trip_stop = stop_trip  # alias
+def trip_settings() -> dict:
+    return get_trip_settings()
 
-# Some code expects render_sidebar() to exist.
-try:
-    render_sidebar
-except NameError:
-    def render_sidebar():
-        import streamlit as st
-        with st.sidebar:
-            render_trip_settings_section()
+def init_trip_state():
+    _ensure_trip_state()
 
-# Some code expects render_trip_header() instead of render_trip_heading()
-try:
-    render_trip_header
-except NameError:
-    render_trip_header = render_trip_heading  # alias
-
-# Explicit export list so "from trip_manager import (...)" works reliably
 __all__ = [
     "get_trip_settings",
     "is_trip_active",
@@ -277,11 +245,16 @@ __all__ = [
     "get_trip_heading",
     "render_trip_heading",
     "render_trip_settings_section",
-    "render_trip_settings",     # alias
+    "render_trip_settings",
     "render_sidebar",
-    "get_trip_state",           # alias
-    "trip_active",              # alias
-    "trip_start",               # alias
-    "trip_stop",                # alias
-    "render_trip_header",       # alias
+    "get_trip_state",
+    "trip_active",
+    "trip_start",
+    "trip_stop",
+    "render_trip_header",
+    "get_trip_number",
+    "get_trip_id",
+    "current_trip",
+    "trip_settings",
+    "init_trip_state",
 ]
