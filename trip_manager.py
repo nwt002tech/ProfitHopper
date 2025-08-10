@@ -6,7 +6,10 @@ import math
 
 # Optional browser geolocation
 try:
-    from streamlit_geolocation import geolocation
+    try:
+    from streamlit_geolocation import streamlit_geolocation as geolocation
+except Exception:
+    geolocation = None
 except Exception:
     geolocation = None  # handled gracefully
 
@@ -87,7 +90,7 @@ def _casino_selector(disabled: bool) -> str:
             if geolocation is None:
                 st.info("Install 'streamlit-geolocation' to enable location filter.")
             else:
-                coords = geolocation("Get current location")
+                coords = geolocation()
                 if coords and "latitude" in coords and "longitude" in coords:
                     ulat, ulon = coords["latitude"], coords["longitude"]
                     if "latitude" in df.columns and "longitude" in df.columns:
