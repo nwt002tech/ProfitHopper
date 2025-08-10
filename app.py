@@ -10,8 +10,10 @@ from data_loader_supabase import load_game_data
 from analytics import render_analytics
 from session_manager import render_session_tracker
 from utils import map_volatility, map_advantage, map_bonus_freq, get_game_image_url
-# Nearby filtering imports
-from streamlit_geolocation import geolocation
+try:
+    from streamlit_geolocation import streamlit_geolocation as geolocation
+except Exception:
+    geolocation = None  # graceful fallback if the package isn't available
 from data_loader_supabase import get_casinos_full, update_casino_coords
 from utils import geocode_city_state, haversine_miles
 

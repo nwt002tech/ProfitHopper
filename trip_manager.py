@@ -6,7 +6,6 @@ import math
 
 # Optional browser geolocation
 try:
-    try:
     from streamlit_geolocation import streamlit_geolocation as geolocation
 except Exception:
     geolocation = None
