@@ -56,6 +56,7 @@ def _admin_client():
         return None
     return create_client(url, key)
 
+# -------- Games helpers --------
 def _fetch_all_games(client) -> pd.DataFrame:
     res = client.table("games").select("*").execute()
     data = res.data or []
@@ -86,7 +87,7 @@ def _safe_uuid(x):
     s = str(x).strip()
     return s if s and s.lower() != "nan" else None
 
-# ---------- Casinos helpers ----------
+# -------- Casinos helpers --------
 def _fetch_casinos(client) -> pd.DataFrame:
     try:
         res = client.table("casinos").select("*").order("name").execute()
@@ -101,7 +102,6 @@ def _fetch_casinos(client) -> pd.DataFrame:
         return pd.DataFrame(columns=["id","name","is_active","inserted_at","updated_at"])
 
 def _add_casino(client, name: str, is_active: bool = True) -> tuple[bool,str]:
-    # Handle unique index on lower(name) by trying insert and catching conflict
     try:
         client.table("casinos").insert({"name": name.strip(), "is_active": bool(is_active)}).execute()
         return True, "Casino added."
@@ -122,15 +122,7 @@ def _update_casino(client, cid: str, name: str | None = None, is_active: bool | 
     except Exception as e:
         return False, f"Update failed: {e}"
 
-def _archive_casinos(client, ids: list[str]) -> tuple[bool,str]:
-    try:
-        for cid in ids:
-            client.table("casinos").update({"is_active": False}).eq("id", str(cid)).execute()
-        return True, f"Archived {len(ids)} casino(s)."
-    except Exception as e:
-        return False, f"Archive failed: {e}"
-
-# ---------- UI ----------
+# -------- UI --------
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
     client = _admin_client()
@@ -141,9 +133,7 @@ def show_admin_panel():
     games_df = _fetch_all_games(client)
     st.caption(f"Loaded {len(games_df)} rows from public.games")
 
-    # =========================
     # 0) Manage casinos
-    # =========================
     with st.expander("🏷️ Manage casinos", expanded=False):
         st.caption("Add, rename, and activate/archive casinos used throughout the app.")
         casinos_df = _fetch_casinos(client)
@@ -187,7 +177,6 @@ def show_admin_panel():
         rest = [c for c in ["id","inserted_at","updated_at"] if c in edit_df.columns]
         edit_df = edit_df[lead + rest]
 
-        # Make id/timestamps read-only in the grid
         col_cfg = {
             "id": st.column_config.TextColumn("id", help="Primary key", disabled=True),
             "inserted_at": st.column_config.DatetimeColumn("inserted_at", disabled=True),
@@ -205,57 +194,30 @@ def show_admin_panel():
             column_config=col_cfg
         )
 
-        # Choose rows to archive quickly
-        ids_with_names = [(row["id"], row["name"]) for _, row in edited_casinos.iterrows() if str(row.get("id") or "").strip()]
-        label_map = {cid: nm for cid, nm in ids_with_names}
-        to_archive = st.multiselect(
-            "Archive selected casinos (sets Active = false)",
-            [cid for cid, _ in ids_with_names],
-            format_func=lambda x: f"{label_map.get(x, x)}",
-            key="casinos_to_archive"
-        )
+        # Save edits (rename / toggle active)
+        if st.button("💾 Save edits", key="btn_save_casinos"):
+            try:
+                updated = 0
+                orig_by_id = {str(r["id"]): r for _, r in casinos_df.iterrows() if str(r.get("id") or "").strip()}
+                for _, row in edited_casinos.iterrows():
+                    cid = str(row.get("id") or "").strip()
+                    if not cid:
+                        continue
+                    original = orig_by_id.get(cid, {})
+                    new_name = row.get("name")
+                    new_active = bool(row.get("is_active"))
+                    if (original.get("name") != new_name) or (bool(original.get("is_active")) != new_active):
+                        ok, msg = _update_casino(client, cid, new_name, new_active)
+                        if not ok:
+                            st.error(f"{msg} (casino: {new_name})")
+                        else:
+                            updated += 1
+                st.success(f"Saved {updated} change(s).")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to save edits: {e}")
 
-        save_cols = st.columns([1,1,6])
-        with save_cols[0]:
-            if st.button("💾 Save edits", key="btn_save_casinos"):
-                # Compare edited vs original by id and apply updates
-                try:
-                    updated = 0
-                    orig_by_id = {str(r["id"]): r for _, r in casinos_df.iterrows() if str(r.get("id") or "").strip()}
-                    for _, row in edited_casinos.iterrows():
-                        cid = str(row.get("id") or "").strip()
-                        if not cid:
-                            continue
-                        original = orig_by_id.get(cid, {})
-                        new_name = row.get("name")
-                        new_active = bool(row.get("is_active"))
-                        # Only update changed rows
-                        if (original.get("name") != new_name) or (bool(original.get("is_active")) != new_active):
-                            ok, msg = _update_casino(client, cid, new_name, new_active)
-                            if not ok:
-                                st.error(f"{msg} (casino: {new_name})")
-                            else:
-                                updated += 1
-                    st.success(f"Saved {updated} change(s).")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save edits: {e}")
-
-        with save_cols[1]:
-            if st.button("📦 Archive selected", key="btn_archive_selected"):
-                if not to_archive:
-                    st.info("Select one or more casinos to archive.")
-                else:
-                    ok, msg = _archive_casinos(client, to_archive)
-                    if ok:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
-    # =========================
-    # 1) Upload / patch from CSV
-    # =========================
+    # 1) Upload / patch CSV into games
     with st.expander("📤 Upload / patch CSV into games", expanded=False):
         csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"], key="upload_csv")
         if csv is not None:
@@ -269,9 +231,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to process CSV: {e}")
 
-    # =========================
     # 2) Inline edit & save (games)
-    # =========================
     with st.expander("📝 Inline edit & save (games: checkboxes first, name third)", expanded=False):
         q = st.text_input("Quick filter (name contains):", "", key="inline_filter")
         df_edit = games_df.copy()
@@ -308,9 +268,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
-    # =========================
-    # 3) Per‑casino availability
-    # =========================
+    # 3) Per‑casino availability (delete-then-insert to respect unique index on (game_id, lower(casino)))
     with st.expander("🏨 Per‑casino availability", expanded=False):
         st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
 
@@ -327,7 +285,6 @@ def show_admin_panel():
                 default_idx = 0
             casino = st.selectbox("Casino", options=casinos, index=default_idx, key="casino_select")
 
-        # Add to unavailable list
         left, right = st.columns([2,1])
         with left:
             st.write("Add games to this casino's unavailable list:")
@@ -360,12 +317,10 @@ def show_admin_panel():
                 try:
                     count = 0
                     for gid in selected_ids:
-                        # delete any existing row for (game_id, casino ILIKE)
                         client.table("game_availability").delete() \
                               .eq("game_id", str(gid)) \
                               .ilike("casino", casino_norm) \
                               .execute()
-                        # insert desired state
                         client.table("game_availability").insert({
                             "game_id": str(gid),
                             "casino": casino_norm,
@@ -446,9 +401,7 @@ def show_admin_panel():
             except Exception as e:
                 st.error(f"Failed to load per‑casino availability: {e}")
 
-    # =========================
     # 4) Recalculate & save scores (games)
-    # =========================
     with st.expander("🧮 Recalculate & save scores (games)", expanded=False):
         default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0, key="score_bankroll")
         if st.button("Recalculate 'score' for all (filtered via per‑section tools)", key="btn_recalc_scores"):
