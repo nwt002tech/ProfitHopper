@@ -1,116 +1,52 @@
-from __future__ import annotations
 import os
 import pandas as pd
-import streamlit as st
-from supabase import create_client
 
-REQUIRED_GAME_COLS = [
-    "id","name","type","game_type","rtp","volatility","bonus_frequency","min_bet",
-    "advantage_play_potential","best_casino_type","bonus_trigger_clues","tips",
-    "image_url","source_url","is_hidden","is_unavailable"
-]
+try:
+    from supabase import create_client
+except Exception:
+    create_client = None
 
-def _client_readonly():
-    url = os.environ.get("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if hasattr(st, "secrets") else None)
-    if not url and hasattr(st, "secrets") and "general" in st.secrets:
-        url = st.secrets["general"].get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_ANON_KEY") or (st.secrets.get("SUPABASE_ANON_KEY") if hasattr(st, "secrets") else None)
-    if not key and hasattr(st, "secrets") and "general" in st.secrets:
-        key = st.secrets["general"].get("SUPABASE_ANON_KEY")
-    if not url or not key:
-        raise EnvironmentError("Missing SUPABASE_URL / SUPABASE_ANON_KEY for read access")
-    return create_client(url, key)
-
-@st.cache_data(ttl=300)
-def get_casinos():
-    """Return list of casino names from public.casinos (active only).
-    Falls back to a small default set if the table doesn't exist or is empty.
-    """
+def _client(with_service: bool = False):
+    """Anon by default; service (write) when requested."""
+    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") if with_service
+           else (os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")))
+    if not (url and key) or create_client is None:
+        return None
     try:
-        client = _client_readonly()
+        return create_client(url, key)
     except Exception:
-        return [
-            "L’Auberge Lake Charles",
-            "Coushatta Casino Resort",
-            "Golden Nugget Lake Charles",
-            "Horseshoe Bossier City",
-            "Winstar World Casino",
-            "Choctaw Durant",
-            "Other..."
-        ]
-    try:
-        res = client.table("casinos").select("name").eq("is_active", True).order("name").execute()
-        names = [r.get("name") for r in (res.data or []) if r.get("name")]
-        if not names:
-            raise ValueError("No casinos found")
-        return names + ["Other..."]
-    except Exception:
-        return [
-            "L’Auberge Lake Charles",
-            "Coushatta Casino Resort",
-            "Golden Nugget Lake Charles",
-            "Horseshoe Bossier City",
-            "Winstar World Casino",
-            "Choctaw Durant",
-            "Other..."
-        ]
+        return None
 
-def _norm_games(df: pd.DataFrame) -> pd.DataFrame:
-    if "name" in df.columns and "game_name" not in df.columns:
-        df = df.rename(columns={"name":"game_name"})
-    for col in REQUIRED_GAME_COLS:
+def get_casinos_full(active_only: bool = True) -> pd.DataFrame:
+    """Return casinos with name, city, state, latitude, longitude, is_active."""
+    c = _client()
+    if not c:
+        return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active"])
+    q = c.table("casinos").select("*")
+    if active_only:
+        q = q.eq("is_active", True)
+    res = q.order("name").execute()
+    df = pd.DataFrame(res.data or [])
+    for col in ["city","state","latitude","longitude","is_active"]:
         if col not in df.columns:
-            if col in ("is_hidden","is_unavailable"):
-                df[col] = False
-            else:
-                df[col] = None
-    for c in ["rtp","bonus_frequency","min_bet"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    for c in ["volatility","advantage_play_potential"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
-    df["is_hidden"] = df["is_hidden"].astype(bool)
-    df["is_unavailable"] = df["is_unavailable"].astype(bool)
-    return df
+            df[col] = None if col in ("latitude","longitude") else ""
+    # enforce column order
+    keep = ["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"]
+    return df[[c for c in keep if c in df.columns]]
 
-def _fetch_availability(client, current_casino: str) -> pd.DataFrame:
+def get_casinos() -> list[str]:
+    """(Back‑compat) Return just the list of active casino names."""
+    df = get_casinos_full(active_only=True)
+    return df["name"].dropna().astype(str).tolist()
+
+def update_casino_coords(casino_id: str, lat: float, lon: float) -> bool:
+    """Write-back latitude/longitude for a casino (service-role key required)."""
+    c = _client(with_service=True)
+    if not c:
+        return False
     try:
-        if not current_casino:
-            return pd.DataFrame()
-        res = client.table("game_availability").select("*").ilike("casino", current_casino).execute()
-        rows = res.data or []
-        if not rows:
-            return pd.DataFrame()
-        df = pd.DataFrame(rows)
-        if "game_id" not in df.columns:
-            return pd.DataFrame()
-        if "is_unavailable" not in df.columns:
-            df["is_unavailable"] = False
-        df = df[["game_id","casino","is_unavailable"]].rename(columns={"is_unavailable":"unavailable_here"})
-        df["unavailable_here"] = df["unavailable_here"].astype(bool)
-        return df
+        c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", str(casino_id)).execute()
+        return True
     except Exception:
-        return pd.DataFrame()
-
-def load_game_data(current_casino: str | None = None) -> pd.DataFrame:
-    client = _client_readonly()
-    res = client.table("games").select("*").execute()
-    data = res.data or []
-    games = pd.DataFrame(data)
-    if games.empty:
-        return games
-    games = _norm_games(games)
-
-    if current_casino:
-        avail = _fetch_availability(client, current_casino)
-        if not avail.empty:
-            games = games.merge(avail, how="left", left_on="id", right_on="game_id")
-            games["unavailable_here"] = games["unavailable_here"].fillna(False).astype(bool)
-        else:
-            games["unavailable_here"] = False
-    else:
-        games["unavailable_here"] = False
-
-    if "type" not in games.columns and "game_type" in games.columns:
-        games["type"] = games["game_type"]
-
-    return games
+        return False
