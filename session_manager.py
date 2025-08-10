@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utils import get_csv_download_link
+# removed legacy CSV helper import
 from trip_manager import get_current_trip_sessions, get_current_bankroll, blacklist_game, get_blacklisted_games, record_session_performance
 from ui_templates import trip_info_box
 

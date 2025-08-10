@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -10,10 +11,6 @@ try:
 except Exception:
     create_client = None
 
-from data_loader_supabase import get_casinos_full, update_casino_coords
-from data_loader_supabase import get_casinos as get_casino_names
-from utils import geocode_city_state
-
 EXPECTED_COLS = [
     "id","name","type","game_type","rtp","volatility","bonus_frequency","min_bet",
     "advantage_play_potential","best_casino_type","bonus_trigger_clues",
@@ -23,7 +20,7 @@ EXPECTED_COLS = [
 
 def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df.columns = [re.sub(r"\W+","_", str(c).strip()).lower() for c in df.columns]
+    df.columns = [re.sub(r"\W+","_",c.strip()).lower() for c in df.columns]
     if "name" not in df.columns and "game_name" in df.columns:
         df["name"] = df["game_name"]
     if "game_name" not in df.columns and "name" in df.columns:
@@ -58,6 +55,7 @@ def _admin_client():
         return None
     return create_client(url, key)
 
+# -------- Games helpers --------
 def _fetch_all_games(client) -> pd.DataFrame:
     res = client.table("games").select("*").execute()
     data = res.data or []
@@ -72,11 +70,29 @@ def _safe_uuid(x):
     s = str(x).strip()
     return s if s and s.lower() != "nan" else None
 
+# -------- Casinos helpers --------
+def _fetch_casinos(client) -> pd.DataFrame:
+    try:
+        res = client.table("casinos").select("*").order("name").execute()
+        data = res.data or []
+        df = pd.DataFrame(data)
+        if df.empty:
+            return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
+        for col in ["city","state"]:
+            if col not in df.columns:
+                df[col] = ""
+        if "is_active" not in df.columns:
+            df["is_active"] = True
+        return df[["id","name","city","state","is_active","inserted_at","updated_at"]]
+    except Exception:
+        return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
+
 def _add_casino(client, name: str, city: str = "", state: str = "", is_active: bool = True) -> tuple[bool,str,str|None]:
-    """Insert; return (ok,msg,new_id)."""
     try:
         res = client.table("casinos").insert({
-            "name": name.strip(), "city": (city or "").strip(), "state": (state or "").strip(),
+            "name": name.strip(),
+            "city": city.strip(),
+            "state": state.strip(),
             "is_active": bool(is_active)
         }).select("id").execute()
         new_id = (res.data[0]["id"] if res and res.data else None)
@@ -91,9 +107,9 @@ def _update_casino(client, cid: str, name: str | None = None, city: str | None =
         if name is not None:
             payload["name"] = name.strip()
         if city is not None:
-            payload["city"] = (city or "").strip()
+            payload["city"] = city.strip()
         if state is not None:
-            payload["state"] = (state or "").strip()
+            payload["state"] = state.strip()
         if is_active is not None:
             payload["is_active"] = bool(is_active)
         if not payload:
@@ -103,28 +119,26 @@ def _update_casino(client, cid: str, name: str | None = None, city: str | None =
     except Exception as e:
         return False, f"Update failed: {e}"
 
+# -------- UI --------
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
     client = _admin_client()
     if not client:
         return
 
-    # ---------- One-time resets from prior run ----------
+    # One-time resets for clearing add form
     for reset_key in ["_reset_new_casino_name", "_reset_new_casino_city", "_reset_new_casino_state"]:
         if st.session_state.get(reset_key):
             st.session_state[reset_key] = False
             st.session_state.pop(reset_key.replace("_reset_", ""), None)
 
-    # Load once
     games_df = _fetch_all_games(client)
-    st.caption(f"Loaded {len(games_df)} rows from public.games")
 
-    # 0) Manage casinos
+    # 0) Manage casinos (collapsed by default)
     with st.expander("🏷️ Manage casinos", expanded=False):
         st.caption("Add, edit, and archive casinos. Use 'Off' to mark inactive.")
-        casinos_df = get_casinos_full(active_only=False)
+        casinos_df = _fetch_casinos(client)
 
-        # Add new casino
         st.markdown("**Add new casino**")
         c1, c2, c3, c4, c5 = st.columns([3,2,1,1,1])
         with c1:
@@ -143,11 +157,6 @@ def show_admin_panel():
                     ok, msg, new_id = _add_casino(client, new_name, new_city, new_state, new_active)
                     if ok:
                         st.success(msg)
-                        # Geocode once (optional best-effort; requires geopy)
-                        lat, lon = geocode_city_state(new_city or "", new_state or "")
-                        if lat is not None and lon is not None and new_id:
-                            update_casino_coords(str(new_id), lat, lon)
-                        # Clear inputs on next run
                         st.session_state["_reset_new_casino_name"] = True
                         st.session_state["_reset_new_casino_city"] = True
                         st.session_state["_reset_new_casino_state"] = True
@@ -157,7 +166,6 @@ def show_admin_panel():
 
         st.divider()
 
-        # Filter & edit existing casinos
         fcol1, fcol2 = st.columns([2,1])
         with fcol1:
             filt = st.text_input("Filter casinos by name", key="filter_casinos")
@@ -170,14 +178,13 @@ def show_admin_panel():
         if show_only_active and "is_active" in edit_df.columns:
             edit_df = edit_df[edit_df["is_active"] == True]
 
-        # Create first-column "Off" (inactive) derived from is_active
+        # First col "Off" (inactive)
         if "is_active" not in edit_df.columns:
             edit_df["is_active"] = True
         edit_df["Off"] = ~edit_df["is_active"].astype(bool)
 
-        # Reorder columns: Off, Name, City, State, then the rest (id and timestamps read-only later)
         lead = [c for c in ["Off","name","city","state"] if c in edit_df.columns]
-        rest = [c for c in ["is_active","id","latitude","longitude","inserted_at","updated_at"] if c in edit_df.columns]
+        rest = [c for c in ["is_active","id","inserted_at","updated_at"] if c in edit_df.columns]
         edit_df = edit_df[lead + rest]
 
         col_cfg = {
@@ -186,45 +193,22 @@ def show_admin_panel():
             "city": st.column_config.TextColumn("city", help="City"),
             "state": st.column_config.TextColumn("state", help="State"),
         }
-        # read-only columns
         if "id" in edit_df.columns:
             col_cfg["id"] = st.column_config.TextColumn("id", disabled=True)
         if "inserted_at" in edit_df.columns:
             col_cfg["inserted_at"] = st.column_config.DatetimeColumn("inserted_at", disabled=True)
         if "updated_at" in edit_df.columns:
             col_cfg["updated_at"] = st.column_config.DatetimeColumn("updated_at", disabled=True)
-        if "latitude" in edit_df.columns:
-            col_cfg["latitude"] = st.column_config.NumberColumn("latitude", help="Auto-filled", disabled=True)
-        if "longitude" in edit_df.columns:
-            col_cfg["longitude"] = st.column_config.NumberColumn("longitude", help="Auto-filled", disabled=True)
 
         st.markdown("**Edit casinos**")
         edited_casinos = st.data_editor(
-            edit_df,
-            key="casinos_editor",
-            use_container_width=True,
-            hide_index=True,
-            column_config=col_cfg
+            edit_df, key="casinos_editor", use_container_width=True, hide_index=True, column_config=col_cfg
         )
 
-        # Save edits (name/city/state/off). Also re-geocode if city/state changed or coords missing.
         if st.button("💾 Save edits", key="btn_save_casinos"):
             try:
                 updated = 0
-                # Build original lookup by id
-                orig_by_id = {}
-                for _, r in casinos_df.iterrows():
-                    cid = str(r.get("id") or "").strip()
-                    if cid:
-                        orig_by_id[cid] = {
-                            "name": r.get("name"),
-                            "city": r.get("city") or "",
-                            "state": r.get("state") or "",
-                            "is_active": bool(r.get("is_active")),
-                            "latitude": r.get("latitude"),
-                            "longitude": r.get("longitude"),
-                        }
-
+                orig_by_id = {str(r["id"]): r for _, r in casinos_df.iterrows() if str(r.get("id") or "").strip()}
                 for _, row in edited_casinos.iterrows():
                     cid = str(row.get("id") or "").strip()
                     if not cid:
@@ -233,50 +217,23 @@ def show_admin_panel():
                     new_name = row.get("name")
                     new_city = row.get("city") or ""
                     new_state = row.get("state") or ""
-                    # Map Off -> is_active
-                    new_is_active = not bool(row.get("Off"))
+                    new_active = not bool(row.get("Off"))
 
-                    needs_update = (
+                    if (
                         original.get("name") != new_name
                         or (original.get("city") or "") != new_city
                         or (original.get("state") or "") != new_state
-                        or bool(original.get("is_active")) != new_is_active
-                    )
-                    if needs_update:
-                        ok, msg = _update_casino(client, cid, new_name, new_city, new_state, new_is_active)
+                        or bool(original.get("is_active")) != new_active
+                    ):
+                        ok, msg = _update_casino(client, cid, new_name, new_city, new_state, new_active)
                         if not ok:
                             st.error(f"{msg} (casino: {new_name})")
                         else:
                             updated += 1
-
-                    # Re-geocode if city/state changed or coords missing
-                    old_lat, old_lon = original.get("latitude"), original.get("longitude")
-                    if ((original.get("city") or "") != new_city) or ((original.get("state") or "") != new_state) \
-                       or old_lat is None or old_lon is None:
-                        lat, lon = geocode_city_state(new_city, new_state)
-                        if lat is not None and lon is not None:
-                            update_casino_coords(cid, lat, lon)
-
                 st.success(f"Saved {updated} change(s).")
                 st.rerun()
             except Exception as e:
                 st.error(f"Failed to save edits: {e}")
-
-        # Optional: one-click backfill for any missing coords
-        if st.button("📍 Backfill coordinates for missing city/state", key="btn_backfill_coords"):
-            try:
-                df = get_casinos_full(active_only=False)
-                missing = df[(df["latitude"].isna()) | (df["longitude"].isna())]
-                filled = 0
-                for _, r in missing.iterrows():
-                    lat, lon = geocode_city_state(r.get("city") or "", r.get("state") or "")
-                    if lat is not None and lon is not None:
-                        if update_casino_coords(str(r["id"]), lat, lon):
-                            filled += 1
-                st.success(f"Filled coordinates for {filled} casino(s).")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Backfill failed: {e}")
 
     # 1) Upload / patch CSV into games
     with st.expander("📤 Upload / patch CSV into games", expanded=False):
@@ -294,13 +251,12 @@ def show_admin_panel():
 
     # 2) Inline edit & save (games)
     with st.expander("📝 Inline edit & save (games: checkboxes first, name third)", expanded=False):
-        res_cols = ["is_hidden","is_unavailable","name"]
         q = st.text_input("Quick filter (name contains):", "", key="inline_filter")
         df_edit = games_df.copy()
         if q.strip():
             df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
-        leading = [c for c in res_cols if c in df_edit.columns]
+        leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
         trailing = [c for c in df_edit.columns if c not in leading]
         ordered_cols = leading + trailing
         df_edit = df_edit[ordered_cols]
@@ -312,28 +268,26 @@ def show_admin_panel():
             col_cfg["is_unavailable"] = st.column_config.CheckboxColumn("is_unavailable", help="Not playable globally / skip", default=False)
 
         edited_ui = st.data_editor(
-            df_edit,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="admin_editor",
-            column_order=ordered_cols,
-            column_config=col_cfg
+            df_edit, num_rows="dynamic", use_container_width=True, key="admin_editor",
+            column_order=ordered_cols, column_config=col_cfg
         )
         if st.button("💾 Save edited rows", key="btn_save_inline"):
             try:
-                # basic upsert of edited rows
-                rows = edited_ui.to_dict(orient="records")
-                client.table("games").upsert(rows).execute()
+                _upsert_games_df(client, _norm_cols(edited_ui))
                 st.success("Changes saved.")
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
-    # 3) Per‑casino availability (delete-then-insert)
+    # 3) Per‑casino availability
     with st.expander("🏨 Per‑casino availability", expanded=False):
         st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
 
-        casinos = get_casino_names()
-        casinos = [c for c in casinos if c.strip() and c != "Other..."]
+        # Casino picker
+        try:
+            cas = client.table("casinos").select("name").eq("is_active", True).order("name").execute()
+            casinos = [r["name"] for r in (cas.data or []) if r.get("name")]
+        except Exception:
+            casinos = []
         if not casinos:
             st.warning("No casinos found. Create entries in public.casinos first.")
             casino = st.text_input("Casino name (temporary input)")
@@ -387,7 +341,6 @@ def show_admin_panel():
                 except Exception as e:
                     st.error(f"Failed saving availability: {e}")
 
-        # Editable grid (game name first; uncheck to remove)
         if casino and str(casino).strip():
             try:
                 res = client.table("game_availability").select("*").ilike("casino", str(casino).strip()).order("updated_at", desc=True).execute()
@@ -414,10 +367,7 @@ def show_admin_panel():
                     st.caption("Uncheck **is_unavailable** to remove a game from this casino’s unavailable list, then click **Save changes**.")
 
                     edited_avail = st.data_editor(
-                        avail_df,
-                        key="per_casino_editor",
-                        use_container_width=True,
-                        hide_index=True,
+                        avail_df, key="per_casino_editor", use_container_width=True, hide_index=True,
                         column_config={
                             "is_unavailable": st.column_config.CheckboxColumn("is_unavailable", help="If unchecked, row will be removed.")
                         }
@@ -449,13 +399,12 @@ def show_admin_panel():
     # 4) Recalculate & save scores (games)
     with st.expander("🧮 Recalculate & save scores (games)", expanded=False):
         default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0, key="score_bankroll")
-        if st.button("Recalculate 'score' for all (filtered via per‑section tools)", key="btn_recalc_scores"):
+        if st.button("Recalculate 'score' for all", key="btn_recalc_scores"):
             try:
                 tmp = games_df.copy()
                 if "id" not in tmp.columns:
                     st.error("No 'id' column available to save scores.")
                 else:
-                    # Example: leave as-is if you already compute elsewhere
                     client.table("games").upsert(tmp[["id","score"]].to_dict(orient="records")).execute()
                     st.success("Scores recalculated and saved to 'score'.")
             except Exception as e:

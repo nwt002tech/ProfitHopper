@@ -1,113 +1,56 @@
+
 from __future__ import annotations
-
-import os
-import time
-from typing import List, Tuple, Optional
-
 import streamlit as st
-import pandas as pd
+from typing import List, Dict, Any
 import math
 
-# Optional browser geolocation (for "Use my location")
+# Optional browser geolocation
 try:
     from streamlit_geolocation import geolocation
 except Exception:
     geolocation = None  # handled gracefully
 
-# Supabase client for reads/writes
+# Data access
 try:
-    from supabase import create_client
+    # new richer fetch (name, city, state, lat, lon, is_active)
+    from data_loader_supabase import get_casinos_full
 except Exception:
-    create_client = None
+    get_casinos_full = None
+from data_loader_supabase import load_game_data  # used elsewhere
 
+def initialize_trip_state() -> None:
+    if "trip_started" not in st.session_state:
+        st.session_state.trip_started = False
+    if "current_trip_id" not in st.session_state:
+        st.session_state.current_trip_id = 0
+    if "trip_settings" not in st.session_state:
+        st.session_state.trip_settings = {
+            "casino": "",
+            "starting_bankroll": 200.0,
+            "num_sessions": 3,
+            # new nearby filtering fields
+            "use_my_location": False,
+            "nearby_radius": 30,  # miles
+        }
+    if "trip_bankrolls" not in st.session_state:
+        st.session_state.trip_bankrolls: Dict[int, float] = {}
+    if "session_log" not in st.session_state:
+        st.session_state.session_log: List[Dict[str, Any]] = []
+    if "blacklisted_games" not in st.session_state:
+        st.session_state.blacklisted_games = set()
+    if "recent_profits" not in st.session_state:
+        st.session_state.recent_profits: List[float] = []
 
-# =========================
-# Defaults / Session Keys
-# =========================
-DEFAULTS = {
-    "trip_started": False,
-    "trip_number": 0,
-    "trip_id": None,
-    "trip_settings": {
+def _reset_trip_defaults() -> None:
+    st.session_state.trip_settings = {
         "casino": "",
+        "starting_bankroll": 200.0,
+        "num_sessions": 3,
         "use_my_location": False,
-        "nearby_radius": 30,  # miles
-    },
-    # bankroll / sliders expected by app.py
-    "session_bankroll": 200.0,
-    "current_bankroll": 200.0,
-    "volatility_adjustment": 1.0,  # 0.8 .. 1.2
-    "win_streak_factor": 1.0,      # 0.8 .. 1.2
-}
+        "nearby_radius": 30,
+    }
 
-def _sb_client(with_service: bool = False):
-    """Create a Supabase client. Use service role for writes."""
-    if create_client is None:
-        return None
-    url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
-    key = (
-        os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if with_service
-        else (os.environ.get("SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY"))
-    )
-    if not (url and key):
-        return None
-    try:
-        return create_client(url, key)
-    except Exception:
-        return None
-
-
-# =========================
-# Session state init (required by app.py)
-# =========================
-def initialize_trip_state():
-    """Seed all session keys used across the app."""
-    for k, v in DEFAULTS.items():
-        if k not in st.session_state:
-            st.session_state[k] = v if not isinstance(v, dict) else dict(v)
-    # Ensure nested dict exists and contains keys
-    if "trip_settings" not in st.session_state or not isinstance(st.session_state.trip_settings, dict):
-        st.session_state.trip_settings = dict(DEFAULTS["trip_settings"])
-    for k, v in DEFAULTS["trip_settings"].items():
-        st.session_state.trip_settings.setdefault(k, v)
-
-
-# =========================
-# Values your app.py imports
-# =========================
-def get_session_bankroll() -> float:
-    initialize_trip_state()
-    try:
-        return float(st.session_state.get("session_bankroll", DEFAULTS["session_bankroll"]))
-    except Exception:
-        return DEFAULTS["session_bankroll"]
-
-def get_current_bankroll() -> float:
-    initialize_trip_state()
-    try:
-        return float(st.session_state.get("current_bankroll", st.session_state.get("session_bankroll", DEFAULTS["session_bankroll"])))
-    except Exception:
-        return st.session_state.get("session_bankroll", DEFAULTS["session_bankroll"])
-
-def get_volatility_adjustment() -> float:
-    initialize_trip_state()
-    try:
-        return float(st.session_state.get("volatility_adjustment", 1.0))
-    except Exception:
-        return 1.0
-
-def get_win_streak_factor() -> float:
-    initialize_trip_state()
-    try:
-        return float(st.session_state.get("win_streak_factor", 1.0))
-    except Exception:
-        return 1.0
-
-
-# =========================
-# Nearby filtering helpers
-# =========================
+# Nearby distance
 def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
     if None in (lat1, lon1, lat2, lon2):
         return float("inf")
@@ -118,279 +61,179 @@ def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
     a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-
-# =========================
-# Casinos loading / coords update
-# =========================
-def _get_casinos_df(active_only: bool = True) -> pd.DataFrame:
-    c = _sb_client(with_service=False)
-    if not c:
-        return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active"])
-    q = c.table("casinos").select("*")
-    if active_only:
-        q = q.eq("is_active", True)
-    res = q.order("name").execute()
-    df = pd.DataFrame(res.data or [])
-    for col in ["city","state","latitude","longitude","is_active"]:
-        if col not in df.columns:
-            df[col] = None if col in ("latitude","longitude") else ""
-    return df
-
-def _update_coords(casino_id: str, lat: float, lon: float) -> bool:
-    c = _sb_client(with_service=True)
-    if not c:
-        return False
-    try:
-        c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", str(casino_id)).execute()
-        return True
-    except Exception:
-        return False
-
-
-# =========================
-# Start/Stop Trip (compatible with your app)
-# =========================
-def _start_trip():
-    initialize_trip_state()
-    st.session_state["trip_number"] = int(st.session_state.get("trip_number", 0)) + 1
-    st.session_state["trip_id"] = f"trip-{int(time.time())}"
-    st.session_state["trip_started"] = True
-
-def _stop_trip(reset_to_defaults: bool = True):
-    initialize_trip_state()
-    st.session_state["trip_started"] = False
-    st.session_state["trip_id"] = None
-    if reset_to_defaults:
-        st.session_state["trip_settings"] = dict(DEFAULTS["trip_settings"])
-        st.session_state["session_bankroll"] = DEFAULTS["session_bankroll"]
-        st.session_state["current_bankroll"] = DEFAULTS["current_bankroll"]
-        st.session_state["volatility_adjustment"] = DEFAULTS["volatility_adjustment"]
-        st.session_state["win_streak_factor"] = DEFAULTS["win_streak_factor"]
-
-
-# =========================
-# Sidebar UI (Trip Settings + bankroll controls)
-# =========================
-def render_sidebar():
-    """
-    Renders:
-      - Trip Settings (casino select, optional 'Use my location', radius)
-      - Bankroll controls
-      - Start New Trip / Stop Trip buttons
-    Uses st.session_state['trip_started'] flag exactly like your app expects.
-    """
-    initialize_trip_state()
-
-    with st.sidebar:
-        st.subheader("Trip Settings")
-
-        trip_started = bool(st.session_state.get("trip_started", False))
-
-        # Location filter controls
+def _casino_selector(disabled: bool) -> str:
+    # Use new richer fetch if present; fall back to legacy
+    if get_casinos_full is not None:
+        df = get_casinos_full(active_only=True)
+        all_names = df["name"].dropna().astype(str).tolist()
+        all_names = [n for n in all_names if n and n != "Other..."]
+        # Nearby filter UI
         st.caption("Filter casinos near you (requires location permission)")
-        colA, colB = st.columns([1, 1])
-        with colA:
-            use_my_location = st.checkbox(
-                "Use my location",
-                value=st.session_state.trip_settings.get("use_my_location", False),
-                key="use_my_location",
-                disabled=trip_started
-            )
+        cA, cB = st.columns([1,1])
+        with cA:
+            use_my_location = st.checkbox("Use my location",
+                                          value=st.session_state.trip_settings.get("use_my_location", False),
+                                          key="use_my_location",
+                                          disabled=disabled)
             st.session_state.trip_settings["use_my_location"] = use_my_location
-        with colB:
-            radius_miles = st.slider(
-                "Radius (miles)",
-                5, 100, int(st.session_state.trip_settings.get("nearby_radius", 30)),
-                step=5, key="nearby_radius", disabled=trip_started
-            )
+        with cB:
+            radius_miles = st.slider("Radius (miles)", 5, 100,
+                                     int(st.session_state.trip_settings.get("nearby_radius", 30)),
+                                     step=5, key="nearby_radius", disabled=disabled)
             st.session_state.trip_settings["nearby_radius"] = int(radius_miles)
 
-        # Load casinos
-        casinos_df = _get_casinos_df(active_only=True)
-        all_names = casinos_df["name"].dropna().astype(str).tolist()
-        casino_options = all_names
-
-        # Apply nearby filter if enabled
-        if use_my_location and not trip_started:
+        options = list(all_names)
+        if use_my_location and not disabled:
             if geolocation is None:
                 st.info("Install 'streamlit-geolocation' to enable location filter.")
             else:
                 coords = geolocation("Get current location")
                 if coords and "latitude" in coords and "longitude" in coords:
-                    user_lat, user_lon = coords["latitude"], coords["longitude"]
+                    ulat, ulon = coords["latitude"], coords["longitude"]
+                    if "latitude" in df.columns and "longitude" in df.columns:
+                        df["distance_mi"] = df.apply(lambda r: _haversine_miles(
+                            r.get("latitude"), r.get("longitude"), ulat, ulon
+                        ), axis=1)
+                        nearby = df[df["distance_mi"] <= float(radius_miles)].sort_values("distance_mi")
+                        if not nearby.empty:
+                            st.success(f"Found {len(nearby)} nearby casino(s).")
+                            options = nearby["name"].astype(str).tolist()
+                        else:
+                            st.info(f"No casinos within {radius_miles} miles. Showing all.")
+                # if no permission, fall back silently
 
-                    # If coords present, compute distances
-                    casinos_df["distance_mi"] = casinos_df.apply(
-                        lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
-                        axis=1
-                    )
-                    nearby = casinos_df[casinos_df["distance_mi"] <= float(radius_miles)].sort_values("distance_mi")
-                    if not nearby.empty:
-                        st.success(f"Found {len(nearby)} nearby casino(s).")
-                        casino_options = nearby["name"].astype(str).tolist()
-                    else:
-                        st.info(f"No casinos within {radius_miles} miles. Showing all.")
-                else:
-                    st.info("Click above to grant location access, or uncheck 'Use my location'.")
+        current = st.session_state.trip_settings.get("casino", "")
+        if current not in options and options:
+            # try to keep previously picked casino if still in all_names
+            if current in all_names:
+                pass  # will be added by options if not using filter
+            else:
+                current = options[0]
+        try:
+            default_index = options.index(current) if current in options else 0
+        except Exception:
+            default_index = 0
+        sel = st.selectbox("Casino", options=options, index=default_index, disabled=disabled)
+        return sel.strip()
 
-        # Keep previous selection if still available
-        current_sel = st.session_state.trip_settings.get("casino", "")
-        if current_sel not in casino_options and casino_options:
-            current_sel = casino_options[0]
+    # Legacy simple list fallback (shouldn't be used now, but safe default)
+    from data_loader_supabase import get_casinos
+    casinos = [c for c in get_casinos() if c and c != "Other..."]
+    current = st.session_state.trip_settings.get("casino", "")
+    try:
+        default_index = casinos.index(current) if current in casinos else 0
+    except Exception:
+        default_index = 0
+    sel = st.selectbox("Casino", options=casinos, index=default_index, disabled=disabled)
+    if sel == "Other...":
+        return st.text_input("Custom Casino", value=current if current not in casinos else "", disabled=disabled).strip()
+    return sel.strip()
 
-        casino = st.selectbox(
-            "Casino",
-            options=casino_options,
-            index=casino_options.index(current_sel) if current_sel in casino_options else 0,
-            key="trip_casino_select",
-            disabled=trip_started
-        )
-        st.session_state.trip_settings["casino"] = casino
+def render_sidebar() -> None:
+    initialize_trip_state()
+    with st.sidebar:
+        st.header("🎯 Trip Settings")
+        disabled = st.session_state.trip_started
+
+        casino_choice = _casino_selector(disabled=disabled)
+        start_bankroll = st.number_input("Total Trip Bankroll ($)", min_value=0.0, step=10.0,
+                                         value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
+                                         disabled=disabled)
+        num_sessions = st.number_input("Number of Sessions", min_value=1, step=1,
+                                       value=int(st.session_state.trip_settings.get("num_sessions", 3)),
+                                       disabled=disabled)
+
+        # Save back
+        st.session_state.trip_settings["casino"] = casino_choice
+        st.session_state.trip_settings["starting_bankroll"] = float(start_bankroll)
+        st.session_state.trip_settings["num_sessions"] = int(num_sessions)
+
+        # Derived
+        per_session = get_session_bankroll()
+        st.caption(f"Per-session bankroll estimate: ${per_session:,.2f}")
 
         st.divider()
-
-        # Bankroll controls
-        st.subheader("Bankroll")
         c1, c2 = st.columns(2)
         with c1:
-            session_bankroll = st.number_input(
-                "Session bankroll ($)", min_value=0.0, step=10.0,
-                value=float(st.session_state.get("session_bankroll", DEFAULTS["session_bankroll"])),
-                disabled=trip_started
-            )
-            st.session_state["session_bankroll"] = float(session_bankroll)
+            if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
+                st.session_state.trip_started = True
+                st.session_state.current_trip_id += 1
+                st.session_state.trip_bankrolls[st.session_state.current_trip_id] = float(start_bankroll)
+                st.success("Trip started.")
+                st.rerun()
         with c2:
-            current_bankroll = st.number_input(
-                "Current bankroll ($)", min_value=0.0, step=10.0,
-                value=float(st.session_state.get("current_bankroll", session_bankroll)),
-                disabled=trip_started
-            )
-            st.session_state["current_bankroll"] = float(current_bankroll)
-
-        c3, c4 = st.columns(2)
-        with c3:
-            st.session_state["win_streak_factor"] = float(st.slider(
-                "Win streak factor", 0.8, 1.2,
-                float(st.session_state.get("win_streak_factor", 1.0)), step=0.05,
-                disabled=trip_started
-            ))
-        with c4:
-            st.session_state["volatility_adjustment"] = float(st.slider(
-                "Volatility adj.", 0.8, 1.2,
-                float(st.session_state.get("volatility_adjustment", 1.0)), step=0.05,
-                disabled=trip_started
-            ))
-
-        st.divider()
-
-        # Start / Stop buttons (keep your wording)
-        b1, b2 = st.columns(2)
-        with b1:
-            if st.button("Start New Trip", disabled=trip_started, use_container_width=True):
-                _start_trip()
-                st.success(f"Trip started at {st.session_state.trip_settings.get('casino') or 'selected casino'}")
-                st.rerun()
-        with b2:
-            if st.button("Stop Trip", disabled=not trip_started, use_container_width=True):
-                _stop_trip(reset_to_defaults=True)
-                st.info("Trip stopped. Settings reset.")
+            if st.button("Stop Trip", disabled=not st.session_state.trip_started, use_container_width=True):
+                st.session_state.trip_started = False
+                _reset_trip_defaults()
+                st.info("Trip stopped and settings reset.")
                 st.rerun()
 
+def get_session_bankroll() -> float:
+    ts = st.session_state.trip_settings
+    total = float(ts.get("starting_bankroll", 0.0) or 0.0)
+    n = int(ts.get("num_sessions", 1) or 1)
+    n = max(1, n)
+    return total / n
 
-# =========================
-# Blacklist (per-casino "Not Available")
-# =========================
-def _get_current_casino_name() -> str:
-    initialize_trip_state()
-    return (st.session_state.get("trip_settings") or {}).get("casino", "") or ""
+def get_current_bankroll() -> float:
+    tid = st.session_state.get("current_trip_id", 0)
+    if tid in st.session_state.trip_bankrolls:
+        return float(st.session_state.trip_bankrolls[tid])
+    return float(st.session_state.trip_settings.get("starting_bankroll", 0.0))
 
-def blacklist_game(game_name: str) -> bool:
-    """
-    Called by Game Plan tab when clicking 'Not Available – {game}'.
-    Inserts/updates public.game_availability for the current casino.
-    """
-    casino = _get_current_casino_name().strip()
-    if not casino or not (game_name or "").strip():
-        return False
-    c = _sb_client(with_service=True)
-    if not c:
-        return False
-    try:
-        # resolve game id by name (case-insensitive)
-        res = c.table("games").select("id,name").ilike("name", game_name).limit(1).execute()
-        rows = res.data or []
-        if not rows:
-            res = c.table("games").select("id,name").eq("name", game_name).limit(1).execute()
-            rows = res.data or []
-        if not rows:
-            return False
-        gid = str(rows[0]["id"])
+def record_session_performance(profit: float) -> None:
+    profits = st.session_state.get("recent_profits", [])
+    profits.append(float(profit))
+    if len(profits) > 20:
+        profits = profits[-20:]
+    st.session_state.recent_profits = profits
 
-        # delete-then-insert to respect unique index (game_id, lower(casino))
-        c.table("game_availability").delete().eq("game_id", gid).ilike("casino", casino).execute()
-        c.table("game_availability").insert({
-            "game_id": gid,
-            "casino": casino,
-            "is_unavailable": True
-        }).execute()
-        return True
-    except Exception:
-        return False
+def get_win_streak_factor() -> float:
+    profits = st.session_state.get("recent_profits", [])
+    if len(profits) < 3:
+        return 1.0
+    last = profits[-5:]
+    avg = sum(last) / len(last)
+    if avg > 0:
+        return min(1.25, 1.0 + (avg / max(20.0, abs(avg)) * 0.25))
+    if avg < 0:
+        return max(0.85, 1.0 + (avg / max(40.0, abs(avg)) * 0.15))
+    return 1.0
+
+def get_volatility_adjustment() -> float:
+    profits = st.session_state.get("recent_profits", [])
+    if len(profits) < 3:
+        return 1.0
+    mean = sum(profits) / len(profits)
+    var = sum((p - mean) ** 2 for p in profits) / len(profits)
+    import math as _m
+    std = _m.sqrt(var)
+    std_clamped = min(200.0, std)
+    if std_clamped <= 20.0:
+        return 1.05
+    if std_clamped >= 120.0:
+        return 0.9
+    return 1.0
+
+def get_current_trip_sessions() -> List[Dict[str, Any]]:
+    return [s for s in st.session_state.session_log if s.get("trip_id") == st.session_state.current_trip_id]
+
+def add_session_to_trip(session: Dict[str, Any]) -> None:
+    st.session_state.session_log.append(session)
 
 def get_blacklisted_games() -> List[str]:
-    """
-    Return list of game names blacklisted (is_unavailable) for the current casino.
-    """
-    casino = _get_current_casino_name().strip()
-    if not casino:
-        return []
-    c = _sb_client(with_service=False)
-    if not c:
-        return []
-    try:
-        res = c.table("game_availability").select("game_id,is_unavailable,casino").ilike("casino", casino).execute()
-        rows = [r for r in (res.data or []) if r.get("is_unavailable")]
-        if not rows:
-            return []
-        ids = [str(r["game_id"]) for r in rows if r.get("game_id")]
-        if not ids:
-            return []
-        res2 = c.table("games").select("id,name").in_("id", ids).execute()
-        m = {str(r["id"]): r.get("name") for r in (res2.data or [])}
-        names = [m.get(i) for i in ids if m.get(i)]
-        return list(sorted(set([n for n in names if n])))
-    except Exception:
-        return []
+    return sorted(list(st.session_state.blacklisted_games))
 
+def blacklist_game(game_name: str) -> None:
+    st.session_state.blacklisted_games.add(game_name)
 
-# =========================
-# Optional helpers other pages may use
-# =========================
-def get_trip_heading() -> tuple[str, str]:
-    initialize_trip_state()
-    n = int(st.session_state.get("trip_number") or 1)
-    casino = (st.session_state.get("trip_settings") or {}).get("casino", "")
-    return f"Trip #{n}", casino
+def remove_blacklist(game_name: str) -> None:
+    st.session_state.blacklisted_games.discard(game_name)
 
-def render_trip_heading():
-    title, casino = get_trip_heading()
-    st.markdown(f"### {title}")
-    if casino:
-        st.caption(casino)
+def spend_bankroll(amount: float) -> None:
+    tid = st.session_state.get("current_trip_id", 0)
+    st.session_state.trip_bankrolls[tid] = max(0.0, float(st.session_state.trip_bankrolls.get(tid, 0.0)) - float(amount))
 
-
-# Explicit exports to keep star‑imports predictable
-__all__ = [
-    # required by your app.py
-    "initialize_trip_state",
-    "render_sidebar",
-    "get_session_bankroll",
-    "get_current_bankroll",
-    "blacklist_game",
-    "get_blacklisted_games",
-    "get_volatility_adjustment",
-    "get_win_streak_factor",
-    # optional helpers
-    "get_trip_heading",
-    "render_trip_heading",
-]
+def add_bankroll(amount: float) -> None:
+    tid = st.session_state.get("current_trip_id", 0)
+    st.session_state.trip_bankrolls[tid] = float(st.session_state.trip_bankrolls.get(tid, 0.0)) + float(amount)
