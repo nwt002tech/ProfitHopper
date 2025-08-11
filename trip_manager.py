@@ -2,27 +2,51 @@ from __future__ import annotations
 
 import os
 import math
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import streamlit as st
 
-# Optional geolocation; safe if package missing (feature is OFF by default)
+# ---- Robust geolocation import (supports both export names) ----
+geolocation = None
 try:
-    from streamlit_geolocation import streamlit_geolocation as geolocation
+    # most builds
+    from streamlit_geolocation import geolocation as _geo_func
+    geolocation = _geo_func
 except Exception:
-    geolocation = None
+    try:
+        # some builds expose streamlit_geolocation() under the module
+        from streamlit_geolocation import streamlit_geolocation as _geo_func2
+        geolocation = _geo_func2
+    except Exception:
+        geolocation = None
 
-# Toggle the feature on/off without touching code (default OFF)
-ENABLE_NEARBY = os.environ.get("ENABLE_NEARBY", "0").lower() in ("1", "true", "yes", "on")
+# ---- Feature flag: ENABLE_NEARBY from env OR secrets ----
+def _truthy(val: Optional[str]) -> bool:
+    if val is None:
+        return False
+    return str(val).strip().lower() in ("1", "true", "yes", "on", "y")
 
-# Prefer richer casino fetch (name, city, state, latitude, longitude...)
+def _flag_from_env_or_secrets(key: str, default: bool=False) -> bool:
+    # env
+    if key in os.environ:
+        return _truthy(os.environ.get(key))
+    # secrets root
+    if hasattr(st, "secrets") and key in st.secrets:
+        return _truthy(st.secrets.get(key))
+    # secrets [general]
+    if hasattr(st, "secrets") and "general" in st.secrets and key in st.secrets["general"]:
+        return _truthy(st.secrets["general"].get(key))
+    return default
+
+ENABLE_NEARBY = _flag_from_env_or_secrets("ENABLE_NEARBY", default=False)
+
+# ---- Your data access (unchanged API) ----
 try:
-    from data_loader_supabase import get_casinos_full  # returns DataFrame with at least "name"
+    from data_loader_supabase import get_casinos_full  # DataFrame: name, city, state, latitude, longitude, is_active
 except Exception:
     get_casinos_full = None
 
-# Fallback: names list
 try:
-    from data_loader_supabase import get_casinos  # returns List[str]
+    from data_loader_supabase import get_casinos  # List[str]
 except Exception:
     get_casinos = None
 
@@ -40,7 +64,7 @@ def initialize_trip_state() -> None:
             "casino": "",
             "starting_bankroll": 200.0,
             "num_sessions": 3,
-            # fields used only when ENABLE_NEARBY is True
+            # nearby UI state
             "use_my_location": False,
             "nearby_radius": 30,  # miles
         }
@@ -67,7 +91,25 @@ def _reset_trip_defaults() -> None:
 # =========================
 # Helpers
 # =========================
+def _to_float_or_none(v):
+    try:
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        s = str(v).strip()
+        if s == "" or s.lower() == "nan":
+            return None
+        return float(s)
+    except Exception:
+        return None
+
 def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
+    # return big distance if any is missing so it won't count as nearby
+    lat1 = _to_float_or_none(lat1)
+    lon1 = _to_float_or_none(lon1)
+    lat2 = _to_float_or_none(lat2)
+    lon2 = _to_float_or_none(lon2)
     if None in (lat1, lon1, lat2, lon2):
         return float("inf")
     R = 3958.7613
@@ -80,25 +122,35 @@ def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
 
 def _load_casino_names_df():
     """
-    Returns (names_list, df) where df may include columns: name, city, state, latitude, longitude, is_active.
-    If get_casinos_full() isn’t available, df is None and names_list comes from get_casinos().
+    Returns (names_list, df) where df may include:
+    name, city, state, latitude, longitude, is_active.
     """
     df = None
     names = []
-    # Try full DF first
+    # Try full DF first (preferred)
     if callable(get_casinos_full):
         try:
             df = get_casinos_full(active_only=True)
         except Exception:
             df = None
-    # Names list fallback
-    if (df is None) and callable(get_casinos):
+    # Fallback: names list
+    if df is None and callable(get_casinos):
         try:
             names = [c for c in (get_casinos() or []) if c]
         except Exception:
             names = []
-    if df is not None and not df.empty and "name" in df.columns:
+    # Pull names from df if present
+    if df is not None and getattr(df, "empty", True) is False and "name" in df.columns:
         names = df["name"].dropna().astype(str).tolist()
+
+        # Ensure we have numeric coords (strings → floats, blanks → None)
+        for col in ("latitude", "longitude"):
+            if col in df.columns:
+                df[col] = [ _to_float_or_none(v) for v in df[col] ]
+        # Respect is_active if present
+        if "is_active" in df.columns:
+            df = df[df["is_active"] == True].copy()
+
     # remove placeholder if present
     names = [n for n in names if n and n != "Other..."]
     return names, df
@@ -107,7 +159,7 @@ def _load_casino_names_df():
 def _nearby_filter_options(disabled: bool) -> List[str]:
     """
     Returns the casino list, optionally filtered by user location.
-    If ENABLE_NEARBY is off, or permission/coords are missing, gracefully returns all names.
+    If nearby is off, or no permission/coords, gracefully returns all names.
     """
     all_names, df = _load_casino_names_df()
     if not ENABLE_NEARBY or disabled:
@@ -144,8 +196,9 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 
     user_lat, user_lon = coords["latitude"], coords["longitude"]
 
-    # If we don’t have coords for casinos, we can’t compute distance — just return all
+    # If we don’t have coords for casinos, can’t filter — return all
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
+        st.info("No coordinates found for casinos yet — showing all.")
         return all_names
 
     # Compute distances and filter
@@ -154,7 +207,24 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
         axis=1
     )
-    nearby = df[df["distance_mi"] <= float(radius_miles)]
+    nearby = df[df["distance_mi"] <= float(radius_miles)].copy()
+    # DEBUG strip: keep only casinos that actually have names
+    nearby = nearby[nearby["name"].notna()]
+
+    # --- Tiny debug block to make behavior obvious ---
+    with st.expander("Nearby debug", expanded=False):
+        total = len(df)
+        with_coords = int((df["latitude"].notna() & df["longitude"].notna()).sum())
+        st.write({
+            "feature_enabled": ENABLE_NEARBY,
+            "use_my_location": bool(st.session_state.trip_settings.get("use_my_location", False)),
+            "radius_miles": int(radius_miles),
+            "user_coords": {"lat": coords.get("latitude"), "lon": coords.get("longitude")},
+            "casinos_total": total,
+            "casinos_with_coords": with_coords,
+            "nearby_count": int(len(nearby)),
+        })
+
     if nearby.empty:
         st.info(f"No casinos within {int(radius_miles)} miles. Showing all.")
         return all_names
@@ -191,7 +261,6 @@ def render_sidebar() -> None:
 
         # --- tiny status badge when near-me is enabled ---
         if ENABLE_NEARBY:
-            # _nearby_filter_options writes these keys when the toggle UI is visible
             use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
             radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
             nearby_count = len(options)
