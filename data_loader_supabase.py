@@ -225,3 +225,69 @@ def load_game_data(active_only: bool = True) -> pd.DataFrame:
         if st:
             st.info(f"[load_game_data] fallback: {e}")
         return _ensure_game_cols(pd.DataFrame())
+
+# --- write helper: update casino coords (safe, optional) ---
+def update_casino_coords(
+    *,
+    casino_id: str | None = None,
+    name: str | None = None,
+    latitude: float | None = None,
+    longitude: float | None = None,
+) -> bool:
+    """
+    Update latitude/longitude for a casino by id OR by name.
+    Returns True if at least one row was updated, else False.
+
+    Examples:
+        update_casino_coords(casino_id="uuid", latitude=30.21, longitude=-93.28)
+        update_casino_coords(name="L’Auberge Lake Charles", latitude=30.21, longitude=-93.28)
+    """
+    # local imports to avoid changing your module top
+    import pandas as pd  # noqa: F401 - keep consistent with rest of file
+    try:
+        from supabase import create_client  # uses same creds as your _client()
+    except Exception:
+        return False
+
+    def _read_secret_local(k: str):
+        import os
+        try:
+            import streamlit as st  # type: ignore
+            # root
+            if hasattr(st, "secrets"):
+                v = st.secrets.get(k)
+                if v:
+                    return v
+                g = st.secrets.get("general", {})
+                if isinstance(g, dict) and g.get(k):
+                    return g.get(k)
+        except Exception:
+            pass
+        return os.environ.get(k)
+
+    url = _read_secret_local("SUPABASE_URL") or _read_secret_local("NEXT_PUBLIC_SUPABASE_URL")
+    # prefer service role for writes; fall back to anon if your RLS allows it
+    key = (_read_secret_local("SUPABASE_SERVICE_ROLE_KEY")
+           or _read_secret_local("SERVICE_ROLE_KEY")
+           or _read_secret_local("SUPABASE_ANON_KEY")
+           or _read_secret_local("NEXT_PUBLIC_SUPABASE_ANON_KEY"))
+    if not (url and key and (casino_id or name) and isinstance(latitude, (int, float)) and isinstance(longitude, (int, float))):
+        return False
+
+    try:
+        client = create_client(url, key)
+        payload = {"latitude": float(latitude), "longitude": float(longitude)}
+        q = client.table("casinos").update(payload)
+        if casino_id:
+            q = q.eq("id", str(casino_id))
+        else:
+            q = q.ilike("name", str(name))
+        res = q.execute()
+        updated = 0
+        if hasattr(res, "data") and isinstance(res.data, list):
+            updated = len(res.data)
+        if hasattr(res, "count") and isinstance(res.count, int):
+            updated = max(updated, res.count)
+        return updated > 0
+    except Exception:
+        return False
