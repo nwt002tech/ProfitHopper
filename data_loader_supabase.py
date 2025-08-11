@@ -174,7 +174,7 @@ def get_casinos() -> List[str]:
 
 
 # =========================
-# Games (keeps your base loader)
+# Games (keeps your base loader) + 'game_name' alias
 # =========================
 _GAMES_COLS_SELECT = (
     "id,name,game_type,type,rtp,volatility,bonus_frequency,min_bet,"
@@ -224,6 +224,11 @@ def _ensure_game_cols(df: pd.DataFrame) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].astype(str)
 
+    # --- NEW: provide compatibility alias expected by app.py ---
+    if "game_name" not in df.columns and "name" in df.columns:
+        df["game_name"] = df["name"].astype(str)
+
+    # keep stable order (alias comes after originals)
     lead = [c for c in expected if c in df.columns]
     rest = [c for c in df.columns if c not in lead]
     return df[lead + rest]
@@ -250,7 +255,7 @@ def load_game_data(active_only: bool = True) -> pd.DataFrame:
 
 
 # =========================
-# Optional write helper (used by app.py geocode tools)
+# Optional write helper (used by geocode tools / app.py)
 # =========================
 def update_casino_coords(
     *,
