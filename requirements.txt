@@ -7,3 +7,4 @@ supabase
 postgrest
 gotrue
 requests
+streamlit-geolocation
