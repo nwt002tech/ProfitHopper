@@ -145,24 +145,29 @@ def _load_casino_names_df():
 
 def _get_user_coords_auto() -> tuple[Optional[float], Optional[float], str]:
     """
-    Try browser geolocation (streamlit component). If not available,
-    fall back to IP-based coarse geolocation (no user input).
-    Returns (lat, lon, source) where source in {"browser","ip","none"}.
+    Prefer coords captured in st.session_state (from the sidebar widget).
+    If not present, try geolocation component inline; as last resort use IP.
     """
-    # 1) Browser geolocation via component
+    lat = st.session_state.get("client_lat")
+    lon = st.session_state.get("client_lon")
+    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+        return float(lat), float(lon), "browser"
+
+    # Inline component (in case user didn't click the sidebar capture yet)
     if geolocation is not None:
         try:
-            coords = geolocation(key="geo_widget")
+            coords = geolocation(key="geo_widget_inline")
             if coords and "latitude" in coords and "longitude" in coords:
                 return float(coords["latitude"]), float(coords["longitude"]), "browser"
         except Exception:
             pass
 
-    # 2) IP-based (coarse) geolocation — no keys needed
+    # Last resort: IP (server‑side, coarse, may be wrong region)
     try:
-        resp = requests.get("https://ipapi.co/json/", timeout=2.0)
-        if resp.ok:
-            j = resp.json()
+        import requests
+        r = requests.get("https://ipapi.co/json/", timeout=2.0)
+        if r.ok:
+            j = r.json()
             lat = _to_float_or_none(j.get("latitude"))
             lon = _to_float_or_none(j.get("longitude"))
             if lat is not None and lon is not None:
