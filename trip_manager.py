@@ -5,52 +5,49 @@ import math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
-# Optional geolocation component (we only use browser coords from session)
-geolocation = None
+# Try both exported names for the component.
+_geolib = None
 try:
     from streamlit_geolocation import geolocation as _geo_func
-    geolocation = _geo_func
+    _geolib = _geo_func
 except Exception:
     try:
         from streamlit_geolocation import streamlit_geolocation as _geo_func2
-        geolocation = _geo_func2
+        _geolib = _geo_func2
     except Exception:
-        geolocation = None
+        _geolib = None
 
+# Feature flag (default ON). You can also set ENABLE_NEARBY=0 in env or st.secrets to turn it off.
+def _truthy(v: Optional[str]) -> bool:
+    return str(v).strip().lower() in ("1","true","yes","on","y") if v is not None else False
 
-def _truthy(val: Optional[str]) -> bool:
-    if val is None:
-        return False
-    return str(val).strip().lower() in ("1", "true", "yes", "on", "y")
-
-def _flag_from_env_or_secrets(key: str, default: bool=False) -> bool:
+def _flag(key: str, default: bool) -> bool:
     if key in os.environ:
         return _truthy(os.environ.get(key))
-    if hasattr(st, "secrets") and key in st.secrets:
-        return _truthy(st.secrets.get(key))
-    if hasattr(st, "secrets") and "general" in st.secrets and key in st.secrets["general"]:
-        return _truthy(st.secrets["general"].get(key))
+    if hasattr(st, "secrets"):
+        val = st.secrets.get(key)
+        if val is not None:
+            return _truthy(str(val))
+        gen = st.secrets.get("general", {})
+        if isinstance(gen, dict) and key in gen:
+            return _truthy(str(gen.get(key)))
     return default
 
-# Enable/disable the nearby feature globally via env/secrets
-ENABLE_NEARBY = _flag_from_env_or_secrets("ENABLE_NEARBY", default=True)
+ENABLE_NEARBY = _flag("ENABLE_NEARBY", True)
 
-
-# ---- Data access: use your existing loader; do not modify it ----
+# Use your existing data loader exactly as-is.
 try:
-    from data_loader_supabase import get_casinos_full  # -> DataFrame
+    from data_loader_supabase import get_casinos_full
 except Exception:
     get_casinos_full = None
 
 try:
-    from data_loader_supabase import get_casinos  # -> List[str]
+    from data_loader_supabase import get_casinos
 except Exception:
     get_casinos = None
 
 
-# =========================
-# Session state init (unchanged API)
-# =========================
+# ---------------- Session state ----------------
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state:
         st.session_state.trip_started = False
@@ -73,7 +70,6 @@ def initialize_trip_state() -> None:
     if "session_log" not in st.session_state:
         st.session_state.session_log = []
 
-
 def _reset_trip_defaults() -> None:
     st.session_state.trip_settings = {
         "casino": "",
@@ -84,27 +80,20 @@ def _reset_trip_defaults() -> None:
     }
 
 
-# =========================
-# Helpers
-# =========================
+# ---------------- Helpers ----------------
 def _to_float_or_none(v):
     try:
-        if v is None:
-            return None
-        if isinstance(v, (int, float)):
-            return float(v)
+        if v is None: return None
+        if isinstance(v, (int, float)): return float(v)
         s = str(v).strip()
-        if s == "" or s.lower() == "nan":
-            return None
+        if s == "" or s.lower() == "nan": return None
         return float(s)
     except Exception:
         return None
 
 def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
-    lat1 = _to_float_or_none(lat1)
-    lon1 = _to_float_or_none(lon1)
-    lat2 = _to_float_or_none(lat2)
-    lon2 = _to_float_or_none(lon2)
+    lat1 = _to_float_or_none(lat1); lon1 = _to_float_or_none(lon1)
+    lat2 = _to_float_or_none(lat2); lon2 = _to_float_or_none(lon2)
     if None in (lat1, lon1, lat2, lon2):
         return float("inf")
     R = 3958.7613
@@ -114,14 +103,9 @@ def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
     a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
     return 2 * R * math.asin(math.sqrt(a))
 
-
 def _load_casino_names_df():
-    """
-    Returns (names_list, df) where df may include:
-    name, city, state, latitude, longitude, is_active.
-    """
     df = None
-    names = []
+    names: List[str] = []
     if callable(get_casinos_full):
         try:
             df = get_casinos_full(active_only=True)
@@ -134,7 +118,6 @@ def _load_casino_names_df():
             names = []
     if df is not None and getattr(df, "empty", True) is False and "name" in df.columns:
         names = df["name"].dropna().astype(str).tolist()
-        # ensure numeric coords
         for col in ("latitude", "longitude"):
             if col in df.columns:
                 df[col] = [_to_float_or_none(v) for v in df[col]]
@@ -144,59 +127,55 @@ def _load_casino_names_df():
     return names, df
 
 
-def _get_user_coords_auto() -> tuple[Optional[float], Optional[float], str]:
-    """
-    Use the browser coords captured in st.session_state by app.py.
-    No IP fallback here (server IP can be wrong region).
-    """
-    lat = st.session_state.get("client_lat")
-    lon = st.session_state.get("client_lon")
-    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-        return float(lat), float(lon), "browser"
-    return None, None, "none"
-
-
+# ---------------- Nearby filter ----------------
 def _nearby_filter_options(disabled: bool) -> List[str]:
     """
-    Returns the casino list, optionally filtered by user location.
-    Uses only browser coords saved in session (accurate per-user).
+    Returns casino names, optionally filtered by **browser** location.
+    Renders the actual 'Get Location' button when needed.
     """
     all_names, df = _load_casino_names_df()
     info = {
         "enabled": ENABLE_NEARBY,
-        "ui_enabled": not disabled,
-        "use_my_location": bool(st.session_state.trip_settings.get("use_my_location", False)),
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",           # 'browser' | 'none'
+        "geo_source": "none",   # 'browser' or 'none'
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
         "with_coords": 0,
-        "reason": "",                   # debugging text
+        "reason": "",
     }
 
     if not ENABLE_NEARBY:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # UI controls
     st.caption("Filter casinos near you")
     colA, colB = st.columns([1, 1])
     with colA:
-        use_ml = st.checkbox("Use my location", value=info["use_my_location"], key="use_my_location", disabled=disabled)
+        use_loc = st.checkbox("Use my location",
+                              value=bool(st.session_state.trip_settings.get("use_my_location", False)),
+                              key="use_my_location",
+                              disabled=disabled)
     with colB:
-        radius = st.slider("Radius (miles)", 5, 300, info["radius_miles"], step=5, key="nearby_radius", disabled=disabled)
-    info["use_my_location"] = bool(use_ml)
+        radius = st.slider("Radius (miles)", 5, 300,
+                           int(st.session_state.trip_settings.get("nearby_radius", 30)),
+                           step=5, key="nearby_radius", disabled=disabled)
     info["radius_miles"] = int(radius)
 
-    # Need DF with coords
+    if not use_loc:
+        info["reason"] = "use_my_location_off"
+        st.session_state["_nearby_info"] = info
+        return all_names
+
+    # Need coords present in DF
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
         info["reason"] = "no_casino_coords_df"
         st.session_state["_nearby_info"] = info
         return all_names
+
     df = df.copy()
-    for col in ("latitude", "longitude"):
+    for col in ("latitude","longitude"):
         df[col] = [_to_float_or_none(v) for v in df[col]]
     info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
     if info["with_coords"] == 0:
@@ -204,26 +183,27 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # If user opted out, do not filter
-    if not info["use_my_location"]:
-        info["reason"] = "use_my_location_off"
-        st.session_state["_nearby_info"] = info
-        return all_names
-
-    # Get user coords (must come from sidebar 'Share your location' in app.py)
-    user_lat, user_lon, source = _get_user_coords_auto()
-    info["geo_source"] = source
+    # Ask the BROWSER for location right here. The component renders a button labeled "Get Location".
+    user_lat = user_lon = None
+    if _geolib is not None:
+        st.info("Click **Get Location** below once to enable near‑me.")
+        coords = None
+        try:
+            coords = _geolib(key="geo_widget_in_sidebar")  # renders the visible button
+        except Exception:
+            coords = None
+        if coords and "latitude" in coords and "longitude" in coords:
+            user_lat = _to_float_or_none(coords["latitude"])
+            user_lon = _to_float_or_none(coords["longitude"])
+            if user_lat is not None and user_lon is not None:
+                info["geo_source"] = "browser"
 
     if user_lat is None or user_lon is None:
         info["reason"] = "waiting_for_browser_location"
-        st.info("Click **Share your location** in the sidebar to enable near‑me.")
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Compute distances and apply filter
-    info["applied"] = True
-
-    # Auto-fix obvious US longitude sign mistakes if data was entered as positive
+    # Fix obviously wrong U.S. longitude signs (e.g., +96 instead of −96)
     try:
         pos_ratio = float((df["longitude"] > 0).sum()) / float(len(df))
         if pos_ratio >= 0.8:
@@ -231,12 +211,13 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     except Exception:
         pass
 
+    # Apply filter
+    info["applied"] = True
     df["distance_mi"] = df.apply(
         lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
         axis=1
     )
     nearby = df[df["distance_mi"].notna()].sort_values("distance_mi")
-
     within = nearby[nearby["distance_mi"] <= float(info["radius_miles"])].copy()
     info["nearby_count"] = int(len(within))
 
@@ -250,9 +231,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     return within["name"].astype(str).tolist()
 
 
-# =========================
-# Sidebar + accurate badge
-# =========================
+# ---------------- Sidebar (unchanged API) ----------------
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -330,9 +309,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 
-# =========================
-# Bankroll & heuristics (same signatures your app imports)
-# =========================
+# ---------------- Bankroll & heuristics (unchanged signatures) ----------------
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
     total = float(ts.get("starting_bankroll", 0.0) or 0.0)
@@ -372,9 +349,7 @@ def get_volatility_adjustment() -> float:
     return 1.0
 
 
-# =========================
-# Simple blacklist stored in session (keeps your API)
-# =========================
+# ---------------- Blacklist (session) ----------------
 def get_blacklisted_games() -> List[str]:
     return sorted(list(st.session_state.blacklisted_games))
 
@@ -382,9 +357,7 @@ def blacklist_game(game_name: str) -> None:
     st.session_state.blacklisted_games.add(game_name)
 
 
-# =========================
-# Optional helpers your app may use
-# =========================
+# ---------------- Optional helpers ----------------
 def get_current_trip_sessions() -> List[Dict[str, Any]]:
     tid = st.session_state.get("current_trip_id", 0)
     sessions = st.session_state.get("session_log", [])
