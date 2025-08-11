@@ -2,465 +2,553 @@ from __future__ import annotations
 
 import os
 import re
+from functools import lru_cache
+from typing import Tuple, Optional, List
+
 import pandas as pd
 import streamlit as st
 
-# --- Supabase client (service role) ---
+# ---- Supabase (service role for writes) ----
 try:
     from supabase import create_client
 except Exception:
     create_client = None
 
-from data_loader_supabase import get_casinos
 
-EXPECTED_COLS = [
+# ---- Geocoding (Nominatim) ----
+try:
+    from geopy.geocoders import Nominatim
+    from geopy.extra.rate_limiter import RateLimiter
+except Exception:
+    Nominatim = None
+    RateLimiter = None
+
+_geocoder = None
+_rate_geocode = None
+
+
+def _init_geocoder():
+    """Create a rate-limited geocoder instance (once)."""
+    global _geocoder, _rate_geocode
+    if _geocoder is None and Nominatim is not None:
+        _geocoder = Nominatim(user_agent="profithopper-admin/1.0")
+        _rate_geocode = RateLimiter(_geocoder.geocode, min_delay_seconds=1.1, swallow_exceptions=True)
+    return _rate_geocode
+
+
+@lru_cache(maxsize=512)
+def geocode_city_state(city: str, state: str) -> Tuple[Optional[float], Optional[float]]:
+    """Return (lat, lon) for City/State; (None, None) if not found or geocoder unavailable."""
+    geo = _init_geocoder()
+    if geo is None:
+        return None, None
+    q = ", ".join([s for s in [city or "", state or ""] if s])
+    if not q.strip():
+        return None, None
+    loc = geo(q)
+    if loc:
+        try:
+            return float(loc.latitude), float(loc.longitude)
+        except Exception:
+            return None, None
+    return None, None
+
+
+# ---- Games normalization (unchanged behavior) ----
+EXPECTED_GAME_COLS = [
     "id","name","type","game_type","rtp","volatility","bonus_frequency","min_bet",
     "advantage_play_potential","best_casino_type","bonus_trigger_clues",
     "tips","image_url","source_url","updated_at",
     "is_hidden","is_unavailable","score"
 ]
 
-def _norm_cols(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = [re.sub(r"\W+","_", str(c).strip()).lower() for c in df.columns]
-    if "name" not in df.columns and "game_name" in df.columns:
-        df["name"] = df["game_name"]
-    if "game_name" not in df.columns and "name" in df.columns:
-        df["game_name"] = df["name"]
-    for col in EXPECTED_COLS:
-        if col not in df.columns:
-            if col in ("rtp","volatility","bonus_frequency","min_bet","advantage_play_potential","score"):
-                df[col] = None
-            elif col in ("is_hidden","is_unavailable"):
-                df[col] = False
+def _norm_games(df: pd.DataFrame) -> pd.DataFrame:
+    df = (df or pd.DataFrame()).copy()
+    if df.empty:
+        return pd.DataFrame(columns=EXPECTED_GAME_COLS)
+    # normalize column names
+    newcols = []
+    for c in df.columns:
+        c2 = re.sub(r"\W+", "_", str(c).strip()).lower()
+        newcols.append(c2)
+    df.columns = newcols
+    # ensure required columns
+    for c in EXPECTED_GAME_COLS:
+        if c not in df.columns:
+            if c in ("is_hidden","is_unavailable"):
+                df[c] = False
             else:
-                df[col] = ""
-    for c in ("rtp","bonus_frequency","min_bet"):
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-    for c in ("volatility","advantage_play_potential"):
-        if c in df.columns:
-            df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
+                df[c] = None
+    # dtypes
     for b in ("is_hidden","is_unavailable"):
         if b in df.columns:
-            df[b] = df[b].astype(bool)
-    return df
+            df[b] = df[b].fillna(False).astype(bool)
+    for n in ("rtp","bonus_frequency","min_bet","score"):
+        if n in df.columns:
+            df[n] = pd.to_numeric(df[n], errors="coerce")
+    for n in ("volatility","advantage_play_potential"):
+        if n in df.columns:
+            df[n] = pd.to_numeric(df[n], errors="coerce").astype("Int64")
+    # order
+    lead = [c for c in EXPECTED_GAME_COLS if c in df.columns]
+    rest = [c for c in df.columns if c not in lead]
+    return df[lead + rest]
 
-def _admin_client():
+
+# ---- Supabase clients ----
+def _client_service():
+    """Service-role client (needed for writes and admin tasks)."""
     url = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    # Also check Streamlit secrets (root and [general])
+    if not url and hasattr(st, "secrets"):
+        url = st.secrets.get("SUPABASE_URL") or st.secrets.get("general", {}).get("SUPABASE_URL")
+
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not key and hasattr(st, "secrets"):
+        key = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY") or st.secrets.get("general", {}).get("SUPABASE_SERVICE_ROLE_KEY")
+
     if create_client is None:
         st.error("Supabase client not installed. Add 'supabase', 'postgrest', 'gotrue' to requirements.txt.")
         return None
-    if not url or not key:
-        st.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env var. (Admin requires service-role key.)")
+    if not (url and key):
+        st.error("Admin requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.")
         return None
-    return create_client(url, key)
+    try:
+        return create_client(url, key)
+    except Exception as e:
+        st.error(f"Failed to init Supabase client: {e}")
+        return None
 
-# -------- Games helpers --------
-def _fetch_all_games(client) -> pd.DataFrame:
-    res = client.table("games").select("*").execute()
-    data = res.data or []
-    return _norm_cols(pd.DataFrame(data))
 
-def _upsert_games_df(client, df: pd.DataFrame):
+# ---- Casinos helpers ----
+def _fetch_casinos_df(c) -> pd.DataFrame:
+    try:
+        cols = "id,name,city,state,latitude,longitude,is_active,inserted_at,updated_at"
+        res = c.table("casinos").select(cols).order("name").execute()
+        df = pd.DataFrame(res.data or [])
+        # ensure columns exist
+        for col in ["city","state","latitude","longitude","is_active","inserted_at","updated_at"]:
+            if col not in df.columns:
+                df[col] = None if col in ("latitude","longitude") else (True if col=="is_active" else "")
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"])
+
+
+def _fetch_games(c) -> pd.DataFrame:
+    try:
+        res = c.table("games").select("*").execute()
+        return _norm_games(pd.DataFrame(res.data or []))
+    except Exception:
+        return pd.DataFrame(columns=EXPECTED_GAME_COLS)
+
+
+def _upsert_games(c, df: pd.DataFrame):
     rows = df.to_dict(orient="records")
     for i in range(0, len(rows), 400):
-        client.table("games").upsert(rows[i:i+400]).execute()
+        c.table("games").upsert(rows[i:i+400]).execute()
 
-def _score_row(row, default_bankroll=200.0):
-    rtp = float(row.get("rtp") or 0)
-    adv = float(row.get("advantage_play_potential") or 0)
-    vol = float(row.get("volatility") or 0)
-    min_bet = float(row.get("min_bet") or 0)
-    rtp_n = max(0.0, min(1.0), (rtp - 85.0) / (99.9 - 85.0)) if rtp else 0.0  # clamp
-    adv_n = max(0.0, min(1.0, (adv or 0) / 5.0))
-    vol_pen = max(0.0, min(1.0, (5.0 - (vol or 0)) / 5.0))
-    minbet_pen = 1.0
-    if default_bankroll > 0:
-        ratio = (min_bet or 0.0) / default_bankroll
-        minbet_pen = 1.0 - max(0.0, ratio - 0.03) * 6.0
-        minbet_pen = max(0.0, min(1.0, minbet_pen))
-    raw = (0.45 * rtp_n) + (0.35 * adv_n) + (0.20 * vol_pen)
-    return round(raw * minbet_pen * 100.0, 1)
 
-def _safe_uuid(x):
-    s = str(x).strip()
-    return s if s and s.lower() != "nan" else None
-
-# -------- Casinos helpers --------
-def _fetch_casinos(client) -> pd.DataFrame:
+# ---- Casino CRUD with auto‑geocoding ----
+def _add_casino(c, name: str, city: str, state: str, is_active: bool=True):
+    payload = {
+        "name": (name or "").strip(),
+        "city": (city or "").strip(),
+        "state": (state or "").strip(),
+        "is_active": bool(is_active),
+    }
+    # Auto‑fill lat/lon from City/State on add
+    lat, lon = geocode_city_state(payload["city"], payload["state"])
+    if lat is not None and lon is not None:
+        payload["latitude"] = lat
+        payload["longitude"] = lon
     try:
-        res = client.table("casinos").select("*").order("name").execute()
-        data = res.data or []
-        df = pd.DataFrame(data)
-        if df.empty:
-            return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
-        for col in ["city","state"]:
-            if col not in df.columns:
-                df[col] = ""
-        if "is_active" not in df.columns:
-            df["is_active"] = True
-        return df[["id","name","city","state","is_active","inserted_at","updated_at"]]
-    except Exception:
-        return pd.DataFrame(columns=["id","name","city","state","is_active","inserted_at","updated_at"])
-
-def _add_casino(client, name: str, city: str = "", state: str = "", is_active: bool = True) -> tuple[bool,str]:
-    try:
-        client.table("casinos").insert({
-            "name": name.strip(),
-            "city": city.strip(),
-            "state": state.strip(),
-            "is_active": bool(is_active)
-        }).execute()
-        return True, "Casino added."
+        res = c.table("casinos").insert(payload).select("id").execute()
+        return True, "Casino added.", (res.data[0]["id"] if res and res.data else None)
     except Exception as e:
-        return False, f"Add failed: {e}"
+        return False, f"Add failed: {e}", None
 
-def _update_casino(client, cid: str, name: str | None = None, city: str | None = None,
-                   state: str | None = None, is_active: bool | None = None) -> tuple[bool,str]:
+
+def _update_casino(c, cid: str, name: str|None=None, city: str|None=None, state: str|None=None,
+                   is_active: bool|None=None, force_geocode: bool=False):
+    """Update fields; auto‑geocode when city/state change or coords missing, or when force_geocode=True."""
+    # Read current row to compare
     try:
-        payload = {}
-        if name is not None:
-            payload["name"] = name.strip()
-        if city is not None:
-            payload["city"] = city.strip()
-        if state is not None:
-            payload["state"] = state.strip()
-        if is_active is not None:
-            payload["is_active"] = bool(is_active)
-        if not payload:
-            return True, "No changes."
-        client.table("casinos").update(payload).eq("id", str(cid)).execute()
+        cur = c.table("casinos").select("name,city,state,latitude,longitude").eq("id", str(cid)).single().execute()
+        cur_row = (cur.data or {}) if cur else {}
+    except Exception:
+        cur_row = {}
+
+    payload = {}
+    if name is not None: payload["name"] = (name or "").strip()
+    if city is not None: payload["city"] = (city or "").strip()
+    if state is not None: payload["state"] = (state or "").strip()
+    if is_active is not None: payload["is_active"] = bool(is_active)
+
+    # Determine if geocode is needed
+    city_to_use  = payload.get("city",  cur_row.get("city"))
+    state_to_use = payload.get("state", cur_row.get("state"))
+    city_changed = ("city" in payload and (payload["city"] or "") != (cur_row.get("city") or ""))
+    state_changed = ("state" in payload and (payload["state"] or "") != (cur_row.get("state") or ""))
+    missing_coords = (cur_row.get("latitude") is None) or (cur_row.get("longitude") is None)
+    need_geo = force_geocode or city_changed or state_changed or missing_coords
+
+    if need_geo and (city_to_use or state_to_use):
+        lat, lon = geocode_city_state(city_to_use or "", state_to_use or "")
+        if lat is not None and lon is not None:
+            payload["latitude"] = lat
+            payload["longitude"] = lon
+
+    if not payload:
+        return True, "No changes."
+    try:
+        c.table("casinos").update(payload).eq("id", str(cid)).execute()
         return True, "Updated."
     except Exception as e:
         return False, f"Update failed: {e}"
 
-# -------- UI --------
+
+# ---- Main Admin Panel ----
 def show_admin_panel():
     st.subheader("🔧 Admin Panel")
-    client = _admin_client()
-    if not client:
+    c = _client_service()
+    if not c:
         return
 
-    # ---------- One-time resets from previous run (before any widgets) ----------
-    for reset_key in ["_reset_new_casino_name", "_reset_new_casino_city", "_reset_new_casino_state"]:
-        if st.session_state.get(reset_key):
-            st.session_state[reset_key] = False
-            # drop corresponding widget value key (e.g., new_casino_name)
-            st.session_state.pop(reset_key.replace("_reset_", ""), None)
-
-    # Load once so all sections can use it
-    games_df = _fetch_all_games(client)
-    st.caption(f"Loaded {len(games_df)} rows from public.games")
-
-    # =========================
-    # 0) Manage casinos
-    # =========================
+    # ===== (1) Manage casinos (collapsed by default) =====
     with st.expander("🏷️ Manage casinos", expanded=False):
-        st.caption("Add, rename, and activate/archive casinos used throughout the app.")
-        casinos_df = _fetch_casinos(client)
+        st.caption("Add, edit, and archive casinos. City/State will auto‑fill coordinates when saved.")
 
-        # Add new casino
-        st.markdown("**Add new casino**")
-        c1, c2, c3, c4, c5 = st.columns([3,2,1,1,1])
-        with c1:
-            new_name = st.text_input("Casino name", key="new_casino_name")
-        with c2:
-            new_city = st.text_input("City", key="new_casino_city")
-        with c3:
-            new_state = st.text_input("State", key="new_casino_state")
-        with c4:
-            new_active = st.checkbox("Active", value=True, key="new_casino_active")
-        with c5:
-            if st.button("➕ Add casino", use_container_width=True, key="btn_add_casino"):
+        casinos_df = _fetch_casinos_df(c)
+
+        # Add new casino row
+        col1, col2, col3, col4, col5 = st.columns([3,2,1,1,1])
+        with col1:
+            new_name = st.text_input("Casino name", key="new_cas_name")
+        with col2:
+            new_city = st.text_input("City", key="new_cas_city")
+        with col3:
+            new_state = st.text_input("State", key="new_cas_state")
+        with col4:
+            new_active = st.checkbox("Active", value=True, key="new_cas_active")
+        with col5:
+            if st.button("➕ Add casino", use_container_width=True, key="btn_add_cas"):
                 if not (new_name or "").strip():
                     st.warning("Enter a casino name.")
                 else:
-                    ok, msg = _add_casino(client, new_name, new_city, new_state, new_active)
+                    ok, msg, _ = _add_casino(c, new_name, new_city, new_state, new_active)
                     if ok:
                         st.success(msg)
-                        # Clear inputs on the next run (safe pattern for widget keys)
-                        st.session_state["_reset_new_casino_name"] = True
-                        st.session_state["_reset_new_casino_city"] = True
-                        st.session_state["_reset_new_casino_state"] = True
+                        # clear fields
+                        for k in ("new_cas_name","new_cas_city","new_cas_state"):
+                            if k in st.session_state: del st.session_state[k]
                         st.rerun()
                     else:
                         st.error(msg)
 
         st.divider()
-
-        # Filter & edit existing casinos
-        fcol1, fcol2 = st.columns([2,1])
-        with fcol1:
-            filt = st.text_input("Filter casinos by name", key="filter_casinos")
-        with fcol2:
-            show_only_active = st.checkbox("Show active only", value=False, key="filter_active_only")
+        f1, f2 = st.columns([2,1])
+        with f1:
+            ftxt = st.text_input("Filter by name", key="cas_filter")
+        with f2:
+            only_active = st.checkbox("Show active only", value=False, key="cas_only_active")
 
         edit_df = casinos_df.copy()
-        if (filt or "").strip():
-            edit_df = edit_df[edit_df["name"].str.contains(filt, case=False, na=False)]
-        if show_only_active and "is_active" in edit_df.columns:
+        if (ftxt or "").strip():
+            edit_df = edit_df[edit_df["name"].str.contains(ftxt, case=False, na=False)]
+        if only_active and "is_active" in edit_df.columns:
             edit_df = edit_df[edit_df["is_active"] == True]
 
-        # Put editable columns first
-        lead = [c for c in ["name","city","state","is_active"] if c in edit_df.columns]
-        rest = [c for c in ["id","inserted_at","updated_at"] if c in edit_df.columns]
+        if "is_active" not in edit_df.columns:
+            edit_df["is_active"] = True
+        # Leading "Off" column for compactness (Off = inactive)
+        edit_df["Off"] = ~edit_df["is_active"].astype(bool)
+
+        lead = [c for c in ["Off","name","city","state"] if c in edit_df.columns]
+        rest = [c for c in ["is_active","latitude","longitude","id","inserted_at","updated_at"] if c in edit_df.columns]
         edit_df = edit_df[lead + rest]
 
         col_cfg = {
-            "id": st.column_config.TextColumn("id", help="Primary key", disabled=True),
-            "inserted_at": st.column_config.DatetimeColumn("inserted_at", disabled=True),
-            "updated_at": st.column_config.DatetimeColumn("updated_at", disabled=True),
-            "name": st.column_config.TextColumn("name", help="Displayed name (must be unique, case-insensitive)"),
-            "city": st.column_config.TextColumn("city", help="City"),
-            "state": st.column_config.TextColumn("state", help="State"),
-            "is_active": st.column_config.CheckboxColumn("is_active", help="Uncheck to archive (hide from pickers)")
+            "Off": st.column_config.CheckboxColumn("Off", help="Off = inactive", width="small"),
+            "name": st.column_config.TextColumn("name", help="Unique name"),
+            "city": st.column_config.TextColumn("city"),
+            "state": st.column_config.TextColumn("state"),
         }
+        # lat/lon are display-only; they auto-fill
+        if "latitude" in edit_df.columns:
+            col_cfg["latitude"] = st.column_config.NumberColumn("latitude", disabled=True)
+        if "longitude" in edit_df.columns:
+            col_cfg["longitude"] = st.column_config.NumberColumn("longitude", disabled=True)
+        if "id" in edit_df.columns:
+            col_cfg["id"] = st.column_config.TextColumn("id", disabled=True)
+        if "inserted_at" in edit_df.columns:
+            col_cfg["inserted_at"] = st.column_config.DatetimeColumn("inserted_at", disabled=True)
+        if "updated_at" in edit_df.columns:
+            col_cfg["updated_at"] = st.column_config.DatetimeColumn("updated_at", disabled=True)
 
         st.markdown("**Edit casinos**")
-        edited_casinos = st.data_editor(
-            edit_df,
-            key="casinos_editor",
-            use_container_width=True,
-            hide_index=True,
-            column_config=col_cfg
+        edited = st.data_editor(
+            edit_df, key="casinos_editor", use_container_width=True, hide_index=True, column_config=col_cfg
         )
 
-        # Save edits (rename / city / state / toggle active)
-        if st.button("💾 Save edits", key="btn_save_casinos"):
+        if st.button("💾 Save casino edits", key="btn_save_casinos"):
             try:
-                updated = 0
-                orig_by_id = {str(r["id"]): r for _, r in casinos_df.iterrows() if str(r.get("id") or "").strip()}
-                for _, row in edited_casinos.iterrows():
-                    cid = str(row.get("id") or "").strip()
+                changed = 0
+                orig = {str(r["id"]): r for _, r in casinos_df.iterrows() if str(r.get("id") or "").strip()}
+                for _, r in edited.iterrows():
+                    cid = str(r.get("id") or "").strip()
                     if not cid:
                         continue
-                    original = orig_by_id.get(cid, {})
-                    new_name = row.get("name")
-                    new_city = row.get("city")
-                    new_state = row.get("state")
-                    new_active = bool(row.get("is_active"))
+                    old = orig.get(cid, {})
+                    new_name = r.get("name")
+                    new_city = r.get("city") or ""
+                    new_state = r.get("state") or ""
+                    new_active = not bool(r.get("Off"))
+
                     if (
-                        original.get("name") != new_name
-                        or (original.get("city") or "") != (new_city or "")
-                        or (original.get("state") or "") != (new_state or "")
-                        or bool(original.get("is_active")) != new_active
+                        old.get("name") != new_name or
+                        (old.get("city") or "") != new_city or
+                        (old.get("state") or "") != new_state or
+                        bool(old.get("is_active")) != new_active
                     ):
-                        ok, msg = _update_casino(client, cid, new_name, new_city, new_state, new_active)
+                        ok, msg = _update_casino(
+                            c, cid, new_name, new_city, new_state, new_active,
+                            # will geocode if city/state changed or coords missing
+                            force_geocode=False
+                        )
                         if not ok:
                             st.error(f"{msg} (casino: {new_name})")
                         else:
-                            updated += 1
-                st.success(f"Saved {updated} change(s).")
+                            changed += 1
+                st.success(f"Saved {changed} change(s).")
                 st.rerun()
             except Exception as e:
-                st.error(f"Failed to save edits: {e}")
+                st.error(f"Failed to save: {e}")
 
-    # =========================
-    # 1) Upload / patch CSV into games
-    # =========================
+    # ===== (2) Upload / patch CSV into games =====
     with st.expander("📤 Upload / patch CSV into games", expanded=False):
-        csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"], key="upload_csv")
+        csv = st.file_uploader("Upload CSV to upsert into public.games", type=["csv"], key="upload_games_csv")
         if csv is not None:
             try:
                 uploaded = pd.read_csv(csv)
-                uploaded = _norm_cols(uploaded)
+                uploaded = _norm_games(uploaded)
                 st.dataframe(uploaded.head(20), use_container_width=True)
-                if st.button("Upsert uploaded CSV → Supabase", key="btn_upsert_csv"):
-                    _upsert_games_df(client, uploaded)
+                if st.button("Upsert uploaded CSV → games", key="btn_upsert_games"):
+                    _upsert_games(c, uploaded)
                     st.success(f"Upserted {len(uploaded)} rows.")
             except Exception as e:
                 st.error(f"Failed to process CSV: {e}")
 
-    # =========================
-    # 2) Inline edit & save (games)
-    # =========================
-    with st.expander("📝 Inline edit & save (games: checkboxes first, name third)", expanded=False):
-        q = st.text_input("Quick filter (name contains):", "", key="inline_filter")
+    # ===== (3) Inline edit & save (games) =====
+    with st.expander("📝 Inline edit & save (games)", expanded=False):
+        games_df = _fetch_games(c)
+        q = st.text_input("Quick filter (name contains)", "", key="games_inline_filter")
         df_edit = games_df.copy()
         if q.strip():
             df_edit = df_edit[df_edit["name"].str.contains(q, case=False, na=False)]
 
-        leading = [c for c in ["is_hidden","is_unavailable","name"] if c in df_edit.columns]
-        trailing = [c for c in df_edit.columns if c not in leading]
-        ordered_cols = leading + trailing
-        df_edit = df_edit[ordered_cols]
+        # Put hidden/unavailable first, name third
+        leading = [col for col in ["is_hidden","is_unavailable","name"] if col in df_edit.columns]
+        trailing = [col for col in df_edit.columns if col not in leading]
+        df_edit = df_edit[leading + trailing]
 
         col_cfg = {}
         if "is_hidden" in df_edit.columns:
-            col_cfg["is_hidden"] = st.column_config.CheckboxColumn(
-                "is_hidden", help="Hide from recommendations", default=False
-            )
+            col_cfg["is_hidden"] = st.column_config.CheckboxColumn("is_hidden", help="Hide from recommendations")
         if "is_unavailable" in df_edit.columns:
-            col_cfg["is_unavailable"] = st.column_config.CheckboxColumn(
-                "is_unavailable", help="Not playable globally / skip", default=False
-            )
+            col_cfg["is_unavailable"] = st.column_config.CheckboxColumn("is_unavailable", help="Globally not playable")
 
-        edited_ui = st.data_editor(
-            df_edit,
-            num_rows="dynamic",
-            use_container_width=True,
-            key="admin_editor",
-            column_order=ordered_cols,
-            column_config=col_cfg
+        edited_games = st.data_editor(
+            df_edit, key="games_editor", use_container_width=True, column_config=col_cfg, num_rows="dynamic"
         )
-        if st.button("💾 Save edited rows", key="btn_save_inline"):
+        if st.button("💾 Save edited games", key="btn_save_inline_games"):
             try:
-                _upsert_games_df(client, _norm_cols(edited_ui))
-                st.success("Changes saved.")
+                _upsert_games(c, _norm_games(edited_games))
+                st.success("Game changes saved.")
             except Exception as e:
                 st.error(f"Save failed: {e}")
 
-    # =========================
-    # 3) Per‑casino availability (delete-then-insert to respect unique index)
-    # =========================
+    # ===== (4) Per‑casino availability =====
     with st.expander("🏨 Per‑casino availability", expanded=False):
-        st.caption("Mark games unavailable at a specific casino (does not affect other casinos).")
+        st.caption("Mark specific games unavailable at a selected casino. Unchecking removes them from that list.")
 
-        casinos = get_casinos()
-        casinos = [c for c in casinos if c.strip() and c != "Other..."]
-        if not casinos:
-            st.warning("No casinos found. Create entries in public.casinos first.")
-            casino = st.text_input("Casino name (temporary input)")
-        else:
-            default_casino = st.session_state.trip_settings.get("casino","")
-            try:
-                default_idx = casinos.index(default_casino) if default_casino in casinos else 0
-            except Exception:
-                default_idx = 0
-            casino = st.selectbox("Casino", options=casinos, index=default_idx, key="casino_select")
+        casinos_df2 = _fetch_casinos_df(c)
+        casino_names = casinos_df2["name"].dropna().astype(str).tolist()
+        if not casino_names:
+            st.warning("No casinos in table. Add some above.")
+            return
 
-        # Add to unavailable list
+        default_casino = st.session_state.get("trip_settings", {}).get("casino","")
+        try:
+            default_idx = casino_names.index(default_casino) if default_casino in casino_names else 0
+        except Exception:
+            default_idx = 0
+        casino = st.selectbox("Casino", options=casino_names, index=default_idx, key="per_casino_select")
+
+        # Left: add games by name with filter
         left, right = st.columns([2,1])
         with left:
-            st.write("Add games to this casino's unavailable list:")
-            name_filter = st.text_input("Filter games by name", "", key="casino_game_filter")
-            df_for_options = games_df.copy()
+            name_filter = st.text_input("Filter games by name", "", key="per_casino_game_filter")
+            games_df_all = _fetch_games(c)
             if name_filter.strip():
-                df_for_options = df_for_options[df_for_options["name"].str.contains(name_filter, case=False, na=False)]
+                games_df_all = games_df_all[games_df_all["name"].str.contains(name_filter, case=False, na=False)]
 
             options = []
-            if "id" in df_for_options.columns and "name" in df_for_options.columns:
-                for _, r in df_for_options.iterrows():
-                    gid = _safe_uuid(r["id"])
-                    if gid:
+            if "id" in games_df_all.columns and "name" in games_df_all.columns:
+                for _, r in games_df_all.iterrows():
+                    gid = str(r["id"])
+                    if gid and gid.lower() != "nan":
                         options.append((gid, r["name"]))
             options.sort(key=lambda x: (str(x[1]).lower(), str(x[0]).lower()))
-            labels = {gid: f"{name} ({gid[:8]}…)" for gid, name in options}
+            labels = {gid: f"{nm}  •  {gid[:8]}…" for gid, nm in options}
             ids = [gid for gid, _ in options]
-            selected_ids = st.multiselect("Games", ids, format_func=lambda x: labels.get(x, str(x)), key="casino_game_multiselect")
+            selected_ids = st.multiselect("Games", ids, format_func=lambda x: labels.get(x, str(x)), key="per_casino_add_ids")
 
         with right:
-            unavailable_flag = st.checkbox("Mark as UNAVAILABLE", value=True, key="unavail_flag")
+            unavailable_flag = st.checkbox("Mark as UNAVAILABLE", value=True, key="per_casino_unavail_flag")
 
-        if st.button("➕ Add / update availability", key="btn_add_avail"):
+        if st.button("➕ Add / update availability", key="btn_add_per_casino"):
             if not casino or not str(casino).strip():
                 st.warning("Select a casino first.")
             elif not selected_ids:
                 st.warning("Select at least one game.")
             else:
-                casino_norm = str(casino).strip()
                 try:
                     count = 0
                     for gid in selected_ids:
-                        client.table("game_availability").delete() \
-                              .eq("game_id", str(gid)) \
-                              .ilike("casino", casino_norm) \
-                              .execute()
-                        client.table("game_availability").insert({
+                        c.table("game_availability").delete().eq("game_id", str(gid)).ilike("casino", str(casino).strip()).execute()
+                        c.table("game_availability").insert({
                             "game_id": str(gid),
-                            "casino": casino_norm,
+                            "casino": str(casino).strip(),
                             "is_unavailable": bool(unavailable_flag)
                         }).execute()
                         count += 1
-                    st.success(f"Updated availability for {count} game(s) at “{casino_norm}”.")
+                    st.success(f"Updated availability for {count} game(s) at “{casino}”.")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed saving availability: {e}")
 
-        # Editable grid (game name first; uncheck to remove)
-        if casino and str(casino).strip():
-            try:
-                res = client.table("game_availability") \
-                            .select("*") \
-                            .ilike("casino", str(casino).strip()) \
-                            .order("updated_at", desc=True) \
-                            .execute()
-                avail_rows = res.data or []
-                avail_df = pd.DataFrame(avail_rows)
+        # Existing rows for this casino
+        try:
+            res = c.table("game_availability").select("*").ilike("casino", str(casino).strip()).order("updated_at", desc=True).execute()
+            avail_df = pd.DataFrame(res.data or [])
+        except Exception:
+            avail_df = pd.DataFrame()
 
-                if avail_df.empty:
-                    st.info("No per‑casino availability rows found for this casino.")
-                else:
-                    name_by_id = {}
-                    if "id" in games_df.columns and "name" in games_df.columns:
-                        name_by_id = dict(zip(games_df["id"].astype(str), games_df["name"]))
+        if avail_df.empty:
+            st.info("No per‑casino availability rows for this casino.")
+        else:
+            games_df_all = _fetch_games(c)
+            name_map = {}
+            if not games_df_all.empty and "id" in games_df_all.columns and "name" in games_df_all.columns:
+                name_map = dict(zip(games_df_all["id"].astype(str), games_df_all["name"]))
+            avail_df["game_id"] = avail_df.get("game_id", "").astype(str)
+            avail_df["game_name"] = avail_df["game_id"].map(name_map).fillna("(unknown)")
+            if "is_unavailable" not in avail_df.columns:
+                avail_df["is_unavailable"] = True
+            avail_df["is_unavailable"] = avail_df["is_unavailable"].astype(bool)
 
-                    if "game_id" in avail_df.columns:
-                        avail_df["game_id"] = avail_df["game_id"].astype(str)
-                        avail_df["game_name"] = avail_df["game_id"].map(name_by_id).fillna("(unknown)")
+            lead = [c for c in ["game_name","is_unavailable"] if c in avail_df.columns]
+            rest = [c for c in avail_df.columns if c not in lead]
+            avail_df = avail_df[lead + rest]
 
-                    if "is_unavailable" not in avail_df.columns:
-                        avail_df["is_unavailable"] = True
-                    avail_df["is_unavailable"] = avail_df["is_unavailable"].astype(bool)
+            st.write(f"Current availability at “{casino}”")
+            st.caption("Uncheck **is_unavailable** to remove a game from this casino’s unavailable list, then click **Save changes**.")
+            edited_avail = st.data_editor(
+                avail_df, key="per_casino_editor", use_container_width=True, hide_index=True,
+                column_config={"is_unavailable": st.column_config.CheckboxColumn("is_unavailable")}
+            )
 
-                    lead = [c for c in ["game_name", "is_unavailable"] if c in avail_df.columns]
-                    rest = [c for c in avail_df.columns if c not in lead]
-                    avail_df = avail_df[lead + rest]
+            if st.button("💾 Save changes", key="btn_save_per_casino"):
+                try:
+                    to_delete = edited_avail[(~edited_avail["is_unavailable"].astype(bool))]
+                    delete_count = 0
+                    if not to_delete.empty:
+                        if "id" in to_delete.columns:
+                            for rid in to_delete["id"].dropna().astype(str).tolist():
+                                c.table("game_availability").delete().eq("id", rid).execute()
+                                delete_count += 1
+                        else:
+                            for _, r in to_delete.iterrows():
+                                gid = str(r.get("game_id") or "").strip()
+                                cas = str(r.get("casino") or "").strip() or casino
+                                if gid and cas:
+                                    c.table("game_availability").delete().eq("game_id", gid).ilike("casino", cas).execute()
+                                    delete_count += 1
+                    st.success(f"Saved. Removed {delete_count} game(s) from this casino’s unavailable list.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed saving changes: {e}")
 
-                    st.write(f"Current availability at “{str(casino).strip()}”")
-                    st.caption("Uncheck **is_unavailable** to remove a game from this casino’s unavailable list, then click **Save changes**.")
+    # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
+    with st.expander("📍 Geocode casinos (auto‑fill lat/lon)", expanded=False):
+        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect.")
+        df = _fetch_casinos_df(c)
+        if df.empty:
+            st.info("No casinos found.")
+        else:
+            df["needs_coords"] = df.apply(lambda r: (r.get("latitude") is None or r.get("longitude") is None), axis=1)
+            missing = df[df["needs_coords"] == True]
+            st.write(f"Casinos missing coords: **{len(missing)}**")
 
-                    edited_avail = st.data_editor(
-                        avail_df,
-                        key="per_casino_editor",
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config={
-                            "is_unavailable": st.column_config.CheckboxColumn(
-                                "is_unavailable", help="If unchecked, row will be removed."
-                            )
-                        }
-                    )
+            # Selection list
+            options: List[str] = []
+            labels = {}
+            for _, r in df.iterrows():
+                cid = str(r.get("id") or "")
+                nm = str(r.get("name") or "")
+                city = r.get("city") or ""
+                state = r.get("state") or ""
+                tag = f"{nm} — {city}, {state}".strip(" —,")
+                labels[cid] = tag
+                options.append(cid)
 
-                    if st.button("💾 Save changes", key="btn_save_per_casino"):
-                        try:
-                            to_delete = edited_avail[(~edited_avail["is_unavailable"].astype(bool))]
-                            delete_count = 0
-                            if not to_delete.empty:
-                                if "id" in to_delete.columns:
-                                    for rid in to_delete["id"].dropna().astype(str).tolist():
-                                        client.table("game_availability").delete().eq("id", rid).execute()
-                                        delete_count += 1
-                                else:
-                                    for _, r in to_delete.iterrows():
-                                        gid = str(r.get("game_id") or "").strip()
-                                        cas = str(r.get("casino") or "").strip()
-                                        if gid and cas:
-                                            client.table("game_availability").delete() \
-                                                  .eq("game_id", gid).ilike("casino", cas).execute()
-                                            delete_count += 1
-                            st.success(f"Saved. Removed {delete_count} game(s) from this casino’s unavailable list.")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Failed saving changes: {e}")
-            except Exception as e:
-                st.error(f"Failed to load per‑casino availability: {e}")
+            selected = st.multiselect(
+                "Select casinos to geocode",
+                options=options,
+                format_func=lambda cid: labels.get(cid, cid),
+                default=[str(x) for x in (missing["id"].dropna().astype(str).tolist()[:10])],
+                key="geo_selected_casinos",
+            )
 
-    # =========================
-    # 4) Recalculate & save scores (games)
-    # =========================
-    with st.expander("🧮 Recalculate & save scores (games)", expanded=False):
-        default_bankroll = st.number_input("Assume default bankroll for penalty math ($)", value=200.0, step=50.0, key="score_bankroll")
-        if st.button("Recalculate 'score' for all (filtered via per‑section tools)", key="btn_recalc_scores"):
-            try:
-                tmp = games_df.copy()
-                if "id" not in tmp.columns:
-                    st.error("No 'id' column available to save scores.")
-                else:
-                    tmp["score"] = tmp.apply(lambda r: _score_row(r, default_bankroll=default_bankroll), axis=1)
-                    client.table("games").upsert(tmp[["id","score"]].to_dict(orient="records")).execute()
-                    st.success("Scores recalculated and saved to 'score'.")
-            except Exception as e:
-                st.error(f"Score update failed: {e}")
+            c1, c2 = st.columns([1,1])
+            with c1:
+                if st.button("Geocode selected", key="btn_geo_selected"):
+                    if not selected:
+                        st.warning("Pick at least one casino.")
+                    else:
+                        updated = 0
+                        for cid in selected:
+                            row = df[df["id"].astype(str) == str(cid)]
+                            if row.empty:
+                                continue
+                            city = (row.iloc[0].get("city") or "").strip()
+                            state = (row.iloc[0].get("state") or "").strip()
+                            lat, lon = geocode_city_state(city, state)
+                            if lat is not None and lon is not None:
+                                try:
+                                    c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", str(cid)).execute()
+                                    updated += 1
+                                except Exception:
+                                    pass
+                        st.success(f"Geocoded {updated} casino(s).")
+                        st.rerun()
+            with c2:
+                if st.button("Geocode ALL missing", key="btn_geo_all_missing"):
+                    if missing.empty:
+                        st.info("Nothing to do — no missing coordinates.")
+                    else:
+                        updated = 0
+                        for _, r in missing.iterrows():
+                            cid = str(r.get("id") or "")
+                            city = (r.get("city") or "").strip()
+                            state = (r.get("state") or "").strip()
+                            lat, lon = geocode_city_state(city, state)
+                            if lat is not None and lon is not None:
+                                try:
+                                    c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", cid).execute()
+                                    updated += 1
+                                except Exception:
+                                    pass
+                        st.success(f"Geocoded {updated} casino(s).")
+                        st.rerun()
