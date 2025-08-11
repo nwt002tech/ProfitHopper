@@ -176,107 +176,101 @@ def _get_user_coords_auto() -> tuple[Optional[float], Optional[float], str]:
 def _nearby_filter_options(disabled: bool) -> List[str]:
     """
     Returns the casino list, optionally filtered by user location.
-    Renders the geolocation widget when 'Use my location' is ON, and applies
-    browser→IP fallback automatically. No manual coord fields.
+    Writes diagnostics to st.session_state['_nearby_info'] for the badge.
     """
     all_names, df = _load_casino_names_df()
     info = {
         "enabled": ENABLE_NEARBY,
+        "ui_enabled": not disabled,
+        "use_my_location": bool(st.session_state.trip_settings.get("use_my_location", False)),
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",
+        "geo_source": "none",           # 'browser' | 'ip' | 'none'
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
         "with_coords": 0,
+        "reason": "",                   # debugging text
     }
 
+    # If feature flag is off, do nothing
     if not ENABLE_NEARBY:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # read current prefs from state first
-    use_my_location = bool(st.session_state.trip_settings.get("use_my_location", False))
-    radius_miles = int(st.session_state.trip_settings.get("nearby_radius", 30))
-
-    # controls (only interactive when not disabled)
+    # UI controls
     st.caption("Filter casinos near you")
     colA, colB = st.columns([1, 1])
     with colA:
-        new_use = st.checkbox("Use my location", value=use_my_location, key="use_my_location", disabled=disabled)
+        use_ml = st.checkbox("Use my location", value=info["use_my_location"], key="use_my_location", disabled=disabled)
     with colB:
-        new_radius = st.slider("Radius (miles)", 5, 100, radius_miles, step=5, key="nearby_radius", disabled=disabled)
+        radius = st.slider("Radius (miles)", 5, 100, info["radius_miles"], step=5, key="nearby_radius", disabled=disabled)
+    info["use_my_location"] = bool(use_ml)
+    info["radius_miles"] = int(radius)
 
-    # persist the (possibly unchanged) settings
-    use_my_location = bool(st.session_state.trip_settings.get("use_my_location", new_use))
-    radius_miles = int(st.session_state.trip_settings.get("nearby_radius", new_radius))
-    info["radius_miles"] = radius_miles
-
-    # need coords to filter against
+    # Need DF with coords
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
+        info["reason"] = "no_casino_coords_df"
         st.session_state["_nearby_info"] = info
         return all_names
-
     df = df.copy()
     for col in ("latitude", "longitude"):
         df[col] = [_to_float_or_none(v) for v in df[col]]
     info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
-
-    if not use_my_location:
+    if info["with_coords"] == 0:
+        info["reason"] = "no_casino_coords_rows"
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # ---- Show the geolocation widget clearly, then apply auto-fallback ----
+    # If user opted out, bail early (badge will say OFF)
+    if not info["use_my_location"]:
+        info["reason"] = "use_my_location_off"
+        st.session_state["_nearby_info"] = info
+        return all_names
+
+    # Get user coords: browser first, then IP fallback — no manual fields
     user_lat = user_lon = None
-    source = "none"
-
-    # 1) Browser geolocation (requires a visible widget; user clicks once)
     if geolocation is not None:
-        st.write("➡️ Click the button below to share your location (one-time).")
-        coords = None
+        st.write("➡️ Click the button below to share your location (one‑time).")
         try:
-            coords = geolocation(key="geo_widget_sidebar")  # renders a button in the sidebar
+            coords = geolocation(key="geo_widget_sidebar")
+            if coords and "latitude" in coords and "longitude" in coords:
+                user_lat = _to_float_or_none(coords["latitude"])
+                user_lon = _to_float_or_none(coords["longitude"])
+                if user_lat is not None and user_lon is not None:
+                    info["geo_source"] = "browser"
         except Exception:
-            coords = None
-        if coords and "latitude" in coords and "longitude" in coords:
-            user_lat = _to_float_or_none(coords["latitude"])
-            user_lon = _to_float_or_none(coords["longitude"])
-            if user_lat is not None and user_lon is not None:
-                source = "browser"
+            pass
 
-    # 2) IP-based fallback (automatic; no UI) if browser didn’t provide coords
     if user_lat is None or user_lon is None:
+        # IP fallback (coarse, no prompt)
         try:
-            import requests  # local import keeps the module optional elsewhere
+            import requests
             r = requests.get("https://ipapi.co/json/", timeout=2.0)
             if r.ok:
                 j = r.json()
                 user_lat = _to_float_or_none(j.get("latitude"))
                 user_lon = _to_float_or_none(j.get("longitude"))
                 if user_lat is not None and user_lon is not None:
-                    source = "ip"
+                    info["geo_source"] = "ip"
         except Exception:
             pass
 
-    info["geo_source"] = source
-
-    # If we still don't have coords, we can't apply the filter yet
     if user_lat is None or user_lon is None:
-        st.session_state["_nearby_info"] = info  # filter not applied
+        info["reason"] = "no_user_coords"
+        st.session_state["_nearby_info"] = info
         return all_names
 
     # Apply distance filter
     info["applied"] = True
-    df["distance_mi"] = df.apply(
-        lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
-        axis=1
-    )
-    nearby = df[df["distance_mi"] <= float(radius_miles)].copy()
+    df["distance_mi"] = df.apply(lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon), axis=1)
+    nearby = df[df["distance_mi"] <= float(info["radius_miles"])].copy()
     nearby = nearby[nearby["name"].notna()]
     info["nearby_count"] = int(len(nearby))
 
     if nearby.empty:
         info["fallback_all"] = True
+        info["reason"] = "no_matches"
         st.session_state["_nearby_info"] = info
         return all_names
 
@@ -309,21 +303,28 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["casino"] = "" if sel == "(select casino)" else sel
 
         # --- status badge that reflects actual filter state ---
+                # --- accurate badge ---
         if ENABLE_NEARBY:
             info = st.session_state.get("_nearby_info", {}) or {}
             radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
-            applied = bool(info.get("applied"))
-            fallback_all = bool(info.get("fallback_all"))
-            nearby_count = int(info.get("nearby_count", 0)) if applied else 0
-            source = info.get("geo_source") or "none"
+            use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
 
-            if applied and not fallback_all:
-                suffix = " (browser)" if source == "browser" else " (approx via IP)" if source == "ip" else ""
-                badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  results: {nearby_count}{suffix}"
-            elif applied and fallback_all:
-                badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  0 in range — showing all"
+            if not use_loc:
+                st.caption("📍 near‑me: OFF")
             else:
-                badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  filter not applied"
+                applied = bool(info.get("applied"))
+                fallback_all = bool(info.get("fallback_all"))
+                nearby_count = int(info.get("nearby_count", 0)) if applied else 0
+                source = info.get("geo_source") or "none"
+
+                if applied and not fallback_all:
+                    suffix = " (browser)" if source == "browser" else " (approx via IP)" if source == "ip" else ""
+                    st.caption(f"📍 near‑me: ON • radius: {radius} mi • results: {nearby_count}{suffix}")
+                elif applied and fallback_all:
+                    st.caption(f"📍 near‑me: ON • radius: {radius} mi • 0 in range — showing all")
+                else:
+                    # use_loc is True but we couldn't get coords yet
+                    st.caption(f"📍 near‑me: ON • radius: {radius} mi • filter not applied")
 
             st.caption(badge)
 
