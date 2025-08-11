@@ -73,6 +73,11 @@ def _to_float_or_none(v):
         return None
 
 
+def _safe_copy_df(df) -> pd.DataFrame:
+    """Return a copy if df is a DataFrame; otherwise an empty DataFrame."""
+    return df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame()
+
+
 # -----------------------------
 # Casinos (supports near‑me)
 # -----------------------------
@@ -83,7 +88,7 @@ def _ensure_casino_cols(df: pd.DataFrame) -> pd.DataFrame:
     Guarantee expected columns exist; normalize lat/lng aliases; coerce coords to float.
     This ensures near‑me filtering always finds numeric 'latitude'/'longitude'.
     """
-    df = (df or pd.DataFrame()).copy()
+    df = _safe_copy_df(df)
 
     # alias normalization
     if "latitude" not in df.columns and "lat" in df.columns:
@@ -122,8 +127,9 @@ def get_casinos_full(active_only: bool = True) -> pd.DataFrame:
     Never raises on caller; returns a shaped (possibly empty) DataFrame.
     """
     c = _client()
+    empty = pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"])
     if c is None:
-        return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"])
+        return empty
     try:
         res = c.table("casinos").select(CASINO_COLS_SELECT).order("name").execute()
         df = pd.DataFrame(res.data or [])
@@ -134,11 +140,11 @@ def get_casinos_full(active_only: bool = True) -> pd.DataFrame:
     except Exception as e:
         if st:
             st.info(f"[get_casinos_full] fallback: {e}")
-        return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"])
+        return empty
 
 
 def get_casinos() -> List[str]:
-    """Back‑compatible helper: active casino names only."""
+    """Active casino names only."""
     df = get_casinos_full(active_only=True)
     if df.empty or "name" not in df.columns:
         return []
@@ -156,7 +162,7 @@ _GAMES_COLS_SELECT = (
 
 def _ensure_game_cols(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize game columns & dtypes so the UI logic works."""
-    df = (df or pd.DataFrame()).copy()
+    df = _safe_copy_df(df)
 
     expected = [
         "id","name","type","game_type","rtp","volatility","bonus_frequency","min_bet",

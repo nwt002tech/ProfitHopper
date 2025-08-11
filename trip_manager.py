@@ -4,6 +4,7 @@ import os
 import math
 from typing import List, Dict, Any, Optional
 import streamlit as st
+import requests
 
 # ---- Robust geolocation import (supports both export names) ----
 geolocation = None
@@ -34,22 +35,20 @@ def _flag_from_env_or_secrets(key: str, default: bool=False) -> bool:
 
 ENABLE_NEARBY = _flag_from_env_or_secrets("ENABLE_NEARBY", default=False)
 
-# ---- Your data access (unchanged API) ----
+# ---- Data access
 try:
-    # Preferred: full DF with columns incl. name, city, state, (lat/lon variants), is_active
-    from data_loader_supabase import get_casinos_full  # -> DataFrame
+    from data_loader_supabase import get_casinos_full  # DataFrame: name, city, state, latitude, longitude, is_active
 except Exception:
     get_casinos_full = None
 
 try:
-    # Fallback: simple list[str] of names
-    from data_loader_supabase import get_casinos  # -> List[str]
+    from data_loader_supabase import get_casinos  # List[str]
 except Exception:
     get_casinos = None
 
 
 # =========================
-# Session state init (keep your existing API)
+# Session state init
 # =========================
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state:
@@ -115,67 +114,69 @@ def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
     return 2 * R * math.asin(math.sqrt(a))
 
 
-def _normalize_coord_columns(df):
-    """
-    Ensure the dataframe has float columns 'latitude' and 'longitude',
-    accepting common variants like 'lat'/'lng' and string values.
-    """
-    if "latitude" not in df.columns and "lat" in df.columns:
-        df = df.rename(columns={"lat": "latitude"})
-    if "longitude" not in df.columns and "lng" in df.columns:
-        df = df.rename(columns={"lng": "longitude"})
-    if "latitude" in df.columns:
-        df["latitude"] = [_to_float_or_none(v) for v in df["latitude"]]
-    if "longitude" in df.columns:
-        df["longitude"] = [_to_float_or_none(v) for v in df["longitude"]]
-    return df
-
-
 def _load_casino_names_df():
     """
     Returns (names_list, df) where df may include:
     name, city, state, latitude, longitude, is_active.
-    This function normalizes coord columns so downstream code always sees
-    numeric 'latitude'/'longitude' if present at all.
     """
     df = None
     names = []
-    # Prefer the rich DF
     if callable(get_casinos_full):
         try:
             df = get_casinos_full(active_only=True)
         except Exception:
             df = None
-    # Fallback to names only
     if df is None and callable(get_casinos):
         try:
             names = [c for c in (get_casinos() or []) if c]
         except Exception:
             names = []
-
-    # If we have a DF, normalize and pull names
-    if df is not None and getattr(df, "empty", True) is False:
-        # make sure we have a 'name' column
-        if "name" in df.columns:
-            # normalize coordinates (lat/lng -> latitude/longitude, to float)
-            df = _normalize_coord_columns(df)
-            # Respect is_active if present
-            if "is_active" in df.columns:
-                df = df[df["is_active"] == True].copy()
-            names = df["name"].dropna().astype(str).tolist()
-        else:
-            # no 'name' column? fall back to names list if we had one
-            df = None
-
+    if df is not None and getattr(df, "empty", True) is False and "name" in df.columns:
+        names = df["name"].dropna().astype(str).tolist()
+        # ensure numeric coords
+        for col in ("latitude", "longitude"):
+            if col in df.columns:
+                df[col] = [_to_float_or_none(v) for v in df[col]]
+        if "is_active" in df.columns:
+            df = df[df["is_active"] == True].copy()
     names = [n for n in names if n and n != "Other..."]
     return names, df
+
+
+def _get_user_coords_auto() -> tuple[Optional[float], Optional[float], str]:
+    """
+    Try browser geolocation (streamlit component). If not available,
+    fall back to IP-based coarse geolocation (no user input).
+    Returns (lat, lon, source) where source in {"browser","ip","none"}.
+    """
+    # 1) Browser geolocation via component
+    if geolocation is not None:
+        try:
+            coords = geolocation(key="geo_widget")
+            if coords and "latitude" in coords and "longitude" in coords:
+                return float(coords["latitude"]), float(coords["longitude"]), "browser"
+        except Exception:
+            pass
+
+    # 2) IP-based (coarse) geolocation — no keys needed
+    try:
+        resp = requests.get("https://ipapi.co/json/", timeout=2.0)
+        if resp.ok:
+            j = resp.json()
+            lat = _to_float_or_none(j.get("latitude"))
+            lon = _to_float_or_none(j.get("longitude"))
+            if lat is not None and lon is not None:
+                return lat, lon, "ip"
+    except Exception:
+        pass
+
+    return None, None, "none"
 
 
 def _nearby_filter_options(disabled: bool) -> List[str]:
     """
     Returns the casino list, optionally filtered by user location.
-    Writes a diagnostic dict to st.session_state["_nearby_info"] so the badge
-    can report whether the filter was actually applied.
+    Stores diagnostics in st.session_state["_nearby_info"] for the badge.
     """
     all_names, df = _load_casino_names_df()
     info = {
@@ -187,8 +188,6 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         "nearby_count": 0,
         "total": len(all_names),
         "with_coords": 0,
-        "user_lat": None,
-        "user_lon": None,
     }
 
     if not ENABLE_NEARBY or disabled:
@@ -214,48 +213,26 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state.trip_settings["nearby_radius"] = int(radius_miles)
         info["radius_miles"] = int(radius_miles)
 
-    # Prepare DF with coords
+    # Need coords to filter against
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
-        st.info("No coordinates found for casinos yet — showing all.")
         st.session_state["_nearby_info"] = info
         return all_names
+
     df = df.copy()
-    df = _normalize_coord_columns(df)
+    for col in ("latitude","longitude"):
+        df[col] = [_to_float_or_none(v) for v in df[col]]
     info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
 
     if not use_my_location:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Get user coords
-    user_lat = user_lon = None
-    if geolocation is not None:
-        coords = geolocation()
-        if coords and "latitude" in coords and "longitude" in coords:
-            user_lat, user_lon = coords["latitude"], coords["longitude"]
-            info["geo_source"] = "browser"
+    # Get user coords automatically (browser → IP)
+    user_lat, user_lon, source = _get_user_coords_auto()
+    info["geo_source"] = source
+
     if user_lat is None or user_lon is None:
-        st.info("Enter your location manually (browser location unavailable).")
-        col1, col2 = st.columns(2)
-        with col1:
-            user_lat = st.number_input(
-                "Your latitude", value=float(st.session_state.trip_settings.get("manual_lat") or 0.0),
-                step=0.0001, format="%.6f"
-            )
-        with col2:
-            user_lon = st.number_input(
-                "Your longitude", value=float(st.session_state.trip_settings.get("manual_lon") or 0.0),
-                step=0.0001, format="%.6f"
-            )
-        st.session_state.trip_settings["manual_lat"] = user_lat
-        st.session_state.trip_settings["manual_lon"] = user_lon
-        if user_lat != 0.0 or user_lon != 0.0:
-            info["geo_source"] = "manual"
-
-    info["user_lat"], info["user_lon"] = user_lat, user_lon
-
-    # If we still have no coords, we cannot apply the filter
-    if user_lat in (None, 0.0) and user_lon in (None, 0.0):
+        # Could not determine location; do not apply filter
         st.session_state["_nearby_info"] = info
         return all_names
 
@@ -265,7 +242,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
         axis=1
     )
-    nearby = df[df["distance_mi"] <= float(radius_miles)].copy()
+    nearby = df[df["distance_mi"] <= float(st.session_state.trip_settings["nearby_radius"])].copy()
     nearby = nearby[nearby["name"].notna()]
     info["nearby_count"] = int(len(nearby))
 
@@ -280,7 +257,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 
 
 # =========================
-# Sidebar (keeps your existing UI/logic) + accurate badge
+# Sidebar + accurate badge
 # =========================
 def render_sidebar() -> None:
     initialize_trip_state()
@@ -310,9 +287,11 @@ def render_sidebar() -> None:
             applied = bool(info.get("applied"))
             fallback_all = bool(info.get("fallback_all"))
             nearby_count = int(info.get("nearby_count", 0)) if applied else 0
+            source = info.get("geo_source") or "none"
 
             if applied and not fallback_all:
-                badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  results: {nearby_count}"
+                suffix = " (browser)" if source == "browser" else " (approx via IP)" if source == "ip" else ""
+                badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  results: {nearby_count}{suffix}"
             elif applied and fallback_all:
                 badge = f"📍 near‑me: ON  •  radius: {radius} mi  •  0 in range — showing all"
             else:
