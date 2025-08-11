@@ -15,61 +15,124 @@ try:
 except Exception:
     create_client = None
 
-
-# ---- Geocoding (Nominatim) ----
+# ---- Geocoding providers via geopy ----
 try:
-    from geopy.geocoders import Nominatim
+    from geopy.geocoders import Nominatim, ArcGIS
     from geopy.extra.rate_limiter import RateLimiter
 except Exception:
     Nominatim = None
+    ArcGIS = None
     RateLimiter = None
 
-_geocoder = None
-_rate_geocode = None
-_geo_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
+# global geocoders (lazy init)
+_nom = None
+_nom_rate = None
+_arc = None
+_arc_rate = None
 
-def _init_geocoder():
-    """Create a rate-limited geocoder instance (once)."""
-    global _geocoder, _rate_geocode
-    if _geocoder is None and Nominatim is not None:
-        _geocoder = Nominatim(user_agent="profithopper-admin/1.1")
-        _rate_geocode = RateLimiter(_geocoder.geocode, min_delay_seconds=1.2, swallow_exceptions=True)
-    return _rate_geocode
+# cache only successful lookups to avoid caching failures
+_geo_cache: dict[str, tuple[float | None, float | None]] = {}
 
-def geocode_city_state(city: str, state: str, country: str = "USA") -> tuple[float | None, float | None]:
+US_STATE_MAP = {
+    # common variants → USPS code
+    "la": "LA", "louisiana": "LA",
+    "ms": "MS", "mississippi": "MS",
+    "ok": "OK", "oklahoma": "OK",
+    "tx": "TX", "texas": "TX",
+    # add more here as needed
+}
+
+def _normalize_city_state(city: str, state: str) -> tuple[str, str]:
+    # fix spacing and smart quotes
+    c = (city or "").strip().replace("’", "'").replace("  ", " ")
+    s = (state or "").strip().replace("’", "'").replace("  ", " ")
+    # fix known city typos
+    if c.lower().replace(" ", "") == "gulfport":
+        c = "Gulfport"
+    # normalize state to USPS
+    key = s.lower()
+    s = US_STATE_MAP.get(key, s.upper())
+    if len(s) > 2 and s.lower() in US_STATE_MAP:
+        s = US_STATE_MAP[s.lower()]
+    return c, s
+
+def _init_geocoders():
+    global _nom, _nom_rate, _arc, _arc_rate
+    if _nom is None and Nominatim is not None:
+        _nom = Nominatim(user_agent="profithopper-admin/1.2")
+        _nom_rate = RateLimiter(_nom.geocode, min_delay_seconds=1.2, swallow_exceptions=True)
+    if _arc is None and ArcGIS is not None:
+        _arc = ArcGIS(user_agent="profithopper-admin/arcgis")
+        _arc_rate = RateLimiter(_arc.geocode, min_delay_seconds=1.0, swallow_exceptions=True)
+
+@lru_cache(maxsize=1024)
+def _norm_key(name: str, city: str, state: str, country: str) -> str:
+    return "|".join([
+        (name or "").strip().lower(),
+        (city or "").strip().lower(),
+        (state or "").strip().lower(),
+        (country or "").strip().lower(),
+    ])
+
+def geocode_casino(name: str, city: str, state: str, country: str = "USA") -> tuple[float | None, float | None, str]:
     """
-    Try multiple queries (city,state,country) -> (city,state) -> (state,country).
-    Cache only successful lookups to avoid poisoning cache with failures.
+    Robust geocode with:
+      - normalization,
+      - multiple query candidates,
+      - Nominatim first, ArcGIS fallback,
+      - success-only caching,
+      - returns (lat, lon, provider_used or reason).
     """
-    geo = _init_geocoder()
-    if geo is None:
-        return None, None
+    if Nominatim is None and ArcGIS is None:
+        return None, None, "no_geocoder"
 
-    c = (city or "").strip()
-    s = (state or "").strip()
-    k = (c.lower(), s.lower(), (country or "").strip().lower())
+    _init_geocoders()
+    city, state = _normalize_city_state(city, state)
+    nm = (name or "").strip()
 
-    if k in _geo_cache:
-        return _geo_cache[k]
-
+    # Build candidate queries (most specific → least)
     queries = []
-    if c and s and country:
-        queries.append(f"{c}, {s}, {country}")
-    if c and s:
-        queries.append(f"{c}, {s}")
-    if s and country:
-        queries.append(f"{s}, {country}")
+    if nm and city and state:
+        queries.append(f"{nm}, {city}, {state}, {country}")
+    if city and state:
+        queries.append(f"{city}, {state}, {country}")
+        queries.append(f"{city}, {state}")
+    if state:
+        queries.append(f"{state}, {country}")
+    if nm:
+        queries.append(f"{nm}, {country}")
+        queries.append(nm)
 
-    for q in queries:
-        loc = geo(q)
-        if loc:
-            try:
-                lat, lon = float(loc.latitude), float(loc.longitude)
-                _geo_cache[k] = (lat, lon)  # cache success only
-                return lat, lon
-            except Exception:
-                pass
-    return None, None
+    cache_key = _norm_key(nm, city, state, country or "")
+    if cache_key in _geo_cache:
+        lat, lon = _geo_cache[cache_key]
+        return lat, lon, "cache"
+
+    # Try Nominatim first
+    if _nom_rate is not None:
+        for q in queries:
+            loc = _nom_rate(q)
+            if loc:
+                try:
+                    lat, lon = float(loc.latitude), float(loc.longitude)
+                    _geo_cache[cache_key] = (lat, lon)
+                    return lat, lon, "nominatim"
+                except Exception:
+                    pass
+
+    # Fallback: ArcGIS (often succeeds when Nominatim is down/blocked)
+    if _arc_rate is not None:
+        for q in queries:
+            loc = _arc_rate(q)
+            if loc:
+                try:
+                    lat, lon = float(loc.latitude), float(loc.longitude)
+                    _geo_cache[cache_key] = (lat, lon)
+                    return lat, lon, "arcgis"
+                except Exception:
+                    pass
+
+    return None, None, "no_match"
 
 
 # ---- Games normalization (unchanged behavior) ----
@@ -180,14 +243,13 @@ def _add_casino(c, name: str, city: str, state: str, is_active: bool=True):
         "state": (state or "").strip(),
         "is_active": bool(is_active),
     }
-    # Auto‑fill lat/lon from City/State on add
-    lat, lon = geocode_city_state(payload["city"], payload["state"])
+    lat, lon, provider = geocode_casino(payload["name"], payload["city"], payload["state"])
     if lat is not None and lon is not None:
         payload["latitude"] = lat
         payload["longitude"] = lon
     try:
         res = c.table("casinos").insert(payload).select("id").execute()
-        return True, "Casino added.", (res.data[0]["id"] if res and res.data else None)
+        return True, f"Casino added. {'(coords via '+provider+')' if lat is not None else ''}", (res.data[0]["id"] if res and res.data else None)
     except Exception as e:
         return False, f"Add failed: {e}", None
 
@@ -211,13 +273,14 @@ def _update_casino(c, cid: str, name: str|None=None, city: str|None=None, state:
     # Determine if geocode is needed
     city_to_use  = payload.get("city",  cur_row.get("city"))
     state_to_use = payload.get("state", cur_row.get("state"))
+    name_to_use  = payload.get("name",  cur_row.get("name"))
     city_changed = ("city" in payload and (payload["city"] or "") != (cur_row.get("city") or ""))
     state_changed = ("state" in payload and (payload["state"] or "") != (cur_row.get("state") or ""))
     missing_coords = (cur_row.get("latitude") is None) or (cur_row.get("longitude") is None)
     need_geo = force_geocode or city_changed or state_changed or missing_coords
 
-    if need_geo and (city_to_use or state_to_use):
-        lat, lon = geocode_city_state(city_to_use or "", state_to_use or "")
+    if need_geo and (city_to_use or state_to_use or name_to_use):
+        lat, lon, _provider = geocode_casino(name_to_use or "", city_to_use or "", state_to_use or "")
         if lat is not None and lon is not None:
             payload["latitude"] = lat
             payload["longitude"] = lon
@@ -505,14 +568,14 @@ def show_admin_panel():
 
     # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
     with st.expander("📍 Geocode casinos (auto‑fill lat/lon)", expanded=False):
-        if Nominatim is None:
-            st.error("geopy is not installed. Add `geopy` to requirements.txt and redeploy.")
+        if (Nominatim is None and ArcGIS is None) or RateLimiter is None:
+            st.error("geopy or geocoders not installed. Add `geopy` to requirements.txt and redeploy.")
         else:
-            _init_geocoder()
-            if _rate_geocode is None:
-                st.error("Geocoder unavailable (Nominatim init failed). Try again later.")
+            _init_geocoders()
+            if _nom_rate is None and _arc_rate is None:
+                st.error("No geocoder available (Nominatim/ArcGIS init failed). Try again later.")
 
-        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect. Writes only when values change.")
+        st.caption("Uses Nominatim first, then ArcGIS as fallback. Writes only when values change.")
 
         def _is_missing(v):
             if v is None:
@@ -563,8 +626,6 @@ def show_admin_panel():
             st.dataframe(df[df["id"].astype(str).isin(selected)].head(10)[["name","city","state","latitude","longitude"]], use_container_width=True)
 
             def _geocode_and_update(ids: list[str], only_missing: bool) -> int:
-                if _rate_geocode is None:
-                    return 0
                 updated = 0
                 for cid in ids:
                     row = df[df["id"].astype(str) == str(cid)]
@@ -576,17 +637,14 @@ def show_admin_panel():
                     city = (r.get("city") or "").strip()
                     state = (r.get("state") or "").strip()
 
-                    if not city and not state:
-                        st.write(f"• skip: {nm} — missing city/state")
-                        continue
+                    # Try name-based lookup if city/state blank
+                    lat_new = lon_new = None
+                    provider = ""
+                    if city or state or nm:
+                        lat_new, lon_new, provider = geocode_casino(nm or "", city, state, country=("USA" if force_country else ""))
 
-                    if only_missing and (not _is_missing(r.get("latitude")) and not _is_missing(r.get("longitude"))):
-                        st.write(f"• skip: {nm} — already has coords")
-                        continue
-
-                    lat_new, lon_new = geocode_city_state(city, state, country=("USA" if force_country else ""))
                     if lat_new is None or lon_new is None:
-                        st.write(f"• skip: {nm} — no match for '{city}, {state}{', USA' if force_country else ''}'")
+                        st.write(f"• skip: {nm} — no match for “{(nm+', ') if nm else ''}{city}{(', '+state) if state else ''}{', USA' if force_country else ''}”")
                         continue
 
                     lat_old, lon_old = r.get("latitude"), r.get("longitude")
@@ -599,12 +657,12 @@ def show_admin_panel():
                         pass
 
                     try:
-                        # primary write attempt
+                        # primary write
                         resp = c.table("casinos").update(
                             {"latitude": float(lat_new), "longitude": float(lon_new)}
                         ).eq("id", str(cid)).execute()
 
-                        # Upsert fallback if no data returned
+                        # upsert fallback (some deployments don’t return data on update)
                         if not getattr(resp, "data", None):
                             c.table("casinos").upsert({
                                 "id": str(cid),
@@ -612,14 +670,14 @@ def show_admin_panel():
                                 "longitude": float(lon_new),
                             }).execute()
 
-                        # Verify by re‑reading just this row
+                        # verify
                         check = c.table("casinos").select("latitude,longitude").eq("id", str(cid)).single().execute()
                         lat_chk = (check.data or {}).get("latitude")
                         lon_chk = (check.data or {}).get("longitude")
                         if lat_chk is None or lon_chk is None:
                             st.write(f"• failed to persist: {nm} — wrote lat={lat_new:.5f}, lon={lon_new:.5f}, but readback is NULL")
                         else:
-                            st.write(f"• updated: {nm} → lat={float(lat_chk):.5f}, lon={float(lon_chk):.5f}")
+                            st.write(f"• updated: {nm} → lat={float(lat_chk):.5f}, lon={float(lon_chk):.5f}  ({provider})")
                             updated += 1
                     except Exception as e:
                         st.write(f"• failed: {nm} — {e}")
