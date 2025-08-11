@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import math
 from functools import lru_cache
 from typing import Tuple, Optional, List
 
@@ -25,32 +26,49 @@ except Exception:
 
 _geocoder = None
 _rate_geocode = None
-
+_geo_cache: dict[tuple[str, str, str], tuple[float | None, float | None]] = {}
 
 def _init_geocoder():
     """Create a rate-limited geocoder instance (once)."""
     global _geocoder, _rate_geocode
     if _geocoder is None and Nominatim is not None:
-        _geocoder = Nominatim(user_agent="profithopper-admin/1.0")
-        _rate_geocode = RateLimiter(_geocoder.geocode, min_delay_seconds=1.1, swallow_exceptions=True)
+        _geocoder = Nominatim(user_agent="profithopper-admin/1.1")
+        _rate_geocode = RateLimiter(_geocoder.geocode, min_delay_seconds=1.2, swallow_exceptions=True)
     return _rate_geocode
 
-
-@lru_cache(maxsize=512)
-def geocode_city_state(city: str, state: str) -> Tuple[Optional[float], Optional[float]]:
-    """Return (lat, lon) for City/State; (None, None) if not found or geocoder unavailable."""
+def geocode_city_state(city: str, state: str, country: str = "USA") -> tuple[float | None, float | None]:
+    """
+    Try multiple queries (city,state,country) -> (city,state) -> (state,country).
+    Cache only successful lookups to avoid poisoning cache with failures.
+    """
     geo = _init_geocoder()
     if geo is None:
         return None, None
-    q = ", ".join([s for s in [city or "", state or ""] if s])
-    if not q.strip():
-        return None, None
-    loc = geo(q)
-    if loc:
-        try:
-            return float(loc.latitude), float(loc.longitude)
-        except Exception:
-            return None, None
+
+    c = (city or "").strip()
+    s = (state or "").strip()
+    k = (c.lower(), s.lower(), (country or "").strip().lower())
+
+    if k in _geo_cache:
+        return _geo_cache[k]
+
+    queries = []
+    if c and s and country:
+        queries.append(f"{c}, {s}, {country}")
+    if c and s:
+        queries.append(f"{c}, {s}")
+    if s and country:
+        queries.append(f"{s}, {country}")
+
+    for q in queries:
+        loc = geo(q)
+        if loc:
+            try:
+                lat, lon = float(loc.latitude), float(loc.longitude)
+                _geo_cache[k] = (lat, lon)  # cache success only
+                return lat, lon
+            except Exception:
+                pass
     return None, None
 
 
@@ -129,7 +147,12 @@ def _fetch_casinos_df(c) -> pd.DataFrame:
         # ensure columns exist
         for col in ["city","state","latitude","longitude","is_active","inserted_at","updated_at"]:
             if col not in df.columns:
-                df[col] = None if col in ("latitude","longitude") else (True if col=="is_active" else "")
+                if col in ("latitude","longitude"):
+                    df[col] = None
+                elif col == "is_active":
+                    df[col] = True
+                else:
+                    df[col] = ""
         return df
     except Exception:
         return pd.DataFrame(columns=["id","name","city","state","latitude","longitude","is_active","inserted_at","updated_at"])
@@ -480,40 +503,48 @@ def show_admin_panel():
                 except Exception as e:
                     st.error(f"Failed saving changes: {e}")
 
-        # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
+    # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
     with st.expander("📍 Geocode casinos (auto‑fill lat/lon)", expanded=False):
-        # sanity checks
         if Nominatim is None:
             st.error("geopy is not installed. Add `geopy` to requirements.txt and redeploy.")
         else:
-            # Ensure geocoder instance exists
             _init_geocoder()
             if _rate_geocode is None:
                 st.error("Geocoder unavailable (Nominatim init failed). Try again later.")
-        
-        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect. Writes only if values change.")
+
+        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect. Writes only when values change.")
+
+        def _is_missing(v):
+            if v is None:
+                return True
+            if isinstance(v, str):
+                return v.strip() == ""
+            if isinstance(v, float) and math.isnan(v):
+                return True
+            return False
 
         df = _fetch_casinos_df(c)
         if df.empty:
             st.info("No casinos found.")
         else:
-            # Determine which actually need coords
-            df["needs_coords"] = df.apply(lambda r: (r.get("latitude") is None or r.get("longitude") is None), axis=1)
+            df["needs_coords"] = df.apply(lambda r: _is_missing(r.get("latitude")) or _is_missing(r.get("longitude")), axis=1)
             missing = df[df["needs_coords"] == True]
             st.write(f"Casinos missing coords: **{len(missing)}**")
+            st.button("↻ Re-scan", on_click=lambda: st.rerun(), key="geo_rescan_btn")
 
-            # selection with helpful labels
-            options: List[str] = []
-            labels = {}
+            options, labels = [], {}
             for _, r in df.iterrows():
                 cid = str(r.get("id") or "")
-                nm = str(r.get("name") or "")
+                nm  = str(r.get("name") or "")
                 city = r.get("city") or ""
                 state = r.get("state") or ""
-                coords = (r.get("latitude"), r.get("longitude"))
-                tag = f"{nm} — {city}, {state}"
-                if all(v is not None for v in coords):
-                    tag += f"  (lat={coords[0]:.5f}, lon={coords[1]:.5f})"
+                lat, lon = r.get("latitude"), r.get("longitude")
+                tag = f"{nm} — {city}, {state}".strip(" —,")
+                if not _is_missing(lat) and not _is_missing(lon):
+                    try:
+                        tag += f"  (lat={float(lat):.5f}, lon={float(lon):.5f})"
+                    except Exception:
+                        pass
                 labels[cid] = tag
                 options.append(cid)
 
@@ -526,11 +557,12 @@ def show_admin_panel():
                 key="geo_selected_casinos",
             )
 
-            st.caption("Preview (first 10 selected):")
-            preview_rows = df[df["id"].astype(str).isin(selected)].head(10)
-            st.dataframe(preview_rows[["name","city","state","latitude","longitude"]], use_container_width=True)
+            force_country = st.checkbox("Force country = USA in lookup", value=True, key="geo_force_country")
 
-            def _geocode_and_update(ids: List[str], write_all_missing_only: bool) -> int:
+            st.caption("Preview (first 10 selected):")
+            st.dataframe(df[df["id"].astype(str).isin(selected)].head(10)[["name","city","state","latitude","longitude"]], use_container_width=True)
+
+            def _geocode_and_update(ids: list[str], only_missing: bool) -> int:
                 if _rate_geocode is None:
                     return 0
                 updated = 0
@@ -540,29 +572,57 @@ def show_admin_panel():
                         st.write(f"• skip: id {cid} not found")
                         continue
                     r = row.iloc[0]
+                    nm   = r.get("name")
                     city = (r.get("city") or "").strip()
                     state = (r.get("state") or "").strip()
+
                     if not city and not state:
-                        st.write(f"• skip: {r.get('name')} — missing city/state")
+                        st.write(f"• skip: {nm} — missing city/state")
                         continue
-                    lat_new, lon_new = geocode_city_state(city, state)
+
+                    if only_missing and (not _is_missing(r.get("latitude")) and not _is_missing(r.get("longitude"))):
+                        st.write(f"• skip: {nm} — already has coords")
+                        continue
+
+                    lat_new, lon_new = geocode_city_state(city, state, country=("USA" if force_country else ""))
                     if lat_new is None or lon_new is None:
-                        st.write(f"• skip: {r.get('name')} — geocoder returned no match for '{city}, {state}'")
+                        st.write(f"• skip: {nm} — no match for '{city}, {state}{', USA' if force_country else ''}'")
                         continue
+
                     lat_old, lon_old = r.get("latitude"), r.get("longitude")
-                    # skip write if unchanged (unless we explicitly want to refresh everything)
-                    if write_all_missing_only and (lat_old is not None and lon_old is not None):
-                        st.write(f"• skip: {r.get('name')} — already has coords")
-                        continue
-                    if (lat_old == lat_new) and (lon_old == lon_new):
-                        st.write(f"• skip: {r.get('name')} — coords unchanged")
-                        continue
                     try:
-                        c.table("casinos").update({"latitude": float(lat_new), "longitude": float(lon_new)}).eq("id", str(cid)).execute()
-                        st.write(f"• updated: {r.get('name')} → lat={lat_new:.5f}, lon={lon_new:.5f}")
-                        updated += 1
+                        if not _is_missing(lat_old) and not _is_missing(lon_old):
+                            if float(lat_old) == float(lat_new) and float(lon_old) == float(lon_new):
+                                st.write(f"• skip: {nm} — coords unchanged")
+                                continue
+                    except Exception:
+                        pass
+
+                    try:
+                        # primary write attempt
+                        resp = c.table("casinos").update(
+                            {"latitude": float(lat_new), "longitude": float(lon_new)}
+                        ).eq("id", str(cid)).execute()
+
+                        # Upsert fallback if no data returned
+                        if not getattr(resp, "data", None):
+                            c.table("casinos").upsert({
+                                "id": str(cid),
+                                "latitude": float(lat_new),
+                                "longitude": float(lon_new),
+                            }).execute()
+
+                        # Verify by re‑reading just this row
+                        check = c.table("casinos").select("latitude,longitude").eq("id", str(cid)).single().execute()
+                        lat_chk = (check.data or {}).get("latitude")
+                        lon_chk = (check.data or {}).get("longitude")
+                        if lat_chk is None or lon_chk is None:
+                            st.write(f"• failed to persist: {nm} — wrote lat={lat_new:.5f}, lon={lon_new:.5f}, but readback is NULL")
+                        else:
+                            st.write(f"• updated: {nm} → lat={float(lat_chk):.5f}, lon={float(lon_chk):.5f}")
+                            updated += 1
                     except Exception as e:
-                        st.write(f"• failed: {r.get('name')} — {e}")
+                        st.write(f"• failed: {nm} — {e}")
                 return updated
 
             c1, c2 = st.columns([1,1])
@@ -571,7 +631,7 @@ def show_admin_panel():
                     if not selected:
                         st.warning("Pick at least one casino.")
                     else:
-                        n = _geocode_and_update(selected, write_all_missing_only=False)
+                        n = _geocode_and_update(selected, only_missing=False)
                         st.success(f"Geocoded {n} casino(s).")
                         st.rerun()
             with c2:
@@ -580,6 +640,6 @@ def show_admin_panel():
                     if not ids_missing:
                         st.info("Nothing to do — no missing coordinates.")
                     else:
-                        n = _geocode_and_update(ids_missing, write_all_missing_only=True)
+                        n = _geocode_and_update(ids_missing, only_missing=True)
                         st.success(f"Geocoded {n} casino(s).")
                         st.rerun()

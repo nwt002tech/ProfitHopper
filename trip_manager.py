@@ -14,7 +14,6 @@ except Exception:
 # Toggle the feature on/off without touching code (default OFF)
 ENABLE_NEARBY = os.environ.get("ENABLE_NEARBY", "0").lower() in ("1", "true", "yes", "on")
 
-# --- Your existing data layer (no changes required elsewhere) ---
 # Prefer richer casino fetch (name, city, state, latitude, longitude...)
 try:
     from data_loader_supabase import get_casinos_full  # returns DataFrame with at least "name"
@@ -165,7 +164,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 
 
 # =========================
-# Sidebar (keeps your existing UI/logic)
+# Sidebar (keeps your existing UI/logic) + near‑me badge
 # =========================
 def render_sidebar() -> None:
     initialize_trip_state()
@@ -176,6 +175,7 @@ def render_sidebar() -> None:
         # Casino select (with optional nearby filtering)
         options = _nearby_filter_options(disabled=disabled)
         if not options:
+            # Safe fallback if table is empty or unavailable
             options = [st.session_state.trip_settings.get("casino", "")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
 
         current = st.session_state.trip_settings.get("casino", "")
