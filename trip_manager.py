@@ -176,7 +176,8 @@ def _get_user_coords_auto() -> tuple[Optional[float], Optional[float], str]:
 def _nearby_filter_options(disabled: bool) -> List[str]:
     """
     Returns the casino list, optionally filtered by user location.
-    Writes diagnostics to st.session_state['_nearby_info'] for the badge.
+    Applies browser geolocation if available; otherwise auto-falls back to IP geolocation.
+    No manual coord fields. Persists checkbox state correctly.
     """
     all_names, df = _load_casino_names_df()
     info = {
@@ -185,28 +186,39 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         "use_my_location": bool(st.session_state.trip_settings.get("use_my_location", False)),
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",           # 'browser' | 'ip' | 'none'
+        "geo_source": "none",
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
         "with_coords": 0,
-        "reason": "",                   # debugging text
+        "reason": "",
     }
 
-    # If feature flag is off, do nothing
     if not ENABLE_NEARBY:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # UI controls
     st.caption("Filter casinos near you")
     colA, colB = st.columns([1, 1])
+
+    # Read current values and PERSIST them immediately from the widgets
     with colA:
-        use_ml = st.checkbox("Use my location", value=info["use_my_location"], key="use_my_location", disabled=disabled)
+        use_ml_now = st.checkbox(
+            "Use my location",
+            value=info["use_my_location"],
+            disabled=disabled
+        )
     with colB:
-        radius = st.slider("Radius (miles)", 5, 100, info["radius_miles"], step=5, key="nearby_radius", disabled=disabled)
-    info["use_my_location"] = bool(use_ml)
-    info["radius_miles"] = int(radius)
+        radius_now = st.slider(
+            "Radius (miles)", 5, 100, info["radius_miles"], step=5,
+            disabled=disabled
+        )
+
+    # Persist to session state explicitly (don’t rely on widget keys)
+    st.session_state.trip_settings["use_my_location"] = bool(use_ml_now)
+    st.session_state.trip_settings["nearby_radius"] = int(radius_now)
+    info["use_my_location"] = bool(use_ml_now)
+    info["radius_miles"] = int(radius_now)
 
     # Need DF with coords
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
@@ -222,18 +234,17 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # If user opted out, bail early (badge will say OFF)
+    # If user opted out, bail early (badge → OFF)
     if not info["use_my_location"]:
         info["reason"] = "use_my_location_off"
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Get user coords: browser first, then IP fallback — no manual fields
+    # Try browser geolocation first (if component exists)
     user_lat = user_lon = None
     if geolocation is not None:
-        st.write("➡️ Click the button below to share your location (one‑time).")
         try:
-            coords = geolocation(key="geo_widget_sidebar")
+            coords = geolocation(key="geo_widget_sidebar_autorun")
             if coords and "latitude" in coords and "longitude" in coords:
                 user_lat = _to_float_or_none(coords["latitude"])
                 user_lon = _to_float_or_none(coords["longitude"])
@@ -242,8 +253,8 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         except Exception:
             pass
 
+    # Immediate IP fallback (no button, no input)
     if user_lat is None or user_lon is None:
-        # IP fallback (coarse, no prompt)
         try:
             import requests
             r = requests.get("https://ipapi.co/json/", timeout=2.0)
@@ -263,7 +274,10 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 
     # Apply distance filter
     info["applied"] = True
-    df["distance_mi"] = df.apply(lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon), axis=1)
+    df["distance_mi"] = df.apply(
+        lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
+        axis=1
+    )
     nearby = df[df["distance_mi"] <= float(info["radius_miles"])].copy()
     nearby = nearby[nearby["name"].notna()]
     info["nearby_count"] = int(len(nearby))
@@ -305,10 +319,11 @@ def render_sidebar() -> None:
         # --- status badge that reflects actual filter state ---
                 # --- accurate badge ---
                 # --- accurate badge, no 'badge' variable ---
+                # Accurate badge
         if ENABLE_NEARBY:
             info = st.session_state.get("_nearby_info", {}) or {}
-            radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
             use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
+            radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
 
             if not use_loc:
                 st.caption("📍 near‑me: OFF")
