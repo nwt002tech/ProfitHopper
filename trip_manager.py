@@ -36,12 +36,14 @@ ENABLE_NEARBY = _flag_from_env_or_secrets("ENABLE_NEARBY", default=False)
 
 # ---- Your data access (unchanged API) ----
 try:
-    from data_loader_supabase import get_casinos_full  # DataFrame: name, city, state, latitude, longitude, is_active
+    # Preferred: full DF with columns incl. name, city, state, (lat/lon variants), is_active
+    from data_loader_supabase import get_casinos_full  # -> DataFrame
 except Exception:
     get_casinos_full = None
 
 try:
-    from data_loader_supabase import get_casinos  # List[str]
+    # Fallback: simple list[str] of names
+    from data_loader_supabase import get_casinos  # -> List[str]
 except Exception:
     get_casinos = None
 
@@ -113,31 +115,58 @@ def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _normalize_coord_columns(df):
+    """
+    Ensure the dataframe has float columns 'latitude' and 'longitude',
+    accepting common variants like 'lat'/'lng' and string values.
+    """
+    if "latitude" not in df.columns and "lat" in df.columns:
+        df = df.rename(columns={"lat": "latitude"})
+    if "longitude" not in df.columns and "lng" in df.columns:
+        df = df.rename(columns={"lng": "longitude"})
+    if "latitude" in df.columns:
+        df["latitude"] = [_to_float_or_none(v) for v in df["latitude"]]
+    if "longitude" in df.columns:
+        df["longitude"] = [_to_float_or_none(v) for v in df["longitude"]]
+    return df
+
+
 def _load_casino_names_df():
     """
     Returns (names_list, df) where df may include:
     name, city, state, latitude, longitude, is_active.
+    This function normalizes coord columns so downstream code always sees
+    numeric 'latitude'/'longitude' if present at all.
     """
     df = None
     names = []
+    # Prefer the rich DF
     if callable(get_casinos_full):
         try:
             df = get_casinos_full(active_only=True)
         except Exception:
             df = None
+    # Fallback to names only
     if df is None and callable(get_casinos):
         try:
             names = [c for c in (get_casinos() or []) if c]
         except Exception:
             names = []
-    if df is not None and getattr(df, "empty", True) is False and "name" in df.columns:
-        names = df["name"].dropna().astype(str).tolist()
-        # ensure numeric coords
-        for col in ("latitude", "longitude"):
-            if col in df.columns:
-                df[col] = [_to_float_or_none(v) for v in df[col]]
-        if "is_active" in df.columns:
-            df = df[df["is_active"] == True].copy()
+
+    # If we have a DF, normalize and pull names
+    if df is not None and getattr(df, "empty", True) is False:
+        # make sure we have a 'name' column
+        if "name" in df.columns:
+            # normalize coordinates (lat/lng -> latitude/longitude, to float)
+            df = _normalize_coord_columns(df)
+            # Respect is_active if present
+            if "is_active" in df.columns:
+                df = df[df["is_active"] == True].copy()
+            names = df["name"].dropna().astype(str).tolist()
+        else:
+            # no 'name' column? fall back to names list if we had one
+            df = None
+
     names = [n for n in names if n and n != "Other..."]
     return names, df
 
@@ -151,9 +180,9 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     all_names, df = _load_casino_names_df()
     info = {
         "enabled": ENABLE_NEARBY,
-        "applied": False,          # becomes True only if we actually filtered by coords
-        "fallback_all": False,     # True if 0 matches and we returned all_names
-        "geo_source": "none",      # "browser" | "manual" | "none"
+        "applied": False,
+        "fallback_all": False,
+        "geo_source": "none",
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
@@ -191,8 +220,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
     df = df.copy()
-    for col in ("latitude","longitude"):
-        df[col] = [_to_float_or_none(v) for v in df[col]]
+    df = _normalize_coord_columns(df)
     info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
 
     if not use_my_location:
@@ -242,7 +270,6 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     info["nearby_count"] = int(len(nearby))
 
     if nearby.empty:
-        # Show all to keep the selector usable, but mark that we fell back
         info["fallback_all"] = True
         st.session_state["_nearby_info"] = info
         return all_names
@@ -279,7 +306,6 @@ def render_sidebar() -> None:
         # --- status badge that reflects actual filter state ---
         if ENABLE_NEARBY:
             info = st.session_state.get("_nearby_info", {}) or {}
-            use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
             radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
             applied = bool(info.get("applied"))
             fallback_all = bool(info.get("fallback_all"))
