@@ -593,7 +593,7 @@ def show_admin_panel():
             df["needs_coords"] = df.apply(lambda r: _is_missing(r.get("latitude")) or _is_missing(r.get("longitude")), axis=1)
             missing = df[df["needs_coords"] == True]
             st.write(f"Casinos missing coords: **{len(missing)}**")
-            st.button("↻ Re-scan", on_click=lambda: st.rerun(), key="geo_rescan_btn")
+            st.button("↻ Re-scan", key="geo_rescan_btn")  # button click itself triggers a rerun
 
             options, labels = [], {}
             for _, r in df.iterrows():
