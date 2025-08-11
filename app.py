@@ -1,23 +1,21 @@
 import os
 os.environ['STREAMLIT_SERVER_FILE_WATCHER_TYPE'] = 'poll'
 
-# --- Browser location capture (runs in sidebar) ---
-import streamlit as st
+# --- Browser location capture (one-time, stored in session) ---
+import streamlit as st  # already imported in most apps; safe if repeated
 try:
     from streamlit_geolocation import geolocation as _geo
 except Exception:
     _geo = None
 
 with st.sidebar:
-    st.markdown("**📍 Share location** (one‑time)")
+    st.markdown("**📍 Share your location** (one‑time to enable near‑me)")
     if _geo is not None:
-        coords = _geo(key="geo_widget_global")  # renders a visible button
-        if coords and "latitude" in coords and "longitude" in coords:
-            st.session_state["client_lat"] = float(coords["latitude"])
-            st.session_state["client_lon"] = float(coords["longitude"])
-            st.success("Location saved.")
-    else:
-        st.info("Location widget not installed.")
+        _coords = _geo(key="geo_widget_global")  # renders a visible button
+        if _coords and "latitude" in _coords and "longitude" in _coords:
+            st.session_state["client_lat"] = float(_coords["latitude"])
+            st.session_state["client_lon"] = float(_coords["longitude"])
+            st.success("Location saved for this session.")
 
 import numpy as np
 from ui_templates import get_css, get_header
