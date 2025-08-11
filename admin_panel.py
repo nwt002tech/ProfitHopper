@@ -480,18 +480,29 @@ def show_admin_panel():
                 except Exception as e:
                     st.error(f"Failed saving changes: {e}")
 
-    # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
+        # ===== (5) 📍 Geocode casinos (auto‑fill lat/lon) =====
     with st.expander("📍 Geocode casinos (auto‑fill lat/lon)", expanded=False):
-        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect.")
+        # sanity checks
+        if Nominatim is None:
+            st.error("geopy is not installed. Add `geopy` to requirements.txt and redeploy.")
+        else:
+            # Ensure geocoder instance exists
+            _init_geocoder()
+            if _rate_geocode is None:
+                st.error("Geocoder unavailable (Nominatim init failed). Try again later.")
+        
+        st.caption("Use City/State to fill missing coordinates, or refresh them if moved/incorrect. Writes only if values change.")
+
         df = _fetch_casinos_df(c)
         if df.empty:
             st.info("No casinos found.")
         else:
+            # Determine which actually need coords
             df["needs_coords"] = df.apply(lambda r: (r.get("latitude") is None or r.get("longitude") is None), axis=1)
             missing = df[df["needs_coords"] == True]
             st.write(f"Casinos missing coords: **{len(missing)}**")
 
-            # Selection list
+            # selection with helpful labels
             options: List[str] = []
             labels = {}
             for _, r in df.iterrows():
@@ -499,17 +510,60 @@ def show_admin_panel():
                 nm = str(r.get("name") or "")
                 city = r.get("city") or ""
                 state = r.get("state") or ""
-                tag = f"{nm} — {city}, {state}".strip(" —,")
+                coords = (r.get("latitude"), r.get("longitude"))
+                tag = f"{nm} — {city}, {state}"
+                if all(v is not None for v in coords):
+                    tag += f"  (lat={coords[0]:.5f}, lon={coords[1]:.5f})"
                 labels[cid] = tag
                 options.append(cid)
 
+            default_ids = [str(x) for x in (missing["id"].dropna().astype(str).tolist()[:10])]
             selected = st.multiselect(
                 "Select casinos to geocode",
                 options=options,
                 format_func=lambda cid: labels.get(cid, cid),
-                default=[str(x) for x in (missing["id"].dropna().astype(str).tolist()[:10])],
+                default=default_ids,
                 key="geo_selected_casinos",
             )
+
+            st.caption("Preview (first 10 selected):")
+            preview_rows = df[df["id"].astype(str).isin(selected)].head(10)
+            st.dataframe(preview_rows[["name","city","state","latitude","longitude"]], use_container_width=True)
+
+            def _geocode_and_update(ids: List[str], write_all_missing_only: bool) -> int:
+                if _rate_geocode is None:
+                    return 0
+                updated = 0
+                for cid in ids:
+                    row = df[df["id"].astype(str) == str(cid)]
+                    if row.empty:
+                        st.write(f"• skip: id {cid} not found")
+                        continue
+                    r = row.iloc[0]
+                    city = (r.get("city") or "").strip()
+                    state = (r.get("state") or "").strip()
+                    if not city and not state:
+                        st.write(f"• skip: {r.get('name')} — missing city/state")
+                        continue
+                    lat_new, lon_new = geocode_city_state(city, state)
+                    if lat_new is None or lon_new is None:
+                        st.write(f"• skip: {r.get('name')} — geocoder returned no match for '{city}, {state}'")
+                        continue
+                    lat_old, lon_old = r.get("latitude"), r.get("longitude")
+                    # skip write if unchanged (unless we explicitly want to refresh everything)
+                    if write_all_missing_only and (lat_old is not None and lon_old is not None):
+                        st.write(f"• skip: {r.get('name')} — already has coords")
+                        continue
+                    if (lat_old == lat_new) and (lon_old == lon_new):
+                        st.write(f"• skip: {r.get('name')} — coords unchanged")
+                        continue
+                    try:
+                        c.table("casinos").update({"latitude": float(lat_new), "longitude": float(lon_new)}).eq("id", str(cid)).execute()
+                        st.write(f"• updated: {r.get('name')} → lat={lat_new:.5f}, lon={lon_new:.5f}")
+                        updated += 1
+                    except Exception as e:
+                        st.write(f"• failed: {r.get('name')} — {e}")
+                return updated
 
             c1, c2 = st.columns([1,1])
             with c1:
@@ -517,38 +571,15 @@ def show_admin_panel():
                     if not selected:
                         st.warning("Pick at least one casino.")
                     else:
-                        updated = 0
-                        for cid in selected:
-                            row = df[df["id"].astype(str) == str(cid)]
-                            if row.empty:
-                                continue
-                            city = (row.iloc[0].get("city") or "").strip()
-                            state = (row.iloc[0].get("state") or "").strip()
-                            lat, lon = geocode_city_state(city, state)
-                            if lat is not None and lon is not None:
-                                try:
-                                    c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", str(cid)).execute()
-                                    updated += 1
-                                except Exception:
-                                    pass
-                        st.success(f"Geocoded {updated} casino(s).")
+                        n = _geocode_and_update(selected, write_all_missing_only=False)
+                        st.success(f"Geocoded {n} casino(s).")
                         st.rerun()
             with c2:
                 if st.button("Geocode ALL missing", key="btn_geo_all_missing"):
-                    if missing.empty:
+                    ids_missing = df[df["needs_coords"] == True]["id"].dropna().astype(str).tolist()
+                    if not ids_missing:
                         st.info("Nothing to do — no missing coordinates.")
                     else:
-                        updated = 0
-                        for _, r in missing.iterrows():
-                            cid = str(r.get("id") or "")
-                            city = (r.get("city") or "").strip()
-                            state = (r.get("state") or "").strip()
-                            lat, lon = geocode_city_state(city, state)
-                            if lat is not None and lon is not None:
-                                try:
-                                    c.table("casinos").update({"latitude": lat, "longitude": lon}).eq("id", cid).execute()
-                                    updated += 1
-                                except Exception:
-                                    pass
-                        st.success(f"Geocoded {updated} casino(s).")
+                        n = _geocode_and_update(ids_missing, write_all_missing_only=True)
+                        st.success(f"Geocoded {n} casino(s).")
                         st.rerun()

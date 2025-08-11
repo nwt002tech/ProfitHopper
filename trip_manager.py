@@ -176,7 +176,6 @@ def render_sidebar() -> None:
         # Casino select (with optional nearby filtering)
         options = _nearby_filter_options(disabled=disabled)
         if not options:
-            # Safe fallback if table is empty or unavailable
             options = [st.session_state.trip_settings.get("casino", "")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
 
         current = st.session_state.trip_settings.get("casino", "")
@@ -189,6 +188,15 @@ def render_sidebar() -> None:
 
         sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel == "(select casino)" else sel
+
+        # --- tiny status badge when near-me is enabled ---
+        if ENABLE_NEARBY:
+            # _nearby_filter_options writes these keys when the toggle UI is visible
+            use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
+            radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
+            nearby_count = len(options)
+            badge = f"📍 near‑me: {'ON' if use_loc else 'OFF'}  •  radius: {radius} mi  •  results: {nearby_count}"
+            st.caption(badge)
 
         start_bankroll = st.number_input(
             "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
