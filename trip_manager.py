@@ -304,6 +304,7 @@ def render_sidebar() -> None:
 
         # --- status badge that reflects actual filter state ---
                 # --- accurate badge ---
+                # --- accurate badge, no 'badge' variable ---
         if ENABLE_NEARBY:
             info = st.session_state.get("_nearby_info", {}) or {}
             radius = int(st.session_state.trip_settings.get("nearby_radius", 30))
@@ -315,7 +316,7 @@ def render_sidebar() -> None:
                 applied = bool(info.get("applied"))
                 fallback_all = bool(info.get("fallback_all"))
                 nearby_count = int(info.get("nearby_count", 0)) if applied else 0
-                source = info.get("geo_source") or "none"
+                source = (info.get("geo_source") or "none").lower()
 
                 if applied and not fallback_all:
                     suffix = " (browser)" if source == "browser" else " (approx via IP)" if source == "ip" else ""
@@ -323,10 +324,7 @@ def render_sidebar() -> None:
                 elif applied and fallback_all:
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • 0 in range — showing all")
                 else:
-                    # use_loc is True but we couldn't get coords yet
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • filter not applied")
-
-            st.caption(badge)
 
         start_bankroll = st.number_input(
             "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
