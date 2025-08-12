@@ -171,6 +171,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     st.session_state.trip_settings["nearby_radius"] = int(radius_val)
     info["radius_miles"] = int(radius_val)
 
+    # If OFF, bail early
     if not st.session_state.trip_settings["use_my_location"]:
         info["reason"] = "use_my_location_off"
         st.session_state["_nearby_info"] = info
@@ -190,9 +191,28 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Ask the browser for location here (no manual fallback)
-    user_lat, user_lon, src = get_browser_location(key="trip_sidebar_geo")
-    info["geo_source"] = src
+    # ---- explicit user gesture (needed in some browsers inside the sidebar) ----
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        get_loc_clicked = st.button("Share my location now", key="tm_share_loc_btn", disabled=disabled)
+    with col2:
+        if "client_lat" in st.session_state and "client_lon" in st.session_state:
+            st.caption("✅ Location saved for this session")
+
+    user_lat = st.session_state.get("client_lat")
+    user_lon = st.session_state.get("client_lon")
+
+    if get_loc_clicked or (user_lat is None or user_lon is None):
+        lat, lon, src = get_browser_location(key="trip_sidebar_geo")
+        if lat is not None and lon is not None:
+            st.session_state["client_lat"] = lat
+            st.session_state["client_lon"] = lon
+            st.session_state["client_geo_source"] = src
+            user_lat, user_lon = lat, lon
+        info["geo_source"] = st.session_state.get("client_geo_source", src or "none")
+    else:
+        info["geo_source"] = st.session_state.get("client_geo_source", "none")
+
     if user_lat is None or user_lon is None:
         info["reason"] = "waiting_for_browser_location"
         st.session_state["_nearby_info"] = info
