@@ -9,3 +9,4 @@ gotrue
 requests
 streamlit-geolocation
 geopy
+streamlit-js-eval

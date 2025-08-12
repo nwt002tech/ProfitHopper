@@ -4,20 +4,9 @@ import os
 import math
 from typing import List, Dict, Any, Optional
 import streamlit as st
+from browser_location import get_browser_location  # new helper (no manual coords)
 
-# Try both exported names for the component.
-_geolib = None
-try:
-    from streamlit_geolocation import geolocation as _geo_func
-    _geolib = _geo_func
-except Exception:
-    try:
-        from streamlit_geolocation import streamlit_geolocation as _geo_func2
-        _geolib = _geo_func2
-    except Exception:
-        _geolib = None
-
-# Feature flag (default ON). You can also set ENABLE_NEARBY=0 in env or st.secrets to turn it off.
+# --- feature flag ---
 def _truthy(v: Optional[str]) -> bool:
     return str(v).strip().lower() in ("1","true","yes","on","y") if v is not None else False
 
@@ -129,16 +118,13 @@ def _load_casino_names_df():
 
 # ---------------- Nearby filter ----------------
 def _nearby_filter_options(disabled: bool) -> List[str]:
-    """
-    Returns casino names, optionally filtered by **browser** location.
-    Renders the actual 'Get Location' button when needed.
-    """
+    """Returns casino names, optionally filtered by **browser** location."""
     all_names, df = _load_casino_names_df()
     info = {
         "enabled": ENABLE_NEARBY,
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",   # 'browser' or 'none'
+        "geo_source": "none",
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
@@ -155,8 +141,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     with colA:
         use_loc = st.checkbox("Use my location",
                               value=bool(st.session_state.trip_settings.get("use_my_location", False)),
-                              key="use_my_location",
-                              disabled=disabled)
+                              key="use_my_location", disabled=disabled)
     with colB:
         radius = st.slider("Radius (miles)", 5, 300,
                            int(st.session_state.trip_settings.get("nearby_radius", 30)),
@@ -168,7 +153,6 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Need coords present in DF
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
         info["reason"] = "no_casino_coords_df"
         st.session_state["_nearby_info"] = info
@@ -183,21 +167,9 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Ask the BROWSER for location right here. The component renders a button labeled "Get Location".
-    user_lat = user_lon = None
-    if _geolib is not None:
-        st.info("Click **Get Location** below once to enable near‑me.")
-        coords = None
-        try:
-            coords = _geolib(key="geo_widget_in_sidebar")  # renders the visible button
-        except Exception:
-            coords = None
-        if coords and "latitude" in coords and "longitude" in coords:
-            user_lat = _to_float_or_none(coords["latitude"])
-            user_lon = _to_float_or_none(coords["longitude"])
-            if user_lat is not None and user_lon is not None:
-                info["geo_source"] = "browser"
-
+    # Ask the browser for location here. No manual fallback.
+    user_lat, user_lon, src = get_browser_location(key="trip_sidebar_geo")
+    info["geo_source"] = src
     if user_lat is None or user_lon is None:
         info["reason"] = "waiting_for_browser_location"
         st.session_state["_nearby_info"] = info
@@ -253,7 +225,7 @@ def render_sidebar() -> None:
         sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel == "(select casino)" else sel
 
-        # Accurate badge
+        # Badge
         if ENABLE_NEARBY:
             info = st.session_state.get("_nearby_info", {}) or {}
             use_loc = bool(st.session_state.trip_settings.get("use_my_location", False))
@@ -268,14 +240,14 @@ def render_sidebar() -> None:
                 source = (info.get("geo_source") or "none").lower()
 
                 if applied and not fallback_all:
-                    suffix = " (browser)" if source == "browser" else ""
+                    suffix = " (browser)" if source in ("js-eval","component") else ""
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • results: {nearby_count}{suffix}")
                 elif applied and fallback_all:
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • 0 in range — showing all")
                 else:
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
-        # Your existing settings continue here
+        # Your existing settings
         start_bankroll = st.number_input(
             "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
             value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
