@@ -192,7 +192,13 @@ if win_streak_factor > 1 or volatility_adjustment > 1 or win_streak_factor < 1 o
         </div>
         """, unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🎮 Game Plan", "📊 Session Tracker", "📈 Trip Analytics"])
+# -- SAFETY GUARD: ensure Admin tab variable exists with icons --
+try:
+    tab4  # already defined? great.
+except NameError:
+    tab1, tab2, tab3, tab4 = st.tabs(
+        ["🎮 Game Plan", "📒 Session Tracker", "📈 Trip Analytics", "🛠️ Admin"]
+    )
 
 with tab1:
     st.info("Find the best games for your bankroll based on RTP, volatility, and advantage play potential")
