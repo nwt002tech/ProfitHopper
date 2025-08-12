@@ -10,7 +10,7 @@ try:
 except Exception:
     _HAS_ST_JS = False
 
-# --- Path 2: streamlit-js-eval (good in many envs) ---
+# --- Path 2: streamlit-js-eval (fallback) ---
 _HAS_JS_EVAL = False
 try:
     from streamlit_js_eval import get_geolocation as _get_geolocation_js  # pip: streamlit-js-eval
@@ -22,6 +22,7 @@ except Exception:
 _HAS_GEO_COMPONENT = False
 _geocomp_fn = None
 try:
+    # some versions export `geolocation`, others `streamlit_geolocation`
     from streamlit_geolocation import geolocation as _geo_fn
     _geocomp_fn = _geo_fn
     _HAS_GEO_COMPONENT = True
@@ -55,11 +56,10 @@ def _normalize_return(lat, lon, source: str) -> Tuple[Optional[float], Optional[
 def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Optional[float], str]:
     """
     Returns (lat, lon, source). Stores into st.session_state['client_lat'/'client_lon'] when found.
-    Shows THREE explicit options:
-      1) Get Location (JS)  -> streamlit-javascript (preferred)
-      2) Alt method (js-eval) -> streamlit-js-eval
-      3) Component button -> streamlit-geolocation
-    No manual coordinates; no IP fallback.
+    Presents THREE explicit options:
+      1) Get Location (JS)        -> streamlit-javascript (preferred)
+      2) Alt method (js-eval)     -> streamlit-js-eval (no timeout arg)
+      3) Component button         -> streamlit-geolocation (no key kwarg)
     """
     # Already captured this session?
     lat0 = st.session_state.get("client_lat")
@@ -73,7 +73,7 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
     btn_js = st.button("Get Location (JS)", key=f"{key}_stjs_btn")
     if btn_js and _HAS_ST_JS:
         try:
-            # Note: must return a JSON-serializable object
+            # Must return JSON-serializable object
             result: Dict[str, Any] = st_javascript(
                 """
                 async function getLoc() {
@@ -83,16 +83,15 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
                       out.err = 'Geolocation API not available in this browser.';
                       return out;
                     }
-                    // Some browsers require https
                     if (!window.isSecureContext) {
                       out.err = 'Geolocation requires a secure context (https).';
                       return out;
                     }
-                    const pos = await new Promise((resolve, reject) => {
+                    const pos = await new Promise((resolve) => {
                       navigator.geolocation.getCurrentPosition(
                         p => resolve(p),
-                        e => resolve({ error: e && (e.code + ':' + e.message) })
-                        , { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                        e => resolve({ error: e && (e.code + ':' + e.message) }),
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                       );
                     });
                     if (pos && !pos.error) {
@@ -123,15 +122,14 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
             err = (result or {}).get("err")
             if err:
                 st.caption(f"⚠️ JS path error: {err}")
-
     if not _HAS_ST_JS:
         st.caption("• (Info) streamlit‑javascript not installed; skipping JS path.")
 
-    # ---------- Button 2: streamlit-js-eval ----------
+    # ---------- Button 2: streamlit-js-eval (no timeout kw) ----------
     btn_eval = st.button("Alt method (js‑eval)", key=f"{key}_jseval_btn")
     if btn_eval and _HAS_JS_EVAL:
         try:
-            geo = _get_geolocation_js(timeout=30 * 1000)  # may return dict with coords
+            geo = _get_geolocation_js()  # <- no 'timeout' arg in your environment
         except Exception as e:
             geo = {"error": f"js-eval exception: {e}"}
         if isinstance(geo, dict) and "coords" in geo:
@@ -142,15 +140,14 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
                 return _normalize_return(lat, lon, "js-eval")
         else:
             st.caption(f"⚠️ js‑eval did not return coords: {geo!r}")
-
     if not _HAS_JS_EVAL:
         st.caption("• (Info) streamlit‑js‑eval not installed; skipping js‑eval path.")
 
-    # ---------- Button 3: streamlit-geolocation component ----------
+    # ---------- Button 3: streamlit-geolocation component (no 'key' kw) ----------
     if _HAS_GEO_COMPONENT and callable(_geocomp_fn):
         st.caption("Or click the component button:")
         try:
-            coords = _geocomp_fn(key=f"{key}_component")
+            coords = _geocomp_fn()  # <- no 'key' kwarg; some versions don't accept it
         except Exception as e:
             coords = {"error": f"component exception: {e}"}
         if isinstance(coords, dict):
