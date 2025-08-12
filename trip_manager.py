@@ -137,7 +137,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         "enabled": ENABLE_NEARBY,
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",   # 'js-eval' | 'component' | 'none'
+        "geo_source": "none",   # 'st-js' | 'js-eval' | 'component' | 'none'
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
@@ -191,18 +191,14 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # ---- Explicit, visible triggers in the sidebar ----
-    st.info("Click a button below to request your location:")
-    lat_before = st.session_state.get("client_lat")
-    lon_before = st.session_state.get("client_lon")
-    lat, lon, src = get_browser_location(key="trip_sidebar_geo")  # renders the two buttons
-    lat_after = st.session_state.get("client_lat")
-    lon_after = st.session_state.get("client_lon")
+    # ---- Render the buttons only once (browser_location prints its own UI) ----
+    # Remove any extra "Click a button..." lines to avoid duplicates.
+    lat, lon, src = get_browser_location(key="trip_sidebar_geo")
     info["geo_source"] = st.session_state.get("client_geo_source", src or "none")
 
-    # If nothing came back, wait.
-    user_lat = lat_after if isinstance(lat_after, (int, float)) else lat
-    user_lon = lon_after if isinstance(lon_after, (int, float)) else lon
+    user_lat = st.session_state.get("client_lat") if st.session_state.get("client_lat") is not None else lat
+    user_lon = st.session_state.get("client_lon") if st.session_state.get("client_lon") is not None else lon
+
     if user_lat is None or user_lon is None:
         info["reason"] = "waiting_for_browser_location"
         st.session_state["_nearby_info"] = info
@@ -275,7 +271,7 @@ def render_sidebar() -> None:
                 source = (info.get("geo_source") or "none").lower()
 
                 if applied and not fallback_all:
-                    suffix = " (browser)" if source in ("js-eval", "component") else ""
+                    suffix = " (browser)" if source in ("st-js", "js-eval", "component") else ""
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • results: {nearby_count}{suffix}")
                 elif applied and fallback_all:
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • 0 in range — showing all")
