@@ -1,35 +1,37 @@
-# browser_location.py updated
 from __future__ import annotations
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 import streamlit as st
 
-_has_st_js = False
+# --- Path 1: streamlit-javascript (most reliable for returning values) ---
+_HAS_ST_JS = False
 try:
     from streamlit_javascript import st_javascript  # pip: streamlit-javascript
-    _has_st_js = True
+    _HAS_ST_JS = True
 except Exception:
-    _has_st_js = False
+    _HAS_ST_JS = False
 
-_has_js_eval = False
+# --- Path 2: streamlit-js-eval (good in many envs) ---
+_HAS_JS_EVAL = False
 try:
     from streamlit_js_eval import get_geolocation as _get_geolocation_js  # pip: streamlit-js-eval
-    _has_js_eval = True
+    _HAS_JS_EVAL = True
 except Exception:
-    _has_js_eval = False
+    _HAS_JS_EVAL = False
 
-_has_geo_component = False
+# --- Path 3: streamlit-geolocation component (visual fallback) ---
+_HAS_GEO_COMPONENT = False
 _geocomp_fn = None
 try:
-    from streamlit_geolocation import geolocation as _geo_fn  # pip: streamlit-geolocation
+    from streamlit_geolocation import geolocation as _geo_fn
     _geocomp_fn = _geo_fn
-    _has_geo_component = True
+    _HAS_GEO_COMPONENT = True
 except Exception:
     try:
         from streamlit_geolocation import streamlit_geolocation as _geo_fn2
         _geocomp_fn = _geo_fn2
-        _has_geo_component = True
+        _HAS_GEO_COMPONENT = True
     except Exception:
-        _has_geo_component = False
+        _HAS_GEO_COMPONENT = False
 
 
 def _to_float_or_none(v):
@@ -41,75 +43,124 @@ def _to_float_or_none(v):
         return None
 
 
+def _normalize_return(lat, lon, source: str) -> Tuple[Optional[float], Optional[float], str]:
+    if lat is not None and lon is not None:
+        st.session_state["client_lat"] = float(lat)
+        st.session_state["client_lon"] = float(lon)
+        st.session_state["client_geo_source"] = source
+        return float(lat), float(lon), source
+    return None, None, source
+
+
 def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Optional[float], str]:
-    """Return (lat, lon, source). Stores values in session_state when obtained."""
-    lat = st.session_state.get("client_lat")
-    lon = st.session_state.get("client_lon")
-    if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-        return float(lat), float(lon), st.session_state.get("client_geo_source", "js")
+    """
+    Returns (lat, lon, source). Stores into st.session_state['client_lat'/'client_lon'] when found.
+    Shows THREE explicit options:
+      1) Get Location (JS)  -> streamlit-javascript (preferred)
+      2) Alt method (js-eval) -> streamlit-js-eval
+      3) Component button -> streamlit-geolocation
+    No manual coordinates; no IP fallback.
+    """
+    # Already captured this session?
+    lat0 = st.session_state.get("client_lat")
+    lon0 = st.session_state.get("client_lon")
+    if isinstance(lat0, (int, float)) and isinstance(lon0, (int, float)):
+        return float(lat0), float(lon0), st.session_state.get("client_geo_source", "js")
 
-    js_clicked = st.button("Get Location (browser)", key=f"{key}_jsbtn")
-    if js_clicked and _has_st_js:
+    st.write("Click a button below to request your location:")
+
+    # ---------- Button 1: streamlit-javascript ----------
+    btn_js = st.button("Get Location (JS)", key=f"{key}_stjs_btn")
+    if btn_js and _HAS_ST_JS:
         try:
-            result = st_javascript("""
+            # Note: must return a JSON-serializable object
+            result: Dict[str, Any] = st_javascript(
+                """
                 async function getLoc() {
-                    if (!navigator.geolocation) { return null; }
-                    return await new Promise((resolve) => {
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
-                            (err) => resolve(null),
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
-                        );
+                  const out = {ok:false, lat:null, lon:null, acc:null, err:null, secure: window.isSecureContext};
+                  try {
+                    if (!('geolocation' in navigator)) {
+                      out.err = 'Geolocation API not available in this browser.';
+                      return out;
+                    }
+                    // Some browsers require https
+                    if (!window.isSecureContext) {
+                      out.err = 'Geolocation requires a secure context (https).';
+                      return out;
+                    }
+                    const pos = await new Promise((resolve, reject) => {
+                      navigator.geolocation.getCurrentPosition(
+                        p => resolve(p),
+                        e => resolve({ error: e && (e.code + ':' + e.message) })
+                        , { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                      );
                     });
+                    if (pos && !pos.error) {
+                      out.ok = true;
+                      out.lat = pos.coords.latitude;
+                      out.lon = pos.coords.longitude;
+                      out.acc = pos.coords.accuracy;
+                      return out;
+                    } else {
+                      out.err = pos && pos.error ? String(pos.error) : 'Unknown geolocation error.';
+                      return out;
+                    }
+                  } catch (e) {
+                    out.err = String(e);
+                    return out;
+                  }
                 }
-                await getLoc();
-            """)
-        except Exception:
-            result = None
-        if isinstance(result, (list, tuple)) and len(result) == 2:
-            la = _to_float_or_none(result[0]); lo = _to_float_or_none(result[1])
-            if la is not None and lo is not None:
-                st.session_state["client_lat"] = la
-                st.session_state["client_lon"] = lo
-                st.session_state["client_geo_source"] = "js"
-                return la, lo, "js"
+                return await getLoc();
+                """,
+                key=f"{key}_stjs_exec",
+            ) or {}
+        except Exception as e:
+            result = {"ok": False, "err": f"st_javascript failed: {e}"}
 
-    if _has_js_eval:
+        if isinstance(result, dict) and result.get("ok"):
+            return _normalize_return(_to_float_or_none(result.get("lat")), _to_float_or_none(result.get("lon")), "st-js")
+        else:
+            err = (result or {}).get("err")
+            if err:
+                st.caption(f"⚠️ JS path error: {err}")
+
+    if not _HAS_ST_JS:
+        st.caption("• (Info) streamlit‑javascript not installed; skipping JS path.")
+
+    # ---------- Button 2: streamlit-js-eval ----------
+    btn_eval = st.button("Alt method (js‑eval)", key=f"{key}_jseval_btn")
+    if btn_eval and _HAS_JS_EVAL:
         try:
-            st.caption("Or use alt method (js-eval):")
-            geo = _get_geolocation_js(timeout=30_000)
-        except Exception:
-            geo = None
+            geo = _get_geolocation_js(timeout=30 * 1000)  # may return dict with coords
+        except Exception as e:
+            geo = {"error": f"js-eval exception: {e}"}
         if isinstance(geo, dict) and "coords" in geo:
             c = geo["coords"] or {}
-            la = _to_float_or_none(c.get("latitude"))
-            lo = _to_float_or_none(c.get("longitude"))
-            if la is not None and lo is not None:
-                st.session_state["client_lat"] = la
-                st.session_state["client_lon"] = lo
-                st.session_state["client_geo_source"] = "js-eval"
-                return la, lo, "js-eval"
+            lat = _to_float_or_none(c.get("latitude"))
+            lon = _to_float_or_none(c.get("longitude"))
+            if lat is not None and lon is not None:
+                return _normalize_return(lat, lon, "js-eval")
+        else:
+            st.caption(f"⚠️ js‑eval did not return coords: {geo!r}")
 
-    if _has_geo_component and callable(_geocomp_fn):
+    if not _HAS_JS_EVAL:
+        st.caption("• (Info) streamlit‑js‑eval not installed; skipping js‑eval path.")
+
+    # ---------- Button 3: streamlit-geolocation component ----------
+    if _HAS_GEO_COMPONENT and callable(_geocomp_fn):
         st.caption("Or click the component button:")
         try:
             coords = _geocomp_fn(key=f"{key}_component")
-        except Exception:
-            coords = None
+        except Exception as e:
+            coords = {"error": f"component exception: {e}"}
         if isinstance(coords, dict):
-            la = _to_float_or_none(coords.get("latitude"))
-            lo = _to_float_or_none(coords.get("longitude"))
-            if la is not None and lo is not None:
-                st.session_state["client_lat"] = la
-                st.session_state["client_lon"] = lo
-                st.session_state["client_geo_source"] = "component"
-                return la, lo, "component"
+            lat = _to_float_or_none(coords.get("latitude"))
+            lon = _to_float_or_none(coords.get("longitude"))
+            if lat is not None and lon is not None:
+                return _normalize_return(lat, lon, "component")
+            if "error" in coords:
+                st.caption(f"⚠️ component error: {coords.get('error')}")
+    else:
+        st.caption("• (Info) geolocation component not installed; skipping component path.")
 
-    if not any([_has_st_js, _has_js_eval, _has_geo_component]):
-        st.info(
-            "To enable near‑me filtering, add at least one of these to requirements.txt:\n"
-            "• streamlit-javascript (recommended)\n"
-            "• streamlit-js-eval\n"
-            "• streamlit-geolocation"
-        )
     return None, None, "none"
