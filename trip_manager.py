@@ -4,11 +4,11 @@ import os
 import math
 from typing import List, Dict, Any, Optional
 import streamlit as st
-from browser_location import get_browser_location  # new helper (no manual coords)
+from browser_location import get_browser_location  # uses real browser geolocation
 
-# --- feature flag ---
+# ---- feature flag ----
 def _truthy(v: Optional[str]) -> bool:
-    return str(v).strip().lower() in ("1","true","yes","on","y") if v is not None else False
+    return str(v).strip().lower() in ("1", "true", "yes", "on", "y") if v is not None else False
 
 def _flag(key: str, default: bool) -> bool:
     if key in os.environ:
@@ -24,7 +24,7 @@ def _flag(key: str, default: bool) -> bool:
 
 ENABLE_NEARBY = _flag("ENABLE_NEARBY", True)
 
-# Use your existing data loader exactly as-is.
+# ---- data access (your existing loader) ----
 try:
     from data_loader_supabase import get_casinos_full
 except Exception:
@@ -36,7 +36,9 @@ except Exception:
     get_casinos = None
 
 
-# ---------------- Session state ----------------
+# =========================
+# Session state
+# =========================
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state:
         st.session_state.trip_started = False
@@ -59,6 +61,7 @@ def initialize_trip_state() -> None:
     if "session_log" not in st.session_state:
         st.session_state.session_log = []
 
+
 def _reset_trip_defaults() -> None:
     st.session_state.trip_settings = {
         "casino": "",
@@ -69,13 +72,18 @@ def _reset_trip_defaults() -> None:
     }
 
 
-# ---------------- Helpers ----------------
+# =========================
+# Helpers
+# =========================
 def _to_float_or_none(v):
     try:
-        if v is None: return None
-        if isinstance(v, (int, float)): return float(v)
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
         s = str(v).strip()
-        if s == "" or s.lower() == "nan": return None
+        if s == "" or s.lower() == "nan":
+            return None
         return float(s)
     except Exception:
         return None
@@ -116,15 +124,20 @@ def _load_casino_names_df():
     return names, df
 
 
-# ---------------- Nearby filter ----------------
+# =========================
+# Nearby filter
+# =========================
 def _nearby_filter_options(disabled: bool) -> List[str]:
-    """Returns casino names, optionally filtered by **browser** location."""
+    """
+    Returns casino names, optionally filtered by browser location.
+    Uses browser_location.get_browser_location() (no manual coords, no IP).
+    """
     all_names, df = _load_casino_names_df()
     info = {
         "enabled": ENABLE_NEARBY,
         "applied": False,
         "fallback_all": False,
-        "geo_source": "none",
+        "geo_source": "none",   # 'js-eval' | 'component' | 'none'
         "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
         "nearby_count": 0,
         "total": len(all_names),
@@ -138,17 +151,27 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 
     st.caption("Filter casinos near you")
     colA, colB = st.columns([1, 1])
+    # namespaced keys so nothing else collides
     with colA:
-        use_loc = st.checkbox("Use my location",
-                              value=bool(st.session_state.trip_settings.get("use_my_location", False)),
-                              key="use_my_location", disabled=disabled)
+        use_loc_val = st.checkbox(
+            "Use my location",
+            value=bool(st.session_state.trip_settings.get("use_my_location", False)),
+            key="tm_use_my_location",
+            disabled=disabled,
+        )
     with colB:
-        radius = st.slider("Radius (miles)", 5, 300,
-                           int(st.session_state.trip_settings.get("nearby_radius", 30)),
-                           step=5, key="nearby_radius", disabled=disabled)
-    info["radius_miles"] = int(radius)
+        radius_val = st.slider(
+            "Radius (miles)", 5, 300,
+            int(st.session_state.trip_settings.get("nearby_radius", 30)),
+            step=5, key="tm_nearby_radius", disabled=disabled
+        )
 
-    if not use_loc:
+    # hard-sync into trip_settings (single source of truth)
+    st.session_state.trip_settings["use_my_location"] = bool(use_loc_val)
+    st.session_state.trip_settings["nearby_radius"] = int(radius_val)
+    info["radius_miles"] = int(radius_val)
+
+    if not st.session_state.trip_settings["use_my_location"]:
         info["reason"] = "use_my_location_off"
         st.session_state["_nearby_info"] = info
         return all_names
@@ -159,7 +182,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         return all_names
 
     df = df.copy()
-    for col in ("latitude","longitude"):
+    for col in ("latitude", "longitude"):
         df[col] = [_to_float_or_none(v) for v in df[col]]
     info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
     if info["with_coords"] == 0:
@@ -167,7 +190,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Ask the browser for location here. No manual fallback.
+    # Ask the browser for location here (no manual fallback)
     user_lat, user_lon, src = get_browser_location(key="trip_sidebar_geo")
     info["geo_source"] = src
     if user_lat is None or user_lon is None:
@@ -175,7 +198,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Fix obviously wrong U.S. longitude signs (e.g., +96 instead of −96)
+    # Auto-fix positive longitudes for US (e.g., +96 -> -96) if almost all are positive
     try:
         pos_ratio = float((df["longitude"] > 0).sum()) / float(len(df))
         if pos_ratio >= 0.8:
@@ -183,7 +206,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     except Exception:
         pass
 
-    # Apply filter
+    # Apply distance filter
     info["applied"] = True
     df["distance_mi"] = df.apply(
         lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon),
@@ -203,7 +226,9 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     return within["name"].astype(str).tolist()
 
 
-# ---------------- Sidebar (unchanged API) ----------------
+# =========================
+# Sidebar (unchanged API)
+# =========================
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -240,7 +265,7 @@ def render_sidebar() -> None:
                 source = (info.get("geo_source") or "none").lower()
 
                 if applied and not fallback_all:
-                    suffix = " (browser)" if source in ("js-eval","component") else ""
+                    suffix = " (browser)" if source in ("js-eval", "component") else ""
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • results: {nearby_count}{suffix}")
                 elif applied and fallback_all:
                     st.caption(f"📍 near‑me: ON • radius: {radius} mi • 0 in range — showing all")
@@ -281,7 +306,9 @@ def render_sidebar() -> None:
                 st.rerun()
 
 
-# ---------------- Bankroll & heuristics (unchanged signatures) ----------------
+# =========================
+# Bankroll & heuristics (unchanged signatures)
+# =========================
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
     total = float(ts.get("starting_bankroll", 0.0) or 0.0)
@@ -321,7 +348,9 @@ def get_volatility_adjustment() -> float:
     return 1.0
 
 
-# ---------------- Blacklist (session) ----------------
+# =========================
+# Blacklist (session)
+# =========================
 def get_blacklisted_games() -> List[str]:
     return sorted(list(st.session_state.blacklisted_games))
 
@@ -329,7 +358,9 @@ def blacklist_game(game_name: str) -> None:
     st.session_state.blacklisted_games.add(game_name)
 
 
-# ---------------- Optional helpers ----------------
+# =========================
+# Optional helpers
+# =========================
 def get_current_trip_sessions() -> List[Dict[str, Any]]:
     tid = st.session_state.get("current_trip_id", 0)
     sessions = st.session_state.get("session_log", [])
