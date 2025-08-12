@@ -1,8 +1,15 @@
+# browser_location.py updated
 from __future__ import annotations
 from typing import Optional, Tuple
 import streamlit as st
 
-# Prefer streamlit-js-eval (best UX). Fallback to streamlit-geolocation.
+_has_st_js = False
+try:
+    from streamlit_javascript import st_javascript  # pip: streamlit-javascript
+    _has_st_js = True
+except Exception:
+    _has_st_js = False
+
 _has_js_eval = False
 try:
     from streamlit_js_eval import get_geolocation as _get_geolocation_js  # pip: streamlit-js-eval
@@ -12,18 +19,17 @@ except Exception:
 
 _has_geo_component = False
 _geocomp_fn = None
-if True:  # we want the component available as a visible fallback
+try:
+    from streamlit_geolocation import geolocation as _geo_fn  # pip: streamlit-geolocation
+    _geocomp_fn = _geo_fn
+    _has_geo_component = True
+except Exception:
     try:
-        from streamlit_geolocation import geolocation as _geo_fn  # pip: streamlit-geolocation
-        _geocomp_fn = _geo_fn
+        from streamlit_geolocation import streamlit_geolocation as _geo_fn2
+        _geocomp_fn = _geo_fn2
         _has_geo_component = True
     except Exception:
-        try:
-            from streamlit_geolocation import streamlit_geolocation as _geo_fn2
-            _geocomp_fn = _geo_fn2
-            _has_geo_component = True
-        except Exception:
-            _has_geo_component = False
+        _has_geo_component = False
 
 
 def _to_float_or_none(v):
@@ -36,55 +42,74 @@ def _to_float_or_none(v):
 
 
 def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Optional[float], str]:
-    """
-    Returns (lat, lon, source). No manual fields.
-    Stores values in st.session_state['client_lat'/'client_lon'] when obtained.
-    source: 'js-eval' | 'component' | 'none'
-    """
-    # Already saved this session?
+    """Return (lat, lon, source). Stores values in session_state when obtained."""
     lat = st.session_state.get("client_lat")
     lon = st.session_state.get("client_lon")
     if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
-        return float(lat), float(lon), st.session_state.get("client_geo_source", "js-eval")
+        return float(lat), float(lon), st.session_state.get("client_geo_source", "js")
 
-    # --- Method A: Explicit JS trigger (user gesture) ---
     js_clicked = st.button("Get Location (browser)", key=f"{key}_jsbtn")
-    if js_clicked and _has_js_eval:
+    if js_clicked and _has_st_js:
         try:
-            geo = _get_geolocation_js(timeout=30 * 1000)  # ms
+            result = st_javascript("""
+                async function getLoc() {
+                    if (!navigator.geolocation) { return null; }
+                    return await new Promise((resolve) => {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
+                            (err) => resolve(null),
+                            { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+                        );
+                    });
+                }
+                await getLoc();
+            """)
+        except Exception:
+            result = None
+        if isinstance(result, (list, tuple)) and len(result) == 2:
+            la = _to_float_or_none(result[0]); lo = _to_float_or_none(result[1])
+            if la is not None and lo is not None:
+                st.session_state["client_lat"] = la
+                st.session_state["client_lon"] = lo
+                st.session_state["client_geo_source"] = "js"
+                return la, lo, "js"
+
+    if _has_js_eval:
+        try:
+            st.caption("Or use alt method (js-eval):")
+            geo = _get_geolocation_js(timeout=30_000)
         except Exception:
             geo = None
         if isinstance(geo, dict) and "coords" in geo:
             c = geo["coords"] or {}
-            lat = _to_float_or_none(c.get("latitude"))
-            lon = _to_float_or_none(c.get("longitude"))
-            if lat is not None and lon is not None:
-                st.session_state["client_lat"] = lat
-                st.session_state["client_lon"] = lon
+            la = _to_float_or_none(c.get("latitude"))
+            lo = _to_float_or_none(c.get("longitude"))
+            if la is not None and lo is not None:
+                st.session_state["client_lat"] = la
+                st.session_state["client_lon"] = lo
                 st.session_state["client_geo_source"] = "js-eval"
-                return lat, lon, "js-eval"
+                return la, lo, "js-eval"
 
-    # If js-eval missing or user wants a second option, show component
     if _has_geo_component and callable(_geocomp_fn):
-        st.caption("Or click the button below to share your location via component:")
+        st.caption("Or click the component button:")
         try:
             coords = _geocomp_fn(key=f"{key}_component")
         except Exception:
             coords = None
         if isinstance(coords, dict):
-            lat = _to_float_or_none(coords.get("latitude"))
-            lon = _to_float_or_none(coords.get("longitude"))
-            if lat is not None and lon is not None:
-                st.session_state["client_lat"] = lat
-                st.session_state["client_lon"] = lon
+            la = _to_float_or_none(coords.get("latitude"))
+            lo = _to_float_or_none(coords.get("longitude"))
+            if la is not None and lo is not None:
+                st.session_state["client_lat"] = la
+                st.session_state["client_lon"] = lo
                 st.session_state["client_geo_source"] = "component"
-                return lat, lon, "component"
+                return la, lo, "component"
 
-    # Neither installed or not granted yet
-    if not _has_js_eval and not _has_geo_component:
+    if not any([_has_st_js, _has_js_eval, _has_geo_component]):
         st.info(
             "To enable near‑me filtering, add at least one of these to requirements.txt:\n"
-            "• streamlit-js-eval  (recommended)\n"
+            "• streamlit-javascript (recommended)\n"
+            "• streamlit-js-eval\n"
             "• streamlit-geolocation"
         )
     return None, None, "none"
