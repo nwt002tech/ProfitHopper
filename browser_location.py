@@ -12,7 +12,7 @@ except Exception:
 
 _has_geo_component = False
 _geocomp_fn = None
-if not _has_js_eval:
+if True:  # we want the component available as a visible fallback
     try:
         from streamlit_geolocation import geolocation as _geo_fn  # pip: streamlit-geolocation
         _geocomp_fn = _geo_fn
@@ -47,10 +47,10 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
     if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
         return float(lat), float(lon), st.session_state.get("client_geo_source", "js-eval")
 
-    # Method A: streamlit-js-eval
-    if _has_js_eval:
+    # --- Method A: Explicit JS trigger (user gesture) ---
+    js_clicked = st.button("Get Location (browser)", key=f"{key}_jsbtn")
+    if js_clicked and _has_js_eval:
         try:
-            st.caption("Allow your browser to share your location (one‑time).")
             geo = _get_geolocation_js(timeout=30 * 1000)  # ms
         except Exception:
             geo = None
@@ -64,9 +64,9 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
                 st.session_state["client_geo_source"] = "js-eval"
                 return lat, lon, "js-eval"
 
-    # Method B: streamlit-geolocation
+    # If js-eval missing or user wants a second option, show component
     if _has_geo_component and callable(_geocomp_fn):
-        st.caption("Click the button below to share your location.")
+        st.caption("Or click the button below to share your location via component:")
         try:
             coords = _geocomp_fn(key=f"{key}_component")
         except Exception:
@@ -80,7 +80,7 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
                 st.session_state["client_geo_source"] = "component"
                 return lat, lon, "component"
 
-    # Neither installed or user hasn’t granted
+    # Neither installed or not granted yet
     if not _has_js_eval and not _has_geo_component:
         st.info(
             "To enable near‑me filtering, add at least one of these to requirements.txt:\n"

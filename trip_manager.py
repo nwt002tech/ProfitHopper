@@ -191,28 +191,18 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # ---- explicit user gesture (needed in some browsers inside the sidebar) ----
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        get_loc_clicked = st.button("Share my location now", key="tm_share_loc_btn", disabled=disabled)
-    with col2:
-        if "client_lat" in st.session_state and "client_lon" in st.session_state:
-            st.caption("✅ Location saved for this session")
+    # ---- Explicit, visible triggers in the sidebar ----
+    st.info("Click a button below to request your location:")
+    lat_before = st.session_state.get("client_lat")
+    lon_before = st.session_state.get("client_lon")
+    lat, lon, src = get_browser_location(key="trip_sidebar_geo")  # renders the two buttons
+    lat_after = st.session_state.get("client_lat")
+    lon_after = st.session_state.get("client_lon")
+    info["geo_source"] = st.session_state.get("client_geo_source", src or "none")
 
-    user_lat = st.session_state.get("client_lat")
-    user_lon = st.session_state.get("client_lon")
-
-    if get_loc_clicked or (user_lat is None or user_lon is None):
-        lat, lon, src = get_browser_location(key="trip_sidebar_geo")
-        if lat is not None and lon is not None:
-            st.session_state["client_lat"] = lat
-            st.session_state["client_lon"] = lon
-            st.session_state["client_geo_source"] = src
-            user_lat, user_lon = lat, lon
-        info["geo_source"] = st.session_state.get("client_geo_source", src or "none")
-    else:
-        info["geo_source"] = st.session_state.get("client_geo_source", "none")
-
+    # If nothing came back, wait.
+    user_lat = lat_after if isinstance(lat_after, (int, float)) else lat
+    user_lon = lon_after if isinstance(lon_after, (int, float)) else lon
     if user_lat is None or user_lon is None:
         info["reason"] = "waiting_for_browser_location"
         st.session_state["_nearby_info"] = info
