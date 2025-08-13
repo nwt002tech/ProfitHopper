@@ -53,9 +53,6 @@ def initialize_trip_state() -> None:
     if "blacklisted_games" not in st.session_state: st.session_state.blacklisted_games = set()
     if "recent_profits" not in st.session_state: st.session_state.recent_profits = []
     if "session_log" not in st.session_state: st.session_state.session_log = []
-    # one-run guard after clearing coords
-    if "_suppress_geo_once" not in st.session_state:
-        st.session_state._suppress_geo_once = False
 
 def _reset_trip_defaults() -> None:
     st.session_state.trip_settings = {
@@ -120,16 +117,12 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     colA, colB = st.columns([1,1])
     with colA:
         st.caption("Locate casinos near me")
-
         has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
-        # Only render the component when we DON'T have coords, and not in the same run we just cleared them.
-        if not has_coords and not st.session_state._suppress_geo_once:
+        # Always render the component when we DON'T have coords.
+        if not has_coords:
             lat, lon, src = request_location()
             if src != "none":
                 info["geo_source"] = src
-        # Clear the suppress flag after one run
-        if st.session_state._suppress_geo_once:
-            st.session_state._suppress_geo_once = False
 
     with colB:
         radius = st.slider("Radius (miles)", 5, 300,
@@ -143,8 +136,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     with clear_col:
         if st.button("Clear location", help="Show all casinos again", use_container_width=True):
             clear_location()
-            # prevent component from re-capturing coords in the same run
-            st.session_state._suppress_geo_once = True
+            # No suppress flag; simply rerun so component shows again (no coords)
             st.rerun()
 
     if not ENABLE_NEARBY:
