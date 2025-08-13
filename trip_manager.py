@@ -55,7 +55,6 @@ def _load_casino_names() -> List[str]:
             names = _get_casinos() or []
     except Exception:
         names = []
-    # normalize + dedupe + sort
     names = sorted({str(n).strip() for n in names if str(n).strip()}, key=lambda s: s.lower())
     if "Other..." not in names:
         names.append("Other...")
@@ -67,9 +66,6 @@ def _load_casino_names() -> List[str]:
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
-        # marker so you can confirm this file is active
-        st.caption("🛠️ compact sidebar — trip_manager.py")
-
         st.markdown("### 🎯 Trip Settings")
 
         disabled = bool(st.session_state.trip_started)
