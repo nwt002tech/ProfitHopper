@@ -4,6 +4,32 @@ import os, math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
+# --- Tiny CSS to tighten the sidebar spacing ---
+_COMPACT_CSS = """
+<style>
+/* Reduce padding in the sidebar container */
+section[data-testid="stSidebar"] .block-container {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+/* Tighten vertical gaps between widgets */
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+/* Make captions a hair smaller */
+section[data-testid="stSidebar"] .stMarkdown p {
+  margin: 0.2rem 0 !important;
+  font-size: 0.9rem !important;
+}
+/* Compact slider row */
+section[data-testid="stSidebar"] .stSlider {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+}
+</style>
+"""
+
 # Component-only geolocation (blue target)
 try:
     from browser_location import request_location, clear_location
@@ -102,7 +128,7 @@ def _load_casino_names_df():
     return names, df
 
 # =========================
-# Nearby filter (component-only flow)
+# Nearby filter (component-only, compact UI)
 # =========================
 def _nearby_filter_options(disabled: bool) -> List[str]:
     all_names, df = _load_casino_names_df()
@@ -113,37 +139,39 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         "nearby_count": 0, "total": len(all_names), "with_coords": 0, "reason": ""
     }
 
-    # Controls
-    colA, colB = st.columns([1,1])
-    with colA:
-        st.caption("Locate casinos near me")
+    # Row 1: [ blue target ] [ "Locate casinos near me" ] [ Clear location ]
+    c1, c2, c3 = st.columns([0.20, 0.55, 0.25])
+    with c1:
         has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
-        # Always render the component when we DON'T have coords.
         if not has_coords:
-            lat, lon, src = request_location()
-            if src != "none":
-                info["geo_source"] = src
-
-    with colB:
-        radius = st.slider("Radius (miles)", 5, 300,
-                           int(st.session_state.trip_settings.get("nearby_radius", 30)),
-                           step=5, key="tm_nearby_radius", disabled=disabled)
-        st.session_state.trip_settings["nearby_radius"] = int(radius)
-        info["radius_miles"] = int(radius)
-
-    # Reset link
-    clear_col = st.columns([1,1,1,1])[3]
-    with clear_col:
-        if st.button("Clear location", help="Show all casinos again", use_container_width=True):
+            request_location()  # renders the blue target component
+    with c2:
+        st.caption("Locate casinos near me")
+    with c3:
+        if st.button("Clear location", use_container_width=True, help="Show all casinos"):
             clear_location()
-            # No suppress flag; simply rerun so component shows again (no coords)
             st.rerun()
+
+    # Row 2: Radius label + slider (collapsed label to save space)
+    r1, r2 = st.columns([0.28, 0.72])
+    with r1:
+        st.caption("Radius (miles)")
+    with r2:
+        radius = st.slider(
+            "", 5, 300,
+            int(st.session_state.trip_settings.get("nearby_radius", 30)),
+            step=5, key="tm_nearby_radius",
+            label_visibility="collapsed",
+            disabled=disabled
+        )
+    st.session_state.trip_settings["nearby_radius"] = int(radius)
+    info["radius_miles"] = int(radius)
 
     if not ENABLE_NEARBY:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # If we don't have user coords yet, show all until the target is clicked
+    # Wait until user has granted location
     user_lat = st.session_state.get("client_lat")
     user_lon = st.session_state.get("client_lon")
     if user_lat is None or user_lon is None:
@@ -198,6 +226,9 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
+        # compact CSS here
+        st.markdown(_COMPACT_CSS, unsafe_allow_html=True)
+
         st.header("🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
@@ -215,7 +246,7 @@ def render_sidebar() -> None:
         sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel=="(select casino)" else sel
 
-        # Badge
+        # Badge (single line, compact)
         info = st.session_state.get("_nearby_info",{}) or {}
         radius = int(st.session_state.trip_settings.get("nearby_radius",30))
         has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
@@ -232,32 +263,35 @@ def render_sidebar() -> None:
             else:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
-        # Rest of your Trip Settings (unchanged)
         st.divider()
-        start_bankroll = st.number_input(
-            "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
-            value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
-            disabled=disabled
-        )
-        num_sessions = st.number_input(
-            "Number of Sessions", min_value=1, step=1,
-            value=int(st.session_state.trip_settings.get("num_sessions", 3)),
-            disabled=disabled
-        )
+        # Bankroll + sessions in one tight row to save space
+        c1, c2 = st.columns([0.6, 0.4])
+        with c1:
+            start_bankroll = st.number_input(
+                "Total Bankroll ($)", min_value=0.0, step=10.0,
+                value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
+                disabled=disabled
+            )
+        with c2:
+            num_sessions = st.number_input(
+                "Sessions", min_value=1, step=1,
+                value=int(st.session_state.trip_settings.get("num_sessions", 3)),
+                disabled=disabled
+            )
         st.session_state.trip_settings["starting_bankroll"] = float(start_bankroll)
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
-        st.caption(f"Per-session bankroll estimate: ${get_session_bankroll():,.2f}")
+        st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
         st.divider()
-        c1, c2 = st.columns(2)
-        with c1:
+        c3, c4 = st.columns(2)
+        with c3:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
                 st.session_state.trip_started = True
                 st.session_state.current_trip_id = int(st.session_state.current_trip_id or 0) + 1
                 st.session_state.trip_bankrolls[st.session_state.current_trip_id] = float(start_bankroll)
                 st.success("Trip started.")
                 st.rerun()
-        with c2:
+        with c4:
             if st.button("Stop Trip", disabled=not st.session_state.trip_started, use_container_width=True):
                 st.session_state.trip_started = False
                 _reset_trip_defaults()
