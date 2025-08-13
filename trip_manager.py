@@ -4,6 +4,32 @@ import os, math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
+# --- Compact CSS for the sidebar ---
+_COMPACT_CSS = """
+<style>
+/* Reduce padding in the sidebar container */
+section[data-testid="stSidebar"] .block-container {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+/* Tighten vertical gaps between widgets */
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] > div {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+}
+/* Make captions a bit smaller */
+section[data-testid="stSidebar"] .stMarkdown p {
+  margin: 0.2rem 0 !important;
+  font-size: 0.9rem !important;
+}
+/* Compact slider row */
+section[data-testid="stSidebar"] .stSlider {
+  padding-top: 0.15rem !important;
+  padding-bottom: 0.15rem !important;
+}
+</style>
+"""
+
 # Component-only geolocation (blue target)
 try:
     from browser_location import request_location, clear_location
@@ -96,12 +122,13 @@ def _load_casino_names_df():
         for col in ("latitude","longitude"):
             if col in df.columns: df[col]=[_to_float_or_none(v) for v in df[col]]
         names=df["name"].dropna().astype(str).tolist()
+    # A→Z
     names=[n for n in names if n and n!="Other..."]
     names=sorted(names, key=lambda s: s.lower())
     return names, df
 
 # =========================
-# Nearby filter (component-only, compact UI without CSS)
+# Nearby filter (component-only, compact UI with CSS)
 # =========================
 def _nearby_filter_options(disabled: bool) -> List[str]:
     all_names, df = _load_casino_names_df()
@@ -112,9 +139,8 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         "nearby_count": 0, "total": len(all_names), "with_coords": 0, "reason": ""
     }
 
-    # Row 1 (single compact row):
-    # [ blue target ] [ "Locate casinos near me" ] [ radius slider ] [ Clear ]
-    c1, c2, c3, c4 = st.columns([0.18, 0.42, 0.25, 0.15])
+    # Row 1: [ blue target ] [ "Locate casinos near me" ] [ Clear location ]
+    c1, c2, c3 = st.columns([0.20, 0.55, 0.25])
     with c1:
         has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
         if not has_coords:
@@ -122,25 +148,31 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     with c2:
         st.caption("Locate casinos near me")
     with c3:
-        radius = st.slider(
-            "Radius (miles)", 5, 300,
-            int(st.session_state.trip_settings.get("nearby_radius", 30)),
-            step=5, key="tm_nearby_radius",
-            label_visibility="collapsed",  # compact
-            disabled=disabled
-        )
-        st.session_state.trip_settings["nearby_radius"] = int(radius)
-        info["radius_miles"] = int(radius)
-    with c4:
-        if st.button("Clear", use_container_width=True, help="Show all casinos"):
+        if st.button("Clear location", use_container_width=True, help="Show all casinos"):
             clear_location()
             st.rerun()
+
+    # Row 2: Radius label + slider (real label for a11y; visually collapsed)
+    r1, r2 = st.columns([0.28, 0.72])
+    with r1:
+        st.caption("Radius (miles)")
+    with r2:
+        radius = st.slider(
+            "Radius (miles)",           # non-empty label to avoid Streamlit warning
+            5, 300,
+            int(st.session_state.trip_settings.get("nearby_radius", 30)),
+            step=5, key="tm_nearby_radius",
+            label_visibility="collapsed",   # hides it visually for compactness
+            disabled=disabled
+        )
+    st.session_state.trip_settings["nearby_radius"] = int(radius)
+    info["radius_miles"] = int(radius)
 
     if not ENABLE_NEARBY:
         st.session_state["_nearby_info"] = info
         return all_names
 
-    # Show all until user has granted location
+    # Wait until user has granted location
     user_lat = st.session_state.get("client_lat")
     user_lon = st.session_state.get("client_lon")
     if user_lat is None or user_lon is None:
@@ -195,17 +227,16 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
-        # Compact header
-        st.markdown("### 🎯 Trip Settings")
+        # inject compact CSS
+        st.markdown(_COMPACT_CSS, unsafe_allow_html=True)
 
+        st.header("🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # First row handles location + radius + clear
         options = _nearby_filter_options(disabled=disabled)
         if not options:
             options = [st.session_state.trip_settings.get("casino","")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
 
-        # Casino select directly under the compact row
         current = st.session_state.trip_settings.get("casino","")
         if current not in options and options:
             current = options[0]
@@ -233,7 +264,8 @@ def render_sidebar() -> None:
             else:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
-        # Bankroll + sessions in one compact row
+        st.divider()
+        # Bankroll + sessions in one tight row
         c1, c2 = st.columns([0.6, 0.4])
         with c1:
             start_bankroll = st.number_input(
@@ -251,7 +283,7 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
         st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
-        # Start/Stop row
+        st.divider()
         c3, c4 = st.columns(2)
         with c3:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
