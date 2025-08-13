@@ -4,14 +4,16 @@ import os, math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
-# One-click geolocator (no component fallback)
+# Component-only geolocation (blue target)
 try:
-    from browser_location import get_browser_location
+    from browser_location import request_location, clear_location
 except Exception:
-    def get_browser_location(key: str = "browser_geo"):
+    def request_location(label: str = "Get my location"):
         return None, None, "none"
+    def clear_location():
+        return None
 
-# === Feature flag ===
+# === Feature flag (kept, but near-me works whenever coords exist) ===
 def _truthy(v: Optional[str]) -> bool:
     return str(v).strip().lower() in ("1","true","yes","on","y") if v is not None else False
 def _flag(key: str, default: bool) -> bool:
@@ -24,7 +26,7 @@ def _flag(key: str, default: bool) -> bool:
     return default
 ENABLE_NEARBY = _flag("ENABLE_NEARBY", True)
 
-# === Data access (same API you already use) ===
+# === Data access (your existing loaders) ===
 get_casinos_full = None
 get_casinos = None
 try:
@@ -45,7 +47,8 @@ def initialize_trip_state() -> None:
     if "trip_settings" not in st.session_state or not isinstance(st.session_state.trip_settings, dict):
         st.session_state.trip_settings = {
             "casino": "", "starting_bankroll": 200.0, "num_sessions": 3,
-            "use_my_location": False, "nearby_radius": 30,
+            # removed checkbox; keep radius only
+            "nearby_radius": 30,
         }
     if "trip_bankrolls" not in st.session_state: st.session_state.trip_bankrolls = {}
     if "blacklisted_games" not in st.session_state: st.session_state.blacklisted_games = set()
@@ -55,7 +58,7 @@ def initialize_trip_state() -> None:
 def _reset_trip_defaults() -> None:
     st.session_state.trip_settings = {
         "casino": "", "starting_bankroll": 200.0, "num_sessions": 3,
-        "use_my_location": False, "nearby_radius": 30,
+        "nearby_radius": 30,
     }
 
 # =========================
@@ -94,89 +97,96 @@ def _load_casino_names_df():
         for col in ("latitude","longitude"):
             if col in df.columns: df[col]=[_to_float_or_none(v) for v in df[col]]
         names=df["name"].dropna().astype(str).tolist()
+    # A→Z
     names=[n for n in names if n and n!="Other..."]
-    names=sorted(names, key=lambda s: s.lower())  # A→Z
+    names=sorted(names, key=lambda s: s.lower())
     return names, df
 
 # =========================
-# Nearby filter (checkbox triggers JS geolocation; no component fallback)
+# Nearby filter (component-only flow)
 # =========================
 def _nearby_filter_options(disabled: bool) -> List[str]:
     all_names, df = _load_casino_names_df()
-    info = {"enabled": ENABLE_NEARBY, "applied": False, "fallback_all": False,
-            "geo_source":"none","radius_miles":int(st.session_state.trip_settings.get("nearby_radius",30)),
-            "nearby_count":0,"total":len(all_names),"with_coords":0,"reason":""}
+    info = {
+        "enabled": ENABLE_NEARBY, "applied": False, "fallback_all": False,
+        "geo_source": st.session_state.get("client_geo_source", "none"),
+        "radius_miles": int(st.session_state.trip_settings.get("nearby_radius", 30)),
+        "nearby_count": 0, "total": len(all_names), "with_coords": 0, "reason": ""
+    }
+
+    # Controls
+    colA, colB = st.columns([1,1])
+    with colA:
+        # Blue target button: render component; captures coords when user clicks it
+        st.caption("Locate casinos near me")
+        lat, lon, src = request_location()
+        if src != "none":
+            info["geo_source"] = src
+    with colB:
+        radius = st.slider("Radius (miles)", 5, 300,
+                           int(st.session_state.trip_settings.get("nearby_radius", 30)),
+                           step=5, key="tm_nearby_radius", disabled=disabled)
+        st.session_state.trip_settings["nearby_radius"] = int(radius)
+        info["radius_miles"] = int(radius)
+
+    # Optional small reset link
+    clear_col = st.columns([1,1,1,1])[3]
+    with clear_col:
+        if st.button("Clear location", help="Show all casinos again", use_container_width=True):
+            clear_location()
+            st.rerun()
 
     if not ENABLE_NEARBY:
-        st.session_state["_nearby_info"]=info
+        st.session_state["_nearby_info"] = info
         return all_names
 
-    colA,colB=st.columns([1,1])
-    with colA:
-        use_loc = st.checkbox(
-            "Use my location",
-            value=bool(st.session_state.trip_settings.get("use_my_location",False)),
-            key="tm_use_my_location", disabled=disabled
-        )
-    with colB:
-        radius = st.slider(
-            "Radius (miles)", 5, 300,
-            int(st.session_state.trip_settings.get("nearby_radius",30)),
-            step=5, key="tm_nearby_radius", disabled=disabled
-        )
-
-    st.session_state.trip_settings["use_my_location"]=bool(use_loc)
-    st.session_state.trip_settings["nearby_radius"]=int(radius)
-    info["radius_miles"]=int(radius)
-
-    if not st.session_state.trip_settings["use_my_location"]:
-        info["reason"]="use_my_location_off"
-        st.session_state["_nearby_info"]=info
-        return all_names
-
-    if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
-        info["reason"]="no_casino_coords_df"
-        st.session_state["_nearby_info"]=info
-        return all_names
-
-    df=df.copy()
-    for col in ("latitude","longitude"):
-        df[col]=[_to_float_or_none(v) for v in df[col]]
-    info["with_coords"]=int((df["latitude"].notna() & df["longitude"].notna()).sum())
-    if info["with_coords"]==0:
-        info["reason"]="no_casino_coords_rows"
-        st.session_state["_nearby_info"]=info
-        return all_names
-
-    # === The key change: trigger inline JS immediately, no component ===
-    lat, lon, src = get_browser_location(key="trip_sidebar_geo")
-    user_lat = st.session_state.get("client_lat") if st.session_state.get("client_lat") is not None else lat
-    user_lon = st.session_state.get("client_lon") if st.session_state.get("client_lon") is not None else lon
-    info["geo_source"]=st.session_state.get("client_geo_source", src or "none")
-
+    # If we don't have user coords yet, show all until they click the target
+    user_lat = st.session_state.get("client_lat")
+    user_lon = st.session_state.get("client_lon")
     if user_lat is None or user_lon is None:
-        info["reason"]="waiting_for_browser_location"
-        st.session_state["_nearby_info"]=info
+        info["reason"] = "waiting_for_browser_location"
+        st.session_state["_nearby_info"] = info
+        return all_names
+
+    # Must have casino coords to filter
+    if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
+        info["reason"] = "no_casino_coords_df"
+        st.session_state["_nearby_info"] = info
+        return all_names
+
+    df = df.copy()
+    for col in ("latitude", "longitude"):
+        df[col] = [_to_float_or_none(v) for v in df[col]]
+    info["with_coords"] = int((df["latitude"].notna() & df["longitude"].notna()).sum())
+    if info["with_coords"] == 0:
+        info["reason"] = "no_casino_coords_rows"
+        st.session_state["_nearby_info"] = info
         return all_names
 
     # Fix obviously positive US longitudes if needed
     try:
-        pos_ratio=float((df["longitude"]>0).sum())/float(len(df))
-        if pos_ratio>=0.8: df["longitude"]=df["longitude"].apply(lambda x: -abs(x) if x is not None else None)
-    except Exception: pass
+        pos_ratio = float((df["longitude"] > 0).sum()) / float(len(df))
+        if pos_ratio >= 0.8:
+            df["longitude"] = df["longitude"].apply(lambda x: -abs(x) if x is not None else None)
+    except Exception:
+        pass
 
-    info["applied"]=True
-    df["distance_mi"]=df.apply(lambda r: _haversine_miles(r.get("latitude"),r.get("longitude"),user_lat,user_lon), axis=1)
-    nearby=df[df["distance_mi"].notna()].sort_values("distance_mi")
-    within=nearby[nearby["distance_mi"]<=float(info["radius_miles"])].copy()
-    info["nearby_count"]=int(len(within))
+    # Apply filter
+    info["applied"] = True
+    df["distance_mi"] = df.apply(
+        lambda r: _haversine_miles(r.get("latitude"), r.get("longitude"), user_lat, user_lon), axis=1
+    )
+    nearby = df[df["distance_mi"].notna()].sort_values("distance_mi")
+    within = nearby[nearby["distance_mi"] <= float(info["radius_miles"])].copy()
+    info["nearby_count"] = int(len(within))
 
     if within.empty:
-        info["fallback_all"]=True; info["reason"]="no_matches"
-        st.session_state["_nearby_info"]=info
+        info["fallback_all"] = True
+        info["reason"] = "no_matches"
+        st.session_state["_nearby_info"] = info
         return all_names
 
-    st.session_state["_nearby_info"]=info
+    st.session_state["_nearby_info"] = info
     return sorted(within["name"].astype(str).tolist(), key=lambda s: s.lower())
 
 # =========================
@@ -186,28 +196,32 @@ def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.header("🎯 Trip Settings")
-        disabled=bool(st.session_state.trip_started)
+        disabled = bool(st.session_state.trip_started)
 
-        options=_nearby_filter_options(disabled=disabled)
+        options = _nearby_filter_options(disabled=disabled)
         if not options:
-            options=[st.session_state.trip_settings.get("casino","")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
+            options = [st.session_state.trip_settings.get("casino","")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
 
-        current=st.session_state.trip_settings.get("casino","")
-        if current not in options and options: current=options[0]
-        try: idx=options.index(current)
-        except Exception: idx=0
-        sel=st.selectbox("Casino", options=options, index=idx, disabled=disabled)
+        current = st.session_state.trip_settings.get("casino","")
+        if current not in options and options:
+            current = options[0]
+        try:
+            idx = options.index(current)
+        except Exception:
+            idx = 0
+        sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel=="(select casino)" else sel
 
-        info=st.session_state.get("_nearby_info",{}) or {}
-        use_loc=bool(st.session_state.trip_settings.get("use_my_location",False))
-        radius=int(st.session_state.trip_settings.get("nearby_radius",30))
-        if not ENABLE_NEARBY or not use_loc:
-            st.caption("📍 near‑me: OFF" if not use_loc else f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
+        # Badge
+        info = st.session_state.get("_nearby_info",{}) or {}
+        radius = int(st.session_state.trip_settings.get("nearby_radius",30))
+        has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
+        if not ENABLE_NEARBY or not has_coords:
+            st.caption("📍 near‑me: OFF" if not has_coords else f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
         else:
-            applied=bool(info.get("applied"))
-            fallback=bool(info.get("fallback_all"))
-            cnt=int(info.get("nearby_count",0)) if applied else 0
+            applied = bool(info.get("applied"))
+            fallback = bool(info.get("fallback_all"))
+            cnt = int(info.get("nearby_count",0)) if applied else 0
             if applied and not fallback:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • results: {cnt} (browser)")
             elif applied and fallback:
@@ -215,7 +229,7 @@ def render_sidebar() -> None:
             else:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
-        # The rest of your unchanged Trip Settings
+        # Rest of your Trip Settings (unchanged)
         st.divider()
         start_bankroll = st.number_input(
             "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
@@ -248,7 +262,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 # =========================
-# Public API (incl. functions used by session_manager)
+# Public API used by other modules (unchanged)
 # =========================
 def get_session_bankroll() -> float:
     ts=st.session_state.trip_settings
