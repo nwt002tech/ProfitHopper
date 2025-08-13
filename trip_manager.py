@@ -214,7 +214,7 @@ def render_sidebar() -> None:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
 # =========================
-# Rest of your public API (unchanged)
+# Rest of your public API (unchanged + 2 required functions added)
 # =========================
 def get_session_bankroll() -> float:
     ts=st.session_state.trip_settings
@@ -251,3 +251,16 @@ def get_blacklisted_games() -> List[str]:
     return sorted(list(st.session_state.blacklisted_games))
 def blacklist_game(game_name: str) -> None:
     st.session_state.blacklisted_games.add(game_name)
+
+# === Added to satisfy session_manager imports ===
+def get_current_trip_sessions() -> List[Dict[str, Any]]:
+    """Return rows from session_log for the current trip_id."""
+    tid = int(st.session_state.get("current_trip_id", 0) or 0)
+    rows = st.session_state.get("session_log", []) or []
+    return [r for r in rows if int(r.get("trip_id", 0) or 0) == tid]
+
+def record_session_performance(profit: float) -> None:
+    """Update recent_profits buffer (kept small for heuristics)."""
+    arr = st.session_state.get("recent_profits", []) or []
+    arr.append(float(profit))
+    st.session_state.recent_profits = arr[-10:]
