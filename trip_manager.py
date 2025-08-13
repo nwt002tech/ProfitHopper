@@ -152,16 +152,17 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
             clear_location()
             st.rerun()
 
-    # Row 2: Radius label + slider (collapsed label to save space)
+    # Row 2: Radius label + slider (now with a real label, visually collapsed)
     r1, r2 = st.columns([0.28, 0.72])
     with r1:
         st.caption("Radius (miles)")
     with r2:
         radius = st.slider(
-            "", 5, 300,
+            "Radius (miles)",  # <- non-empty for accessibility
+            5, 300,
             int(st.session_state.trip_settings.get("nearby_radius", 30)),
             step=5, key="tm_nearby_radius",
-            label_visibility="collapsed",
+            label_visibility="collapsed",  # hides it visually
             disabled=disabled
         )
     st.session_state.trip_settings["nearby_radius"] = int(radius)
