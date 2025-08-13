@@ -2,15 +2,15 @@ from __future__ import annotations
 from typing import Optional, Tuple, Dict, Any
 import streamlit as st
 
-# Path A: streamlit-javascript (inline JS)
+# Inline JS (preferred one-click path)
 _HAS_ST_JS = False
 try:
-    from streamlit_javascript import st_javascript  # pip: streamlit-javascript
+    from streamlit_javascript import st_javascript  # add to requirements.txt
     _HAS_ST_JS = True
 except Exception:
     _HAS_ST_JS = False
 
-# Path B: streamlit-geolocation component (blue target)
+# Blue target component (works in many envs)
 _HAS_GEO_COMPONENT = False
 _geocomp_fn = None
 try:
@@ -25,12 +25,15 @@ except Exception:
     except Exception:
         _HAS_GEO_COMPONENT = False
 
+
 def _to_float_or_none(v):
     try:
-        if v is None: return None
+        if v is None:
+            return None
         return float(v)
     except Exception:
         return None
+
 
 def _save_and_return(lat, lon, source: str) -> Tuple[Optional[float], Optional[float], str]:
     if lat is not None and lon is not None:
@@ -40,19 +43,21 @@ def _save_and_return(lat, lon, source: str) -> Tuple[Optional[float], Optional[f
         return float(lat), float(lon), source
     return None, None, source
 
+
 def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Optional[float], str]:
     """
-    One-shot geolocation:
-      • Try inline JS (if installed).
-      • Also render the component (blue target) as silent fallback.
+    One-shot geolocation invoked by checking 'Use my location'.
+    1) Try inline JS (no extra UI).
+    2) Silently render the component (blue target) as fallback.
     Returns (lat, lon, source: 'st-js' | 'component' | 'none').
     """
+    # Already have coords this session?
     lat0 = st.session_state.get("client_lat")
     lon0 = st.session_state.get("client_lon")
     if isinstance(lat0, (int, float)) and isinstance(lon0, (int, float)):
         return float(lat0), float(lon0), st.session_state.get("client_geo_source", "st-js")
 
-    # Inline JS attempt
+    # Attempt inline JS (counts as same gesture as checking the checkbox)
     if _HAS_ST_JS:
         try:
             result: Dict[str, Any] = st_javascript(
@@ -88,14 +93,13 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
                 """,
                 key=f"{key}_stjs_exec",
             ) or {}
-        except Exception as e:
-            result = {"ok": False, "err": f"st_javascript failed: {e}"}
+        except Exception:
+            result = {"ok": False}
 
         if isinstance(result, dict) and result.get("ok"):
             return _save_and_return(_to_float_or_none(result.get("lat")), _to_float_or_none(result.get("lon")), "st-js")
-        # else: fall through to component
 
-    # Component fallback (shows blue target)
+    # Component fallback (shows blue target icon; user might need to click it)
     if _HAS_GEO_COMPONENT and callable(_geocomp_fn):
         try:
             coords = _geocomp_fn()
