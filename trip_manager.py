@@ -4,11 +4,11 @@ import os, math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
-# Use the silent one-shot geolocator
+# One-click geolocator (no component fallback)
 try:
     from browser_location import get_browser_location
 except Exception:
-    def get_browser_location(key: str = "browser_geo", fallback_component: bool = True):
+    def get_browser_location(key: str = "browser_geo"):
         return None, None, "none"
 
 # === Feature flag ===
@@ -99,7 +99,7 @@ def _load_casino_names_df():
     return names, df
 
 # =========================
-# Nearby filter (pure; no extra UI)
+# Nearby filter (checkbox triggers JS geolocation; no component fallback)
 # =========================
 def _nearby_filter_options(disabled: bool) -> List[str]:
     all_names, df = _load_casino_names_df()
@@ -111,7 +111,6 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"]=info
         return all_names
 
-    # Widgets (always render Trip Settings cleanly)
     colA,colB=st.columns([1,1])
     with colA:
         use_loc = st.checkbox(
@@ -130,13 +129,11 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
     st.session_state.trip_settings["nearby_radius"]=int(radius)
     info["radius_miles"]=int(radius)
 
-    # No location filter -> return all
     if not st.session_state.trip_settings["use_my_location"]:
         info["reason"]="use_my_location_off"
         st.session_state["_nearby_info"]=info
         return all_names
 
-    # Must have coords in the casino table
     if df is None or "latitude" not in df.columns or "longitude" not in df.columns:
         info["reason"]="no_casino_coords_df"
         st.session_state["_nearby_info"]=info
@@ -151,18 +148,10 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"]=info
         return all_names
 
-    # Try true one‑click first (inline JS). Do NOT render blue target yet.
-    lat, lon, src = get_browser_location(key="trip_sidebar_geo", fallback_component=False)
+    # === The key change: trigger inline JS immediately, no component ===
+    lat, lon, src = get_browser_location(key="trip_sidebar_geo")
     user_lat = st.session_state.get("client_lat") if st.session_state.get("client_lat") is not None else lat
     user_lon = st.session_state.get("client_lon") if st.session_state.get("client_lon") is not None else lon
-
-    # If JS path failed, quietly enable the blue target fallback (no extra text)
-    if (user_lat is None or user_lon is None):
-        lat2, lon2, src2 = get_browser_location(key="trip_sidebar_geo_fallback", fallback_component=True)
-        if user_lat is None: user_lat = lat2
-        if user_lon is None: user_lon = lon2
-        src = src2 if (lat2 is not None and lon2 is not None) else src
-
     info["geo_source"]=st.session_state.get("client_geo_source", src or "none")
 
     if user_lat is None or user_lon is None:
@@ -170,13 +159,12 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         st.session_state["_nearby_info"]=info
         return all_names
 
-    # Fix bad positive US longitudes if needed
+    # Fix obviously positive US longitudes if needed
     try:
         pos_ratio=float((df["longitude"]>0).sum())/float(len(df))
         if pos_ratio>=0.8: df["longitude"]=df["longitude"].apply(lambda x: -abs(x) if x is not None else None)
     except Exception: pass
 
-    # Apply distance filter
     info["applied"]=True
     df["distance_mi"]=df.apply(lambda r: _haversine_miles(r.get("latitude"),r.get("longitude"),user_lat,user_lon), axis=1)
     nearby=df[df["distance_mi"].notna()].sort_values("distance_mi")
@@ -189,7 +177,7 @@ def _nearby_filter_options(disabled: bool) -> List[str]:
         return all_names
 
     st.session_state["_nearby_info"]=info
-    return sorted(within["name"].astype(str).tolist(), key=lambda s: s.lower())  # A→Z
+    return sorted(within["name"].astype(str).tolist(), key=lambda s: s.lower())
 
 # =========================
 # Sidebar (Trip Settings always visible)
@@ -200,7 +188,6 @@ def render_sidebar() -> None:
         st.header("🎯 Trip Settings")
         disabled=bool(st.session_state.trip_started)
 
-        # Casino select (possibly filtered)
         options=_nearby_filter_options(disabled=disabled)
         if not options:
             options=[st.session_state.trip_settings.get("casino","")] if st.session_state.trip_settings.get("casino") else ["(select casino)"]
@@ -212,7 +199,6 @@ def render_sidebar() -> None:
         sel=st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel=="(select casino)" else sel
 
-        # Badge
         info=st.session_state.get("_nearby_info",{}) or {}
         use_loc=bool(st.session_state.trip_settings.get("use_my_location",False))
         radius=int(st.session_state.trip_settings.get("nearby_radius",30))
@@ -229,7 +215,7 @@ def render_sidebar() -> None:
             else:
                 st.caption(f"📍 near‑me: ON • radius: {radius} mi • waiting for location")
 
-        # The rest of your Trip Settings (always rendered)
+        # The rest of your unchanged Trip Settings
         st.divider()
         start_bankroll = st.number_input(
             "Total Trip Bankroll ($)", min_value=0.0, step=10.0,
@@ -262,7 +248,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 # =========================
-# Public API used by other modules (unchanged + required funcs)
+# Public API (incl. functions used by session_manager)
 # =========================
 def get_session_bankroll() -> float:
     ts=st.session_state.trip_settings
