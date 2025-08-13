@@ -5,12 +5,12 @@ import streamlit as st
 # Inline JS (preferred one-click path)
 _HAS_ST_JS = False
 try:
-    from streamlit_javascript import st_javascript  # add to requirements.txt
+    from streamlit_javascript import st_javascript  # pip: streamlit-javascript
     _HAS_ST_JS = True
 except Exception:
     _HAS_ST_JS = False
 
-# Blue target component (works in many envs)
+# Blue target component (fallback only)
 _HAS_GEO_COMPONENT = False
 _geocomp_fn = None
 try:
@@ -44,20 +44,24 @@ def _save_and_return(lat, lon, source: str) -> Tuple[Optional[float], Optional[f
     return None, None, source
 
 
-def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Optional[float], str]:
+def get_browser_location(
+    key: str = "browser_geo",
+    fallback_component: bool = True,   # if False, never render the blue target fallback
+) -> Tuple[Optional[float], Optional[float], str]:
     """
-    One-shot geolocation invoked by checking 'Use my location'.
-    1) Try inline JS (no extra UI).
-    2) Silently render the component (blue target) as fallback.
+    One-shot geolocation triggered by checking 'Use my location'.
+    1) Try inline JS (silent, no UI).
+    2) If allowed, optionally render the component (blue target) **only if JS fails**.
+
     Returns (lat, lon, source: 'st-js' | 'component' | 'none').
     """
-    # Already have coords this session?
+    # Already captured?
     lat0 = st.session_state.get("client_lat")
     lon0 = st.session_state.get("client_lon")
     if isinstance(lat0, (int, float)) and isinstance(lon0, (int, float)):
         return float(lat0), float(lon0), st.session_state.get("client_geo_source", "st-js")
 
-    # Attempt inline JS (counts as same gesture as checking the checkbox)
+    # Inline JS attempt (counts as the same user gesture as the checkbox toggle)
     if _HAS_ST_JS:
         try:
             result: Dict[str, Any] = st_javascript(
@@ -99,8 +103,8 @@ def get_browser_location(key: str = "browser_geo") -> Tuple[Optional[float], Opt
         if isinstance(result, dict) and result.get("ok"):
             return _save_and_return(_to_float_or_none(result.get("lat")), _to_float_or_none(result.get("lon")), "st-js")
 
-    # Component fallback (shows blue target icon; user might need to click it)
-    if _HAS_GEO_COMPONENT and callable(_geocomp_fn):
+    # Optional fallback: render the blue target *only if* caller allows it
+    if fallback_component and _HAS_GEO_COMPONENT and callable(_geocomp_fn):
         try:
             coords = _geocomp_fn()
         except Exception:
