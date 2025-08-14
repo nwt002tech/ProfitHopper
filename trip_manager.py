@@ -4,13 +4,22 @@ import math
 from typing import List, Dict, Any, Optional
 import streamlit as st
 
-# --- Use your existing casino loader (names only) ---
+# --- Casino loaders (names and/or coords) ---
+_get_casinos = None
+_get_casinos_full = None
 try:
-    from data_loader_supabase import get_casinos as _get_casinos
+    from data_loader_supabase import get_casinos as _gc
+    _get_casinos = _gc
 except Exception:
     _get_casinos = None
+try:
+    # expected to return a DataFrame with at least: name, is_active, latitude, longitude (floats or None)
+    from data_loader_supabase import get_casinos_full as _gcf
+    _get_casinos_full = _gcf
+except Exception:
+    _get_casinos_full = None
 
-# --- Component (blue target) from your project ---
+# --- Browser geolocation (blue target) ---
 try:
     from browser_location import request_location, clear_location
 except Exception:
@@ -48,7 +57,28 @@ def _reset_trip_defaults() -> None:
 # =========================
 # Helpers
 # =========================
+def _to_float_or_none(v):
+    try:
+        if v is None: return None
+        if isinstance(v, (int, float)): return float(v)
+        s = str(v).strip()
+        if not s or s.lower() == "nan": return None
+        return float(s)
+    except Exception:
+        return None
+
+def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
+    lat1=_to_float_or_none(lat1); lon1=_to_float_or_none(lon1)
+    lat2=_to_float_or_none(lat2); lon2=_to_float_or_none(lon2)
+    if None in (lat1, lon1, lat2, lon2): return float("inf")
+    R=3958.7613
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1); dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
+    return 2 * R * math.asin(math.sqrt(a))
+
 def _load_casino_names() -> List[str]:
+    """Name list for the selectbox (unfiltered)."""
     names: List[str] = []
     try:
         if callable(_get_casinos):
@@ -60,8 +90,59 @@ def _load_casino_names() -> List[str]:
         names.append("Other...")
     return names
 
+def _filtered_casino_names_by_location(radius_mi: int) -> List[str]:
+    """
+    Returns names filtered by browser coords + radius if we have a coords dataframe,
+    otherwise returns the full names list.
+    """
+    # Require user coords
+    user_lat = st.session_state.get("client_lat")
+    user_lon = st.session_state.get("client_lon")
+    if user_lat is None or user_lon is None:
+        return _load_casino_names()
+
+    # Need a DF with lat/lon
+    df = None
+    if callable(_get_casinos_full):
+        try:
+            df = _get_casinos_full(active_only=True)
+        except Exception:
+            df = None
+    if df is None or getattr(df, "empty", True) or "name" not in df.columns:
+        return _load_casino_names()
+
+    # Normalize
+    df = df.copy()
+    if "is_active" in df.columns:
+        df = df[df["is_active"] == True]
+    for col in ("latitude", "longitude"):
+        if col in df.columns:
+            df[col] = [_to_float_or_none(v) for v in df[col]]
+
+    if "latitude" not in df.columns or "longitude" not in df.columns:
+        return _load_casino_names()
+
+    # Fix positive longitudes (common data-entry mistake in US)
+    try:
+        pos_ratio = float((df["longitude"] > 0).sum()) / max(1.0, float(len(df)))
+        if pos_ratio >= 0.8:
+            df["longitude"] = df["longitude"].apply(lambda x: -abs(x) if x is not None else None)
+    except Exception:
+        pass
+
+    # Compute distance and filter
+    df["distance_mi"] = df.apply(
+        lambda r: _haversine_miles(user_lat, user_lon, r.get("latitude"), r.get("longitude")), axis=1
+    )
+    within = df[df["distance_mi"].notna() & (df["distance_mi"] <= float(radius_mi))].copy()
+    if within.empty:
+        # fallback to all names if nothing in range
+        return _load_casino_names()
+
+    return sorted(within["name"].astype(str).tolist(), key=lambda s: s.lower())
+
 # =========================
-# Sidebar (with “Locate…” truly on same line as blue target)
+# Sidebar (inline caption + working location filter)
 # =========================
 def render_sidebar() -> None:
     initialize_trip_state()
@@ -71,16 +152,17 @@ def render_sidebar() -> None:
         disabled = bool(st.session_state.trip_started)
 
         # OUTER ROW: [ (blue target + text) ] [ radius ] [ Clear ]
-        col_left, col_radius, col_clear = st.columns([0.68, 0.19, 0.13])
+        left, col_radius, col_clear = st.columns([0.67, 0.22, 0.11])
 
-        # LEFT: make an INNER ROW to force text on the same line as the component
-        with col_left:
-            c_btn, c_txt = st.columns([0.20, 0.80])
+        # LEFT: inner columns to keep caption on the SAME line as the component
+        with left:
+            c_btn, c_txt = st.columns([0.32, 0.68])  # make button area wider so text doesn't wrap
             with c_btn:
-                # Always render the component button; it updates coords when clicked
+                # Always render; it updates coords when clicked
                 request_location()
             with c_txt:
-                st.caption("Locate casinos near me")
+                # Slightly stronger than caption to avoid wrapping/spacing quirks
+                st.markdown("<div style='padding-top:6px;'>Locate casinos near me</div>", unsafe_allow_html=True)
 
         with col_radius:
             radius = st.slider(
@@ -98,8 +180,11 @@ def render_sidebar() -> None:
                 clear_location()
                 st.rerun()
 
-        # Casino select directly below (unchanged behavior)
-        options = _load_casino_names() or ["(select casino)"]
+        # Casino select (NOW filtered by location if coords + coords DF exist)
+        options = _filtered_casino_names_by_location(int(st.session_state.trip_settings.get("nearby_radius", 30)))
+        if not options:
+            options = ["(select casino)"]
+
         current = st.session_state.trip_settings.get("casino", "")
         if current not in options and options:
             current = options[0]
@@ -110,14 +195,16 @@ def render_sidebar() -> None:
         sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if sel == "(select casino)" else sel
 
-        # Near‑me badge (unchanged; concise single line)
+        # Near‑me badge (concise)
         has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
         if has_coords:
-            st.caption(f"📍 near‑me: ON • radius: {int(st.session_state.trip_settings.get('nearby_radius',30))} mi")
+            # We can show a count if we want: len(options) excluding "Other..."
+            count = len([n for n in options if n != "Other..."])
+            st.caption(f"📍 near‑me: ON • radius: {int(st.session_state.trip_settings.get('nearby_radius',30))} mi • results: {count}")
         else:
             st.caption("📍 near‑me: OFF")
 
-        # Bankroll + Sessions on one row (unchanged)
+        # Bankroll + Sessions on one row
         c5, c6 = st.columns([0.6, 0.4])
         with c5:
             start_bankroll = st.number_input(
@@ -135,7 +222,7 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
         st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
-        # Start / Stop on one row (unchanged)
+        # Start / Stop on one row
         c7, c8 = st.columns(2)
         with c7:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
@@ -152,7 +239,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 # =========================
-# Public API (kept compatible)
+# Public API (unchanged)
 # =========================
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
