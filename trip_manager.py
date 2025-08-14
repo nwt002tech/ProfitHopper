@@ -1,11 +1,13 @@
 # trip_manager.py
-# Version: 2025-08-13-3
-# Change: Remove the “Share your location (one‑time to enable near‑me)” text.
-#         Keep original imports. Guard data_loader import to prevent hard crashes
-#         if the module/function isn’t available at import time.
+# Version: 2025-08-13-4
+# Changes:
+# - Removed the “Share your location (one‑time to enable near‑me)” text from the sidebar.
+# - Restores/guards original imports so prior behavior is preserved.
+# - ADDS: get_current_trip_sessions(), record_session_performance() to satisfy session_manager.py.
 
 from __future__ import annotations
-from typing import List, Optional, Set, Callable
+from typing import List, Optional, Set, Callable, Dict, Any
+from datetime import datetime, timezone
 
 import streamlit as st
 
@@ -79,9 +81,6 @@ def render_sidebar() -> None:
 
         # 🚫 Removed the line that previously displayed:
         # "Share your location (one‑time to enable near‑me)"
-
-        # If you still want to obtain location silently somewhere else in the app,
-        # you can call request_location() outside of a visible prompt.
 
         # --- Bankroll Controls ---
         total_bankroll = st.number_input(
@@ -165,22 +164,8 @@ def render_sidebar() -> None:
             st.write(", ".join(sorted(bl)))
 
 
-def _maybe_show_trip_data(loader: Optional[Callable] = None) -> None:
-    """Safely call a provided loader and show results if available."""
-    if loader is None:
-        return
-    try:
-        trip_data = loader()
-        if trip_data is not None:
-            st.subheader("Trip Data")
-            st.dataframe(trip_data)
-    except Exception:
-        # Non-fatal if loader is wired differently in your setup
-        pass
-
-
 # -----------------------------
-# Public API used by app.py
+# Public API used by app.py / session_manager.py
 # -----------------------------
 
 def get_session_bankroll() -> float:
@@ -221,6 +206,55 @@ def get_win_streak_factor(streak: Optional[int] = None) -> float:
     return 1.00 + bump
 
 
+def get_current_trip_sessions() -> List[Dict[str, Any]]:
+    """
+    Return a simple list of sessions with status derived from session_log and num_sessions.
+    Each item: {"index": int, "status": "done"|"pending", "result": float|None}
+    """
+    initialize_trip_state()
+    total = int(st.session_state.get("num_sessions", 0))
+    log: List[dict] = list(st.session_state.get("session_log", []))
+    sessions: List[Dict[str, Any]] = []
+
+    # Mark completed sessions based on log length; associate results where present
+    for i in range(total):
+        if i < len(log):
+            entry = log[i] if isinstance(log[i], dict) else {}
+            sessions.append({
+                "index": i + 1,
+                "status": "done",
+                "result": float(entry.get("delta", 0.0))
+            })
+        else:
+            sessions.append({
+                "index": i + 1,
+                "status": "pending",
+                "result": None
+            })
+    return sessions
+
+
+def record_session_performance(delta: float, notes: str = "") -> None:
+    """
+    Append a session result and update bankroll.
+    delta > 0 = profit, delta < 0 = loss.
+    """
+    initialize_trip_state()
+    # Update bankroll
+    st.session_state.current_bankroll = float(st.session_state.get("current_bankroll", 0.0)) + float(delta)
+
+    # Log entry
+    entry = {
+        "delta": float(delta),
+        "notes": str(notes) if notes else "",
+        "bankroll_after": float(st.session_state.current_bankroll),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    if "session_log" not in st.session_state:
+        st.session_state.session_log = []
+    st.session_state.session_log.append(entry)
+
+
 # -----------------------------
 # Helpers
 # -----------------------------
@@ -254,3 +288,17 @@ def _quick_kpis_html(session_bankroll: float, max_bet: float, stop_loss: float) 
       </div>
     </div>
     """
+
+
+def _maybe_show_trip_data(loader: Optional[Callable] = None) -> None:
+    """Safely call a provided loader and show results if available."""
+    if loader is None:
+        return
+    try:
+        trip_data = loader()
+        if trip_data is not None:
+            st.subheader("Trip Data")
+            st.dataframe(trip_data)
+    except Exception:
+        # Non-fatal if loader is wired differently in your setup
+        pass
