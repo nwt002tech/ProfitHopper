@@ -9,7 +9,6 @@ except Exception:
     _geo = None
 
 with st.sidebar:
-    st.markdown("**📍 Share your location** (one‑time to enable near‑me)")
     if _geo is not None:
         _coords = _geo(key="geo_widget_global")  # renders a visible button
         if _coords and "latitude" in _coords and "longitude" in _coords:
