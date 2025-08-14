@@ -1,16 +1,24 @@
 # trip_manager.py
-# Version: 2025-08-13-2
-# Change: Removed the “Share your location (one‑time to enable near‑me)” text from the sidebar.
-#         Restores original imports so prior working behavior is preserved.
+# Version: 2025-08-13-3
+# Change: Remove the “Share your location (one‑time to enable near‑me)” text.
+#         Keep original imports. Guard data_loader import to prevent hard crashes
+#         if the module/function isn’t available at import time.
 
 from __future__ import annotations
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Callable
 
 import streamlit as st
 
-# ✅ Keep your original imports so nothing breaks
-from data_loader import load_trip_data
-from browser_location import request_location  # still available if you use it elsewhere
+# --- Keep your original imports, but guard so ImportError won't crash the app ---
+try:
+    from data_loader import load_trip_data  # type: ignore
+except Exception:
+    load_trip_data = None  # type: ignore
+
+try:
+    from browser_location import request_location  # noqa: F401
+except Exception:
+    request_location = None  # type: ignore
 
 
 # -----------------------------
@@ -59,7 +67,7 @@ def initialize_trip_state(
 
 
 # -----------------------------
-# Sidebar (compact, with text removed)
+# Sidebar (compact; requested text removed)
 # -----------------------------
 
 def render_sidebar() -> None:
@@ -73,8 +81,7 @@ def render_sidebar() -> None:
         # "Share your location (one‑time to enable near‑me)"
 
         # If you still want to obtain location silently somewhere else in the app,
-        # you can call request_location() outside of this UI text.
-        # Example (commented): request_location()
+        # you can call request_location() outside of a visible prompt.
 
         # --- Bankroll Controls ---
         total_bankroll = st.number_input(
@@ -140,15 +147,8 @@ def render_sidebar() -> None:
             value=int(st.session_state.win_streak),
         )
 
-        # Optional: show any trip data you load (no changes here)
-        try:
-            trip_data = load_trip_data()
-            if trip_data is not None:
-                st.subheader("Trip Data")
-                st.dataframe(trip_data)
-        except Exception:
-            # Non-fatal if loader is wired differently in your setup
-            pass
+        # Optional: show any trip data you load (guarded)
+        _maybe_show_trip_data(load_trip_data)
 
         # Blacklist management
         st.subheader("Blacklist a Game")
@@ -163,6 +163,20 @@ def render_sidebar() -> None:
         if bl:
             st.caption("Currently blacklisted:")
             st.write(", ".join(sorted(bl)))
+
+
+def _maybe_show_trip_data(loader: Optional[Callable] = None) -> None:
+    """Safely call a provided loader and show results if available."""
+    if loader is None:
+        return
+    try:
+        trip_data = loader()
+        if trip_data is not None:
+            st.subheader("Trip Data")
+            st.dataframe(trip_data)
+    except Exception:
+        # Non-fatal if loader is wired differently in your setup
+        pass
 
 
 # -----------------------------
@@ -203,8 +217,7 @@ def get_win_streak_factor(streak: Optional[int] = None) -> float:
     """Return a small factor (>1 for positive streak)."""
     if streak is None:
         streak = int(st.session_state.get("win_streak", 0))
-    # Very gentle bump, capped
-    bump = min(max(streak, 0), 10) * 0.01
+    bump = min(max(streak, 0), 10) * 0.01  # gentle, capped
     return 1.00 + bump
 
 
