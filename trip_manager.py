@@ -1,20 +1,17 @@
 # trip_manager.py
-# Version: 2025-08-13-stable
-# Purpose:
-#   - Only remove the "Share your location (one‑time to enable near‑me)" text from the sidebar
-#   - Keep original behavior of requesting location (no visible text)
-#   - Provide the functions session_manager.py and app.py import:
-#       initialize_trip_state, render_sidebar,
-#       get_session_bankroll, get_current_bankroll,
-#       blacklist_game, get_blacklisted_games,
-#       get_volatility_adjustment, get_win_streak_factor,
-#       get_current_trip_sessions, record_session_performance
-#   - Lazy‑import load_trip_data to avoid ImportError at module import time
+# Version: 2025-08-13-stable-2
+# Changes in this version:
+#   - get_volatility_adjustment now accepts an optional parameter (default None)
+#     and falls back to st.session_state["volatility_bias"] if not provided.
+#   - Still removes ONLY the "Share your location (one‑time to enable near‑me)" text.
+#   - Keeps request_location behavior (no visible text).
+#   - Provides all functions imported by app.py/session_manager.py.
+#   - Lazy-imports load_trip_data inside render_sidebar() to avoid import-time errors.
 
 import streamlit as st
 from datetime import datetime, timezone
 
-# Keep location behavior; we just won't show the text line.
+# Keep location behavior; we just won't show the old text line.
 try:
     from browser_location import request_location
 except Exception:
@@ -36,7 +33,7 @@ def initialize_trip_state():
     if "num_sessions" not in ss:
         ss.num_sessions = 5
     if "session_log" not in ss:
-        ss.session_log = []        # list of dicts: {"delta": float, "notes": str, "bankroll_after": float, "timestamp_utc": str}
+        ss.session_log = []  # list of dicts
     if "blacklisted_games" not in ss:
         ss.blacklisted_games = set()
     if "volatility_bias" not in ss:
@@ -58,7 +55,7 @@ def render_sidebar():
         # 🚫 Removed the line:
         # st.sidebar.write("Share your location (one‑time to enable near‑me)")
 
-        # Keep original behavior—quietly request location if available
+        # Quietly request location if available (no visible prompt text)
         try:
             if request_location:
                 request_location()
@@ -108,17 +105,30 @@ def get_blacklisted_games():
     return list(st.session_state.blacklisted_games)
 
 
-def get_volatility_adjustment(volatility: str):
-    # Keep your simple mapping
-    if str(volatility).lower().startswith("low"):
+def get_volatility_adjustment(volatility: str | None = None):
+    """
+    Accepts an optional volatility string. If None, uses st.session_state['volatility_bias'].
+    Returns a small multiplier used elsewhere in analytics/scoring.
+    """
+    if volatility is None:
+        volatility = str(st.session_state.get("volatility_bias", "Medium"))
+
+    v = str(volatility).strip().lower()
+    if v.startswith("low"):
         return 0.9
-    if str(volatility).lower().startswith("high"):
+    if v.startswith("high"):
         return 1.1
     return 1.0  # Medium/default
 
 
-def get_win_streak_factor():
-    # Keep your placeholder behavior (can be enhanced later)
+def get_win_streak_factor(streak: int | None = None):
+    """
+    Optional streak param. If None, uses st.session_state['win_streak'].
+    Keep behavior gentle to avoid extreme swings.
+    """
+    if streak is None:
+        streak = int(st.session_state.get("win_streak", 0))
+    # Simple placeholder factor; safe and consistent
     return 1.0
 
 
