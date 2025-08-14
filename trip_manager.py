@@ -1,21 +1,14 @@
 # trip_manager.py
-# Version: 2025-08-13-stable-2
-# Changes in this version:
-#   - get_volatility_adjustment now accepts an optional parameter (default None)
-#     and falls back to st.session_state["volatility_bias"] if not provided.
-#   - Still removes ONLY the "Share your location (one‑time to enable near‑me)" text.
-#   - Keeps request_location behavior (no visible text).
-#   - Provides all functions imported by app.py/session_manager.py.
-#   - Lazy-imports load_trip_data inside render_sidebar() to avoid import-time errors.
+# Version: 2025-08-13-restore
+# Purpose: Restore original behavior; remove only the sidebar text line.
+# Exposes the functions app.py/session_manager.py import.
 
 import streamlit as st
 from datetime import datetime, timezone
 
-# Keep location behavior; we just won't show the old text line.
-try:
-    from browser_location import request_location
-except Exception:
-    request_location = None  # type: ignore
+# Keep your original imports so the rest of the app works as before
+from data_loader import load_trip_data
+from browser_location import request_location
 
 
 # -----------------------------
@@ -29,11 +22,13 @@ def initialize_trip_state():
     if "session_bankroll" not in ss:
         ss.session_bankroll = 0.0
     if "current_bankroll" not in ss:
+        # default current to total so UI doesn't show 0 until first update
         ss.current_bankroll = ss.total_bankroll
     if "num_sessions" not in ss:
         ss.num_sessions = 5
     if "session_log" not in ss:
-        ss.session_log = []  # list of dicts
+        # list of dicts: {"delta": float, "notes": str, "bankroll_after": float, "timestamp_utc": str}
+        ss.session_log = []
     if "blacklisted_games" not in ss:
         ss.blacklisted_games = set()
     if "volatility_bias" not in ss:
@@ -52,32 +47,25 @@ def render_sidebar():
     with st.sidebar:
         st.header("🛠️ compact sidebar")
 
-        # 🚫 Removed the line:
-        # st.sidebar.write("Share your location (one‑time to enable near‑me)")
+        # 🚫 Removed the display line per your request:
+        # st.sidebar.write("Share your location (one-time to enable near-me)")
 
-        # Quietly request location if available (no visible prompt text)
+        # Keep your original behavior—quietly request location if available
         try:
-            if request_location:
-                request_location()
+            request_location()
         except Exception:
-            pass  # never crash the UI for location issues
+            # never crash the UI over location issues
+            pass
 
-        # --- Trip data display (lazy import to avoid ImportError on module load) ---
-        load_trip_data = None
+        # Keep your original trip data display
         try:
-            from data_loader import load_trip_data as _load_trip_data  # type: ignore
-            load_trip_data = _load_trip_data
+            trip_data = load_trip_data()
+            if trip_data is not None:
+                st.subheader("Trip Data")
+                st.dataframe(trip_data)
         except Exception:
-            load_trip_data = None
-
-        if load_trip_data:
-            try:
-                trip_data = load_trip_data()
-                if trip_data is not None:
-                    st.subheader("Trip Data")
-                    st.dataframe(trip_data)
-            except Exception:
-                pass  # don't crash rendering if the loader throws
+            # don't break sidebar if loading fails
+            pass
 
 
 # -----------------------------
@@ -107,8 +95,8 @@ def get_blacklisted_games():
 
 def get_volatility_adjustment(volatility: str | None = None):
     """
-    Accepts an optional volatility string. If None, uses st.session_state['volatility_bias'].
-    Returns a small multiplier used elsewhere in analytics/scoring.
+    Optional string; if None, use st.session_state['volatility_bias'].
+    Returns a small multiplier for analytics/scoring.
     """
     if volatility is None:
         volatility = str(st.session_state.get("volatility_bias", "Medium"))
@@ -124,11 +112,10 @@ def get_volatility_adjustment(volatility: str | None = None):
 def get_win_streak_factor(streak: int | None = None):
     """
     Optional streak param. If None, uses st.session_state['win_streak'].
-    Keep behavior gentle to avoid extreme swings.
+    Keep behavior gentle (placeholder).
     """
     if streak is None:
         streak = int(st.session_state.get("win_streak", 0))
-    # Simple placeholder factor; safe and consistent
     return 1.0
 
 
