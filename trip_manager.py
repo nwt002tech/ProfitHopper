@@ -1,81 +1,167 @@
 # trip_manager.py
-# Version: 2025-08-13-minimal-2
-# Changes:
-#   - Removed the "Share your location (one‑time to enable near‑me)" text.
-#   - Moved `from data_loader import load_trip_data` into render_sidebar() to avoid ImportError at import time.
-# Everything else left as-is and simple.
+# Version: 2025-08-13-stable
+# Purpose:
+#   - Only remove the "Share your location (one‑time to enable near‑me)" text from the sidebar
+#   - Keep original behavior of requesting location (no visible text)
+#   - Provide the functions session_manager.py and app.py import:
+#       initialize_trip_state, render_sidebar,
+#       get_session_bankroll, get_current_bankroll,
+#       blacklist_game, get_blacklisted_games,
+#       get_volatility_adjustment, get_win_streak_factor,
+#       get_current_trip_sessions, record_session_performance
+#   - Lazy‑import load_trip_data to avoid ImportError at module import time
 
 import streamlit as st
-from browser_location import request_location  # keep as before
+from datetime import datetime, timezone
 
+# Keep location behavior; we just won't show the text line.
+try:
+    from browser_location import request_location
+except Exception:
+    request_location = None  # type: ignore
+
+
+# -----------------------------
+# Session State Setup
+# -----------------------------
 
 def initialize_trip_state():
-    if "total_bankroll" not in st.session_state:
-        st.session_state.total_bankroll = 0
-    if "session_bankroll" not in st.session_state:
-        st.session_state.session_bankroll = 0
-    if "current_bankroll" not in st.session_state:
-        st.session_state.current_bankroll = 0
-    if "session_log" not in st.session_state:
-        st.session_state.session_log = []
-    if "blacklisted_games" not in st.session_state:
-        st.session_state.blacklisted_games = set()
+    ss = st.session_state
+    if "total_bankroll" not in ss:
+        ss.total_bankroll = 0.0
+    if "session_bankroll" not in ss:
+        ss.session_bankroll = 0.0
+    if "current_bankroll" not in ss:
+        ss.current_bankroll = ss.total_bankroll
+    if "num_sessions" not in ss:
+        ss.num_sessions = 5
+    if "session_log" not in ss:
+        ss.session_log = []        # list of dicts: {"delta": float, "notes": str, "bankroll_after": float, "timestamp_utc": str}
+    if "blacklisted_games" not in ss:
+        ss.blacklisted_games = set()
+    if "volatility_bias" not in ss:
+        ss.volatility_bias = "Medium"
+    if "win_streak" not in ss:
+        ss.win_streak = 0
 
+
+# -----------------------------
+# Sidebar (with requested text removed)
+# -----------------------------
 
 def render_sidebar():
-    st.sidebar.header("🛠️ compact sidebar")
+    initialize_trip_state()
 
-    # 🚫 Removed the line:
-    # st.sidebar.write("Share your location (one‑time to enable near‑me)")
+    with st.sidebar:
+        st.header("🛠️ compact sidebar")
 
-    # Keep your original behavior of requesting location (no visible text)
-    try:
-        request_location()
-    except Exception:
-        pass  # never crash the sidebar for location issues
+        # 🚫 Removed the line:
+        # st.sidebar.write("Share your location (one‑time to enable near‑me)")
 
-    # Lazy-import to avoid ImportError at module import time
-    load_trip_data = None
-    try:
-        from data_loader import load_trip_data as _load_trip_data  # type: ignore
-        load_trip_data = _load_trip_data
-    except Exception:
-        load_trip_data = None
-
-    if load_trip_data:
+        # Keep original behavior—quietly request location if available
         try:
-            trip_data = load_trip_data()
-            if trip_data is not None:
-                st.sidebar.subheader("Trip Data")
-                st.sidebar.dataframe(trip_data)
+            if request_location:
+                request_location()
         except Exception:
-            pass  # do not crash UI if loader throws
+            pass  # never crash the UI for location issues
 
+        # --- Trip data display (lazy import to avoid ImportError on module load) ---
+        load_trip_data = None
+        try:
+            from data_loader import load_trip_data as _load_trip_data  # type: ignore
+            load_trip_data = _load_trip_data
+        except Exception:
+            load_trip_data = None
+
+        if load_trip_data:
+            try:
+                trip_data = load_trip_data()
+                if trip_data is not None:
+                    st.subheader("Trip Data")
+                    st.dataframe(trip_data)
+            except Exception:
+                pass  # don't crash rendering if the loader throws
+
+
+# -----------------------------
+# Public API used by app.py / session_manager.py
+# -----------------------------
 
 def get_session_bankroll():
-    return st.session_state.get("session_bankroll", 0)
+    return float(st.session_state.get("session_bankroll", 0.0))
 
 
 def get_current_bankroll():
-    return st.session_state.get("current_bankroll", 0)
+    # Falls back to total if current not yet set
+    return float(st.session_state.get("current_bankroll", st.session_state.get("total_bankroll", 0.0)))
 
 
-def blacklist_game(game_name):
-    st.session_state.blacklisted_games.add(game_name)
+def blacklist_game(game_name: str):
+    if "blacklisted_games" not in st.session_state:
+        st.session_state.blacklisted_games = set()
+    st.session_state.blacklisted_games.add(str(game_name))
 
 
 def get_blacklisted_games():
+    if "blacklisted_games" not in st.session_state:
+        return []
     return list(st.session_state.blacklisted_games)
 
 
-def get_volatility_adjustment(volatility):
-    if volatility == "Low":
+def get_volatility_adjustment(volatility: str):
+    # Keep your simple mapping
+    if str(volatility).lower().startswith("low"):
         return 0.9
-    elif volatility == "High":
+    if str(volatility).lower().startswith("high"):
         return 1.1
-    return 1.0
+    return 1.0  # Medium/default
 
 
 def get_win_streak_factor():
-    # Placeholder logic unchanged
+    # Keep your placeholder behavior (can be enhanced later)
     return 1.0
+
+
+def get_current_trip_sessions():
+    """
+    Return a simple list of sessions with status based on session_log and num_sessions.
+    Each item: {"index": int, "status": "done" | "pending", "result": float | None}
+    """
+    initialize_trip_state()
+    total = int(st.session_state.get("num_sessions", 0))
+    log = list(st.session_state.get("session_log", []))
+    sessions = []
+    for i in range(total):
+        if i < len(log):
+            entry = log[i] if isinstance(log[i], dict) else {}
+            sessions.append({
+                "index": i + 1,
+                "status": "done",
+                "result": float(entry.get("delta", 0.0))
+            })
+        else:
+            sessions.append({
+                "index": i + 1,
+                "status": "pending",
+                "result": None
+            })
+    return sessions
+
+
+def record_session_performance(delta: float, notes: str = ""):
+    """
+    Append a session result and update bankroll.
+    delta > 0 = profit, delta < 0 = loss.
+    """
+    initialize_trip_state()
+    # Update current bankroll
+    st.session_state.current_bankroll = float(st.session_state.get("current_bankroll", 0.0)) + float(delta)
+
+    # Log the session result
+    entry = {
+        "delta": float(delta),
+        "notes": str(notes) if notes else "",
+        "bankroll_after": float(st.session_state.current_bankroll),
+        "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    st.session_state.session_log.append(entry)
