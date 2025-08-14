@@ -71,7 +71,7 @@ def render_sidebar() -> None:
         disabled = bool(st.session_state.trip_started)
 
         # OUTER ROW: [ (blue target + text) ] [ radius ] [ Clear ]
-        col_left, col_radius, col_clear = st.columns([0.62, 0.23, 0.15])
+        col_left, col_radius, col_clear = st.columns([0.68, 0.19, 0.13])
 
         # LEFT: make an INNER ROW to force text on the same line as the component
         with col_left:
