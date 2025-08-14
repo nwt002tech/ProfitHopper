@@ -61,7 +61,7 @@ def _load_casino_names() -> List[str]:
     return names
 
 # =========================
-# Sidebar (with “Locate…” on same line as blue target)
+# Sidebar (with “Locate…” truly on same line as blue target)
 # =========================
 def render_sidebar() -> None:
     initialize_trip_state()
@@ -70,15 +70,19 @@ def render_sidebar() -> None:
 
         disabled = bool(st.session_state.trip_started)
 
-        # SINGLE ROW:
-        # [ blue target ] [ “Locate casinos near me” ] [ radius slider ] [ Clear ]
-        c1, c2, c3, c4 = st.columns([0.18, 0.42, 0.25, 0.15])
-        with c1:
-            # Render blue target component; when clicked it stores coords in session_state
-            request_location()
-        with c2:
-            st.caption("Locate casinos near me")
-        with c3:
+        # OUTER ROW: [ (blue target + text) ] [ radius ] [ Clear ]
+        col_left, col_radius, col_clear = st.columns([0.62, 0.23, 0.15])
+
+        # LEFT: make an INNER ROW to force text on the same line as the component
+        with col_left:
+            c_btn, c_txt = st.columns([0.20, 0.80])
+            with c_btn:
+                # Always render the component button; it updates coords when clicked
+                request_location()
+            with c_txt:
+                st.caption("Locate casinos near me")
+
+        with col_radius:
             radius = st.slider(
                 "Radius (miles)",
                 min_value=5, max_value=300, step=5,
@@ -88,7 +92,8 @@ def render_sidebar() -> None:
                 disabled=disabled,
             )
             st.session_state.trip_settings["nearby_radius"] = int(radius)
-        with c4:
+
+        with col_clear:
             if st.button("Clear", use_container_width=True):
                 clear_location()
                 st.rerun()
@@ -112,7 +117,7 @@ def render_sidebar() -> None:
         else:
             st.caption("📍 near‑me: OFF")
 
-        # Bankroll + Sessions on one row (kept as-is)
+        # Bankroll + Sessions on one row (unchanged)
         c5, c6 = st.columns([0.6, 0.4])
         with c5:
             start_bankroll = st.number_input(
@@ -130,7 +135,7 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
         st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
-        # Start / Stop on one row (kept as-is)
+        # Start / Stop on one row (unchanged)
         c7, c8 = st.columns(2)
         with c7:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
