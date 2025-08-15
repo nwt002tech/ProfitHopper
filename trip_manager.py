@@ -137,7 +137,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     if df.empty:
         return _all_casino_names(), dbg
 
-    # Fix common US longitude sign issue
+    # Fix common US longitude sign issue (positives)
     try:
         pos_ratio = float((df[lon_col] > 0).sum()) / max(1.0, float(len(df)))
         if pos_ratio >= 0.8:
@@ -161,7 +161,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (blue target + SAME‑LINE label) ==============
+# ============== Sidebar (blue target + SAME‑LINE label; clear keeps icon) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -172,12 +172,10 @@ def render_sidebar() -> None:
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
-            # --- Render component and overlay the label inside the SAME column ---
-            skip_once = st.session_state.pop("_ph_skip_geo_once", False)
-            if not skip_once:
-                request_location_component_once()
+            # Always render the component so the icon never disappears
+            request_location_component_once()
 
-            # Overlay label: same column, nudged right & up to sit on the same line
+            # Overlay label in the SAME column; nudge to sit on the same row as the icon
             st.markdown(
                 """
                 <div style="
@@ -204,9 +202,9 @@ def render_sidebar() -> None:
 
         with col_clear:
             if st.button("Clear", use_container_width=True, key="ph_clear_btn"):
+                # Only clear coords + reset casino; keep component visible
                 clear_location()
                 st.session_state.trip_settings["casino"] = ""
-                st.session_state["_ph_skip_geo_once"] = True
                 st.rerun()
 
         # Casino select (filtered if coords present)
