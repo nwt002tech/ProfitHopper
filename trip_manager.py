@@ -185,13 +185,12 @@ def render_sidebar() -> None:
                         del st.session_state[k]
 
             # Vertically centered label next to the icon (same column)
-            ICON_BOX_H = 36  # px  (try 32–40 if your target renders taller/shorter)
+            ICON_BOX_H = 32  # px  (try 32–40 if your target renders taller/shorter)
             MARGIN_UP  = 30  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
 
             st.markdown("""
     <div style="display: flex; align-items: center; gap: 8px;">
-        <div id="geo_widget_in_sidebar"></div>
-        <span style="font-size: 14px;">Locate casinos near me</span>
+        <div id="geo_widget_in_sidebar"></div><span style="font-size: 14px;">Locate casinos near me</span>
     </div>
 """, unsafe_allow_html=True)
 
