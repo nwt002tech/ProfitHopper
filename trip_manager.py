@@ -5,17 +5,19 @@ from typing import List, Dict, Any, Optional, Tuple
 import streamlit as st
 import pandas as pd
 
-# Your Supabase loaders
+# Loaders (use your existing implementations)
 from data_loader_supabase import get_casinos, get_casinos_full
 
-# Geolocation helpers (icon + label row, clear)
-from browser_location import render_location_row, clear_location
+# Use your EXISTING working component helpers (do not modify browser_location.py)
+from browser_location import request_location_component_once, clear_location
 
 
-# ============== Session ==============
+# ===================== Session setup =====================
 def initialize_trip_state() -> None:
-    if "trip_started" not in st.session_state: st.session_state.trip_started = False
-    if "current_trip_id" not in st.session_state: st.session_state.current_trip_id = 0
+    if "trip_started" not in st.session_state:
+        st.session_state.trip_started = False
+    if "current_trip_id" not in st.session_state:
+        st.session_state.current_trip_id = 0
     if "trip_settings" not in st.session_state or not isinstance(st.session_state.trip_settings, dict):
         st.session_state.trip_settings = {
             "casino": "",
@@ -23,10 +25,14 @@ def initialize_trip_state() -> None:
             "num_sessions": 3,
             "nearby_radius": 30,
         }
-    if "trip_bankrolls" not in st.session_state: st.session_state.trip_bankrolls = {}
-    if "blacklisted_games" not in st.session_state: st.session_state.blacklisted_games = set()
-    if "recent_profits" not in st.session_state: st.session_state.recent_profits = []
-    if "session_log" not in st.session_state: st.session_state.session_log = []
+    if "trip_bankrolls" not in st.session_state:
+        st.session_state.trip_bankrolls = {}
+    if "blacklisted_games" not in st.session_state:
+        st.session_state.blacklisted_games = set()
+    if "recent_profits" not in st.session_state:
+        st.session_state.recent_profits = []
+    if "session_log" not in st.session_state:
+        st.session_state.session_log = []
 
 
 def _reset_trip_defaults() -> None:
@@ -38,26 +44,33 @@ def _reset_trip_defaults() -> None:
     }
 
 
-# ============== Helpers ==============
+# ===================== Helpers =====================
 def _to_float_or_none(v):
     try:
-        if v is None: return None
-        if isinstance(v, (int, float)): return float(v)
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
         s = str(v).strip()
-        if s == "" or s.lower() in ("nan", "none", "null"): return None
+        if s == "" or s.lower() in ("nan", "none", "null"):
+            return None
         return float(s)
     except Exception:
         return None
 
 
 def _haversine_miles(lat1, lon1, lat2, lon2) -> float:
-    lat1=_to_float_or_none(lat1); lon1=_to_float_or_none(lon1)
-    lat2=_to_float_or_none(lat2); lon2=_to_float_or_none(lon2)
-    if None in (lat1, lon1, lat2, lon2): return float("inf")
-    R=3958.7613
+    lat1 = _to_float_or_none(lat1)
+    lon1 = _to_float_or_none(lon1)
+    lat2 = _to_float_or_none(lat2)
+    lon2 = _to_float_or_none(lon2)
+    if None in (lat1, lon1, lat2, lon2):
+        return float("inf")
+    R = 3958.7613  # miles
     p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1); dlmb = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dlmb/2)**2
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
     return 2 * R * math.asin(math.sqrt(a))
 
 
@@ -161,22 +174,41 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (icon + label on SAME line; Clear truly resets) ==============
+# ===================== Sidebar (icon + label SAME line) =====================
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.markdown("### 🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # OUTER ROW: [ (icon+label row) ] [ radius ] [ Clear ]
+        # OUTER ROW: [ (icon+label) ] [ radius ] [ Clear ]
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
             # One-run guard so Clear doesn't instantly re-capture coords:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
-            # Render the blue target + label together IN ONE ROW (robust alignment)
-            render_location_row("Locate casinos near me")
+            # ---- INLINE ROW: icon and label in the SAME layout row ----
+            # Important: calling the component inside its own column keeps it visible & inline.
+            icon_col, label_col = st.columns([0.20, 0.80], gap="small")
+            with icon_col:
+                # If your component expects a key, add it back: key="geo_widget_in_sidebar"
+                request_location_component_once()
+            with label_col:
+                st.markdown(
+                    """
+                    <div style="
+                        height: 32px;            /* tweak 30–36 to match icon box in your theme */
+                        display: flex;
+                        align-items: center;     /* vertical alignment */
+                        font-size: 0.90rem;
+                        white-space: nowrap;     /* keep on one line */
+                    ">
+                        Locate casinos near me
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             # If we just cleared, discard any coords the component might have returned this run
             if skip_once:
@@ -186,9 +218,12 @@ def render_sidebar() -> None:
 
         with col_radius:
             radius = st.slider(
-                "Radius (miles)", 5, 300,
+                "Radius (miles)",
+                5, 300,
                 value=int(st.session_state.trip_settings.get("nearby_radius", 30)),
-                step=5, key="tm_nearby_radius", label_visibility="collapsed",
+                step=5,
+                key="tm_nearby_radius",
+                label_visibility="collapsed",
                 disabled=disabled,
             )
             st.session_state.trip_settings["nearby_radius"] = int(radius)
@@ -230,13 +265,17 @@ def render_sidebar() -> None:
         c5, c6 = st.columns([0.6, 0.4])
         with c5:
             start_bankroll = st.number_input(
-                "Total Bankroll ($)", min_value=0.0, step=10.0,
+                "Total Bankroll ($)",
+                min_value=0.0,
+                step=10.0,
                 value=float(st.session_state.trip_settings.get("starting_bankroll", 200.0)),
                 disabled=disabled
             )
         with c6:
             num_sessions = st.number_input(
-                "Sessions", min_value=1, step=1,
+                "Sessions",
+                min_value=1,
+                step=1,
                 value=int(st.session_state.trip_settings.get("num_sessions", 3)),
                 disabled=disabled
             )
@@ -261,18 +300,20 @@ def render_sidebar() -> None:
                 st.rerun()
 
 
-# ============== Public API (unchanged) ==============
+# ===================== Public API (unchanged) =====================
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
     total = float(ts.get("starting_bankroll", 0.0) or 0.0)
     n = int(ts.get("num_sessions", 1) or 1)
     return total / max(1, n)
 
+
 def get_current_bankroll() -> float:
     tid = st.session_state.get("current_trip_id", 0)
     if tid in st.session_state.trip_bankrolls:
         return float(st.session_state.trip_bankrolls[tid])
     return float(st.session_state.trip_settings.get("starting_bankroll", 0.0))
+
 
 def get_win_streak_factor() -> float:
     profits = st.session_state.get("recent_profits", [])
@@ -286,6 +327,7 @@ def get_win_streak_factor() -> float:
         return max(0.85, 1.0 + (avg / max(40.0, abs(avg)) * 0.15))
     return 1.0
 
+
 def get_volatility_adjustment() -> float:
     profits = st.session_state.get("recent_profits", [])
     if len(profits) < 3:
@@ -296,16 +338,20 @@ def get_volatility_adjustment() -> float:
     std_clamped = min(200.0, std)
     return 1.1 - (std_clamped / 200.0) * 0.2
 
+
 def get_blacklisted_games() -> List[str]:
     return sorted(list(st.session_state.blacklisted_games))
 
+
 def blacklist_game(game_name: str) -> None:
     st.session_state.blacklisted_games.add(game_name)
+
 
 def get_current_trip_sessions() -> List[Dict[str, Any]]:
     tid = st.session_state.get("current_trip_id", 0)
     sessions = st.session_state.get("session_log", [])
     return [s for s in sessions if s.get("trip_id") == tid]
+
 
 def record_session_performance(profit: float) -> None:
     arr = st.session_state.get("recent_profits", [])
