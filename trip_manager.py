@@ -161,7 +161,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (blue target + SAME‑LINE label; clear keeps icon) ==============
+# ============== Sidebar (blue target + SAME‑LINE label; Clear truly resets) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -172,10 +172,19 @@ def render_sidebar() -> None:
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
+            # One-run guard so Clear doesn't instantly re-capture coords:
+            skip_once = st.session_state.pop("_ph_skip_geo_once", False)
+
             # Always render the component so the icon never disappears
             request_location_component_once()
 
-            # Overlay label in the SAME column; nudge to sit on the same row as the icon
+            # If we just cleared, discard any coords the component might have returned this run
+            if skip_once:
+                for k in ("client_lat", "client_lon", "client_geo_source"):
+                    if k in st.session_state:
+                        del st.session_state[k]
+
+            # Overlay label in the SAME column; nudged to sit on the same row as the icon
             st.markdown(
                 """
                 <div style="
@@ -202,9 +211,11 @@ def render_sidebar() -> None:
 
         with col_clear:
             if st.button("Clear", use_container_width=True, key="ph_clear_btn"):
-                # Only clear coords + reset casino; keep component visible
+                # Clear coords + reset casino; keep component visible
                 clear_location()
                 st.session_state.trip_settings["casino"] = ""
+                # Tell next run to ignore any immediate component output
+                st.session_state["_ph_skip_geo_once"] = True
                 st.rerun()
 
         # Casino select (filtered if coords present)
