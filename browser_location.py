@@ -1,72 +1,59 @@
 from __future__ import annotations
+from typing import Optional, Tuple
 
 import streamlit as st
 
-# NOTE: this module wraps the working “blue target” geolocation component
-# you already have wired up. If your project has a function with a different
-# name that renders the target, import/alias it here.
+# Prefer the component API name "geolocation", but support "streamlit_geolocation"
+_geocomp = None
 try:
-    # Your existing component wrapper (works today)
-    from browser_location import request_location_component_once as _existing_component  # type: ignore
+    from streamlit_geolocation import geolocation as _geo_fn
+    _geocomp = _geo_fn
 except Exception:
-    _existing_component = None
-
-# If the import above caused recursion (same file), define a minimal shim.
-# Replace this with your actual component function if needed.
-def _component_shim():
-    """Fallback no-op shim if import above can’t resolve (keeps file drop-in safe)."""
-    # If you *must* call the real component here, replace this shim with it.
-    # Leaving empty so the file is safe to import. The real app should already
-    # have a proper component function (as you confirmed earlier).
-    pass
+    try:
+        from streamlit_geolocation import streamlit_geolocation as _geo_fn2
+        _geocomp = _geo_fn2
+    except Exception:
+        _geocomp = None
 
 
-def request_location_component_once() -> None:
+def _to_float_or_none(v):
+    try:
+        if v is None:
+            return None
+        return float(v)
+    except Exception:
+        return None
+
+
+def request_location(label: str = "Get my location") -> Tuple[Optional[float], Optional[float], str]:
     """
-    Render the existing blue-target component exactly once per run.
-    Delegates to your already-working component function.
+    Renders the blue target component button.
+    When clicked by the user, returns (lat, lon, 'component') and stores them in session_state.
+    If component unavailable, returns (None, None, 'none').
     """
-    if _existing_component and callable(_existing_component):
-        _existing_component()
-    else:
-        _component_shim()
+    if _geocomp is None:
+        return None, None, "none"
+
+    # Render the component (it shows a button/target that the user clicks)
+    try:
+        coords = _geocomp()
+    except Exception:
+        coords = None
+
+    if isinstance(coords, dict):
+        lat = _to_float_or_none(coords.get("latitude"))
+        lon = _to_float_or_none(coords.get("longitude"))
+        if lat is not None and lon is not None:
+            st.session_state["client_lat"] = float(lat)
+            st.session_state["client_lon"] = float(lon)
+            st.session_state["client_geo_source"] = "component"
+            return float(lat), float(lon), "component"
+
+    return None, None, "none"
 
 
 def clear_location() -> None:
-    """
-    Clear any stored coords. Caller usually sets a one-run guard as well.
-    """
+    """Remove any saved browser coordinates from the session."""
     for k in ("client_lat", "client_lon", "client_geo_source"):
         if k in st.session_state:
             del st.session_state[k]
-
-
-def render_location_row(label_text: str = "Locate casinos near me") -> None:
-    """
-    Render the blue target and the label in the same row, vertically centered.
-    This is the reliable place to do the alignment because the component is
-    inserted here (inside the same layout container).
-
-    Usage from trip_manager.py:
-        render_location_row("Locate casinos near me")
-    """
-    # Draw a small two-column row inside the sidebar: [icon][label]
-    # Keep the icon column narrow so the label stays on the same line.
-    icon_col, label_col = st.columns([0.20, 0.80], gap="small")
-    with icon_col:
-        request_location_component_once()
-    with label_col:
-        st.markdown(
-            """
-            <div style="
-                height: 32px;             /* approximate component box height (tweak 28–36 if needed) */
-                display: flex;
-                align-items: center;      /* vertical centering */
-                font-size: 0.90rem;
-                white-space: nowrap;      /* prevent wrapping on narrow sidebars */
-            ">
-                %s
-            </div>
-            """ % label_text,
-            unsafe_allow_html=True,
-        )
