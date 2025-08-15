@@ -176,14 +176,14 @@ def render_sidebar() -> None:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
             # -- Inline two-column row for PERFECT alignment
-            r_icon, r_label = st.columns([0.6, 0.82])
+            r_icon, r_label = st.columns([0.6, 0.10])
             with r_icon:
                 request_location_component_once()
             with r_label:
                 st.markdown(
                     """
                     <div style="
-                        height: 5px;              /* match the icon's visual box (tweak 32–40 if needed) */
+                        height: 3px;              /* match the icon's visual box (tweak 32–40 if needed) */
                         display: flex;
                         align-items: center;       /* vertical centering */
                         font-size: 0.90rem;
