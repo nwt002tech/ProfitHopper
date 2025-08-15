@@ -5,11 +5,14 @@ from typing import List, Dict, Any, Optional, Tuple
 import streamlit as st
 import pandas as pd
 
+# Supabase loaders in your project
 from data_loader_supabase import get_casinos, get_casinos_full
-from browser_location import request_location_inline, clear_location
+
+# Component-based geolocation (blue target)
+from browser_location import request_location_component_once, clear_location
 
 
-# ---------- Session ----------
+# ============== Session ==============
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state: st.session_state.trip_started = False
     if "current_trip_id" not in st.session_state: st.session_state.current_trip_id = 0
@@ -35,7 +38,7 @@ def _reset_trip_defaults() -> None:
     }
 
 
-# ---------- Helpers ----------
+# ============== Helpers ==============
 def _to_float_or_none(v):
     try:
         if v is None: return None
@@ -83,11 +86,9 @@ def _ensure_df(obj) -> Optional[pd.DataFrame]:
 
 
 def _pick_name_column(df: pd.DataFrame) -> Optional[str]:
-    # Accept common variants
     for cand in ("name", "casino", "casino_name", "title"):
         if cand in df.columns:
             return cand
-    # case-insensitive fallback
     low = {c.lower(): c for c in df.columns}
     for cand in ("name", "casino", "casino_name", "title"):
         if cand in low:
@@ -136,7 +137,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     if df.empty:
         return _all_casino_names(), dbg
 
-    # Fix common US longitude sign issue
+    # Fix common US longitude sign issue (positives)
     try:
         pos_ratio = float((df[lon_col] > 0).sum()) / max(1.0, float(len(df)))
         if pos_ratio >= 0.8:
@@ -160,20 +161,33 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ---------- Sidebar ----------
+# ============== Sidebar (blue target + inline label) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.markdown("### 🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # Row 1: single-line control + radius + clear
-        col_btn, col_radius, col_clear = st.columns([0.62, 0.23, 0.15])
+        # OUTER ROW: [ (blue target + label) ] [ radius ] [ clear ]
+        left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
-        with col_btn:
-            if st.button("🎯 Locate casinos near me", use_container_width=True, disabled=disabled, key="ph_locate_btn"):
-                request_location_inline()
-                st.rerun()
+        with left:
+            # INNER ROW forces label inline with the component
+            c_btn, c_txt = st.columns([0.25, 0.75])
+            with c_btn:
+                # Render the component. If the user clicks the target, coords are set.
+                # If the last run was a Clear-triggered rerun, skip once to avoid instant re-capture.
+                skip_once = st.session_state.pop("_ph_skip_geo_once", False)
+                if not skip_once:
+                    request_location_component_once()
+            with c_txt:
+                # Keep the label on the same visual line using flex
+                st.markdown(
+                    "<div style='display:flex;align-items:center;height:32px;font-size:0.86rem;'>"
+                    "Locate casinos near me"
+                    "</div>",
+                    unsafe_allow_html=True,
+                )
 
         with col_radius:
             radius = st.slider(
@@ -188,6 +202,7 @@ def render_sidebar() -> None:
             if st.button("Clear", use_container_width=True, key="ph_clear_btn"):
                 clear_location()
                 st.session_state.trip_settings["casino"] = ""
+                st.session_state["_ph_skip_geo_once"] = True
                 st.rerun()
 
         # Casino select (filtered if coords present)
@@ -205,7 +220,7 @@ def render_sidebar() -> None:
         choice = st.selectbox("Casino", options=names, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if choice == "(select casino)" else choice
 
-        # Badge with a tiny debug tail (so we can see if it's filtering)
+        # Badge with small debug tail so we can verify filtering live
         have_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
         if have_coords:
             count = len([n for n in names if n != "Other..."])
@@ -251,7 +266,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 
-# ---------- Public API ----------
+# ============== Public API (unchanged) ==============
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
     total = float(ts.get("starting_bankroll", 0.0) or 0.0)

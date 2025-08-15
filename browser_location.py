@@ -2,15 +2,17 @@ from __future__ import annotations
 from typing import Optional, Tuple, Any
 import streamlit as st
 
+# Try both exported names across package versions
+_geocomp = None
 try:
-    from streamlit_js_eval import streamlit_js_eval
+    from streamlit_geolocation import geolocation as _geo_fn
+    _geocomp = _geo_fn
 except Exception:
-    streamlit_js_eval = None
-
-try:
-    from streamlit_javascript import st_javascript
-except Exception:
-    st_javascript = None
+    try:
+        from streamlit_geolocation import streamlit_geolocation as _geo_fn2
+        _geocomp = _geo_fn2
+    except Exception:
+        _geocomp = None
 
 
 def _to_float_or_none(v: Any) -> Optional[float]:
@@ -27,65 +29,42 @@ def _to_float_or_none(v: Any) -> Optional[float]:
         return None
 
 
-def _get_coords_with_st_javascript() -> Tuple[Optional[float], Optional[float]]:
-    if st_javascript is None:
-        return None, None
-    js = """
-    const getPos = () => new Promise((resolve) => {
-      if (!navigator.geolocation) { resolve(null); return; }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve([pos.coords.latitude, pos.coords.longitude]),
-        () => resolve(null),
-        {enableHighAccuracy:true, timeout:10000, maximumAge:0}
-      );
-    });
-    await getPos();
+def request_location_component_once() -> Tuple[Optional[float], Optional[float], str]:
     """
+    Render the geolocation *component* and capture coords *if* the user clicks it.
+    No label is passed (some versions don't support extra kwargs).
+    Saves:
+      - st.session_state['client_lat']
+      - st.session_state['client_lon']
+      - st.session_state['client_geo_source'] = 'component'
+    Returns (lat, lon, 'component') if obtained this run else (None, None, 'none').
+    """
+    if _geocomp is None:
+        return None, None, "none"
+
+    # Some builds reject kwargs (like key/label). Call bare; Streamlit will handle identity by call site.
     try:
-        res = st_javascript(js)
-        if isinstance(res, (list, tuple)) and len(res) == 2:
-            return _to_float_or_none(res[0]), _to_float_or_none(res[1])
+        data = _geocomp()
+    except TypeError:
+        # If the current build rejects kwargs OR bare calls, just swallow and return no coords.
+        return None, None, "none"
     except Exception:
-        pass
-    return None, None
+        return None, None, "none"
 
+    if isinstance(data, dict):
+        lat = _to_float_or_none(data.get("latitude"))
+        lon = _to_float_or_none(data.get("longitude"))
+        if lat is not None and lon is not None:
+            st.session_state["client_lat"] = float(lat)
+            st.session_state["client_lon"] = float(lon)
+            st.session_state["client_geo_source"] = "component"
+            return float(lat), float(lon), "component"
 
-def _get_coords_with_js_eval() -> Tuple[Optional[float], Optional[float]]:
-    if streamlit_js_eval is None:
-        return None, None
-    expr = (
-        "await new Promise((resolve)=>{"
-        " if(!navigator.geolocation){resolve(null);return;}"
-        " navigator.geolocation.getCurrentPosition("
-        "   (p)=>resolve([p.coords.latitude,p.coords.longitude]),"
-        "   ()=>resolve(null),"
-        "   {enableHighAccuracy:true,timeout:10000,maximumAge:0}"
-        " );"
-        "});"
-    )
-    try:
-        res = streamlit_js_eval(js_expressions=expr, key="ph_js_geo_get")
-        if isinstance(res, (list, tuple)) and len(res) == 2:
-            return _to_float_or_none(res[0]), _to_float_or_none(res[1])
-    except Exception:
-        pass
-    return None, None
-
-
-def request_location_inline() -> Tuple[Optional[float], Optional[float], str]:
-    """Call from a button click to get coords. Saves into session_state on success."""
-    lat, lon = _get_coords_with_st_javascript()
-    if lat is None or lon is None:
-        lat, lon = _get_coords_with_js_eval()
-    if lat is not None and lon is not None:
-        st.session_state["client_lat"] = float(lat)
-        st.session_state["client_lon"] = float(lon)
-        st.session_state["client_geo_source"] = "js"
-        return float(lat), float(lon), "js"
     return None, None, "none"
 
 
 def clear_location() -> None:
+    """Remove any saved browser coordinates from the session."""
     for k in ("client_lat", "client_lon", "client_geo_source"):
         if k in st.session_state:
             del st.session_state[k]
