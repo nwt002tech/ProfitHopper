@@ -188,24 +188,12 @@ def render_sidebar() -> None:
             ICON_BOX_H = 36  # px  (try 32–40 if your target renders taller/shorter)
             MARGIN_UP  = 30  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
 
-            st.markdown(
-                f"""
-                <div style="
-                    position: relative;
-                    margin-top: -{MARGIN_UP}px;   /* pull label up onto the component row */
-                    margin-left: 44px;            /* push label to the right of the icon */
-                    height: {ICON_BOX_H}px;       /* match icon visual height */
-                    display: flex;
-                    align-items: center;          /* vertical centering */
-                    font-size: 0.90rem;
-                    line-height: 1.2;
-                    white-space: nowrap;
-                ">
-                    Locate casinos near me
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.markdown("""
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <div id="geo_widget_in_sidebar"></div>
+        <span style="font-size: 14px;">Locate casinos near me</span>
+    </div>
+""", unsafe_allow_html=True)
 
         with col_radius:
             radius = st.slider(
