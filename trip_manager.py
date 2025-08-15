@@ -8,7 +8,7 @@ import pandas as pd
 # Your Supabase loaders
 from data_loader_supabase import get_casinos, get_casinos_full
 
-# Geolocation via the blue target component
+# Geolocation via the blue target component (wrapped)
 from browser_location import request_location_component_once, clear_location
 
 
@@ -161,7 +161,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (blue target + SAME‑LINE label; Clear truly resets) ==============
+# ============== Sidebar (blue target + SAME-LINE label, vertically centered; Clear truly resets) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -184,15 +184,20 @@ def render_sidebar() -> None:
                     if k in st.session_state:
                         del st.session_state[k]
 
-            # Overlay label in the SAME column; nudged to sit on the same row as the icon
+            # --- Label overlay, vertically centered next to the icon ---
+            # Assumes the icon's visual box ~32px tall; we vertically center the text to match it.
             st.markdown(
                 """
                 <div style="
                     position: relative;
-                    margin-top: -28px;   /* pull label up onto the component row */
-                    margin-left: 40px;   /* push label to the right of the icon */
+                    margin-top: -28px;      /* pull label up onto the component row (tweak -24 to -34 if needed) */
+                    margin-left: 40px;      /* push label to the right of the icon (tweak 36–48 if needed) */
+                    height: 32px;           /* match the icon's height */
+                    display: flex;
+                    align-items: center;    /* vertical centering */
                     font-size: 0.86rem;
                     line-height: 1.2;
+                    white-space: nowrap;
                 ">
                     Locate casinos near me
                 </div>
