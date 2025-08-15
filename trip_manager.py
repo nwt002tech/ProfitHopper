@@ -161,38 +161,45 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (blue target + SAME-LINE label, vertically centered; Clear truly resets) ==============
+# ============== Sidebar (icon + label aligned; Clear truly resets) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.markdown("### 🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # OUTER ROW: [ (component+label) ] [ radius ] [ Clear ]
+        # OUTER ROW: [ (icon+label) ] [ radius ] [ Clear ]
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
             # One-run guard so Clear doesn't instantly re-capture coords:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
-            # Always render the component so the icon never disappears
-            request_location_component_once()
+            # -- Inline two-column row for PERFECT alignment
+            r_icon, r_label = st.columns([0.18, 0.82])
+            with r_icon:
+                request_location_component_once()
+            with r_label:
+                st.markdown(
+                    """
+                    <div style="
+                        height: 36px;              /* match the icon's visual box (tweak 32–40 if needed) */
+                        display: flex;
+                        align-items: center;       /* vertical centering */
+                        font-size: 0.90rem;
+                        white-space: nowrap;
+                    ">
+                        Locate casinos near me
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
             # If we just cleared, discard any coords the component might have returned this run
             if skip_once:
                 for k in ("client_lat", "client_lon", "client_geo_source"):
                     if k in st.session_state:
                         del st.session_state[k]
-
-            # Vertically centered label next to the icon (same column)
-            ICON_BOX_H = 34  # px  (try 32–40 if your target renders taller/shorter)
-            MARGIN_UP  = 0  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
-
-            st.markdown("""
-    <div style="display: flex; align-items: center; gap: 4px;">
-        <div id="geo_widget_in_sidebar"></div><span style="font-size: 14px;">Locate casinos near me</span>
-    </div>
-""", unsafe_allow_html=True)
 
         with col_radius:
             radius = st.slider(
@@ -205,10 +212,8 @@ def render_sidebar() -> None:
 
         with col_clear:
             if st.button("Clear", use_container_width=True, key="ph_clear_btn"):
-                # Clear coords + reset casino; keep component visible
                 clear_location()
                 st.session_state.trip_settings["casino"] = ""
-                # Tell next run to ignore any immediate component output
                 st.session_state["_ph_skip_geo_once"] = True
                 st.rerun()
 
