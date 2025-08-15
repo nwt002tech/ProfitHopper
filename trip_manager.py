@@ -185,8 +185,7 @@ def render_sidebar() -> None:
                         del st.session_state[k]
 
             # Vertically centered label next to the icon (same column)
-            # Adjust ONLY these two values if needed for your theme:
-            ICON_BOX_H = 36  # px  (try 32–40 depending on how the target renders in your theme)
+            ICON_BOX_H = 36  # px  (try 32–40 if your target renders taller/shorter)
             MARGIN_UP  = 30  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
 
             st.markdown(
@@ -302,7 +301,7 @@ def get_current_bankroll() -> float:
 
 def get_win_streak_factor() -> float:
     profits = st.session_state.get("recent_profits", [])
-    if len(profits < 3):
+    if len(profits) < 3:
         return 1.0
     last = profits[-5:]
     avg = sum(last) / len(last)
