@@ -1,9 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Tuple, Any
-
 import streamlit as st
 
-# Optional JS helpers (both are in your requirements)
 try:
     from streamlit_js_eval import streamlit_js_eval
 except Exception:
@@ -22,7 +20,7 @@ def _to_float_or_none(v: Any) -> Optional[float]:
         if isinstance(v, (int, float)):
             return float(v)
         s = str(v).strip()
-        if not s or s.lower() == "nan":
+        if not s or s.lower() in ("nan", "none", "null"):
             return None
         return float(s)
     except Exception:
@@ -30,7 +28,6 @@ def _to_float_or_none(v: Any) -> Optional[float]:
 
 
 def _get_coords_with_st_javascript() -> Tuple[Optional[float], Optional[float]]:
-    """Try geolocation via streamlit_javascript (Promise)."""
     if st_javascript is None:
         return None, None
     js = """
@@ -54,7 +51,6 @@ def _get_coords_with_st_javascript() -> Tuple[Optional[float], Optional[float]]:
 
 
 def _get_coords_with_js_eval() -> Tuple[Optional[float], Optional[float]]:
-    """Fallback: geolocation via streamlit_js_eval."""
     if streamlit_js_eval is None:
         return None, None
     expr = (
@@ -77,27 +73,19 @@ def _get_coords_with_js_eval() -> Tuple[Optional[float], Optional[float]]:
 
 
 def request_location_inline() -> Tuple[Optional[float], Optional[float], str]:
-    """
-    No UI. Just tries to fetch browser coords via JS and stores them:
-      session_state['client_lat'], ['client_lon'], ['client_geo_source'] = 'js'
-    Returns (lat, lon, 'js') if found, else (None, None, 'none').
-    """
-    # Try st_javascript first (usually more reliable on Streamlit Cloud)
+    """Call from a button click to get coords. Saves into session_state on success."""
     lat, lon = _get_coords_with_st_javascript()
     if lat is None or lon is None:
         lat, lon = _get_coords_with_js_eval()
-
     if lat is not None and lon is not None:
         st.session_state["client_lat"] = float(lat)
         st.session_state["client_lon"] = float(lon)
         st.session_state["client_geo_source"] = "js"
         return float(lat), float(lon), "js"
-
     return None, None, "none"
 
 
 def clear_location() -> None:
-    """Remove any saved browser coordinates from the session."""
     for k in ("client_lat", "client_lon", "client_geo_source"):
         if k in st.session_state:
             del st.session_state[k]

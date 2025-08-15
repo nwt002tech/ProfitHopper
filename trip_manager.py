@@ -1,21 +1,15 @@
 from __future__ import annotations
 
 import math
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import streamlit as st
+import pandas as pd
 
-import pandas as pd  # for robust DF handling
-
-# Your Supabase loaders
 from data_loader_supabase import get_casinos, get_casinos_full
-
-# JS geolocation (no extra UI)
 from browser_location import request_location_inline, clear_location
 
 
-# =========================
-# Session state
-# =========================
+# ---------- Session ----------
 def initialize_trip_state() -> None:
     if "trip_started" not in st.session_state: st.session_state.trip_started = False
     if "current_trip_id" not in st.session_state: st.session_state.current_trip_id = 0
@@ -41,9 +35,7 @@ def _reset_trip_defaults() -> None:
     }
 
 
-# =========================
-# Helpers
-# =========================
+# ---------- Helpers ----------
 def _to_float_or_none(v):
     try:
         if v is None: return None
@@ -74,144 +66,120 @@ def _all_casino_names() -> List[str]:
     return names
 
 
-def _ensure_dataframe(obj) -> Optional[pd.DataFrame]:
-    """Coerce list/dict/DF to DataFrame, or None."""
-    try:
-        if obj is None:
-            return None
-        if isinstance(obj, pd.DataFrame):
-            return obj
-        if isinstance(obj, list):
-            if not obj:
-                return pd.DataFrame()
-            if isinstance(obj[0], dict):
-                return pd.DataFrame(obj)
-            return pd.DataFrame(obj, columns=["name"])
-        if isinstance(obj, dict):
-            return pd.DataFrame([obj])
+def _ensure_df(obj) -> Optional[pd.DataFrame]:
+    if obj is None:
         return None
-    except Exception:
-        return None
-
-
-def _pick_coord_columns(df: pd.DataFrame) -> Optional[tuple[str, str]]:
-    """Find coordinate column names among common patterns."""
-    cols = {c.lower(): c for c in df.columns}
-    candidates = [
-        ("latitude", "longitude"),
-        ("lat", "lon"),
-        ("lat", "lng"),
-    ]
-    for a, b in candidates:
-        if a in cols and b in cols:
-            return cols[a], cols[b]
+    if isinstance(obj, pd.DataFrame):
+        return obj.copy()
+    if isinstance(obj, list):
+        if not obj:
+            return pd.DataFrame()
+        if isinstance(obj[0], dict):
+            return pd.DataFrame(obj)
+        return pd.DataFrame(obj, columns=["name"])
+    if isinstance(obj, dict):
+        return pd.DataFrame([obj])
     return None
 
 
-def _filtered_casino_names_by_location(radius_mi: int) -> tuple[List[str], dict]:
-    """
-    Filter casino names by browser coords + radius.
-    Returns (names, debug_info).
-    Falls back to full list if no coords or no matches, but exposes why via debug.
-    """
-    dbg = {"source": None, "coords": None, "rows": 0, "with_coords": 0, "in_range": 0}
+def _pick_name_column(df: pd.DataFrame) -> Optional[str]:
+    # Accept common variants
+    for cand in ("name", "casino", "casino_name", "title"):
+        if cand in df.columns:
+            return cand
+    # case-insensitive fallback
+    low = {c.lower(): c for c in df.columns}
+    for cand in ("name", "casino", "casino_name", "title"):
+        if cand in low:
+            return low[cand]
+    return None
+
+
+def _pick_coord_columns(df: pd.DataFrame) -> Optional[Tuple[str, str]]:
+    low = {c.lower(): c for c in df.columns}
+    for a, b in (("latitude", "longitude"), ("lat", "lon"), ("lat", "lng")):
+        if a in low and b in low:
+            return low[a], low[b]
+    return None
+
+
+def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]:
+    dbg = {"have_user_coords": False, "rows": 0, "with_coords": 0, "in_range": 0}
 
     user_lat = st.session_state.get("client_lat")
     user_lon = st.session_state.get("client_lon")
     if user_lat is None or user_lon is None:
-        names = _all_casino_names()
-        dbg["source"] = "no_user_coords"
-        dbg["coords"] = None
-        dbg["rows"] = 0
-        return names, dbg
+        return _all_casino_names(), dbg
 
-    dbg["coords"] = (float(user_lat), float(user_lon))
-    dbg["source"] = st.session_state.get("client_geo_source", "js")
+    dbg["have_user_coords"] = True
 
     raw = get_casinos_full(active_only=True)
-    df = _ensure_dataframe(raw)
-    if df is None or df.empty or "name" not in df.columns:
-        names = _all_casino_names()
-        dbg["rows"] = 0
-        return names, dbg
-
+    df = _ensure_df(raw)
+    if df is None or df.empty:
+        return _all_casino_names(), dbg
     dbg["rows"] = int(len(df))
 
-    # Only active
     if "is_active" in df.columns:
         df = df[df["is_active"] == True]
 
-    # Find coord columns
-    pair = _pick_coord_columns(df)
-    if pair is None:
-        names = _all_casino_names()
-        return names, dbg
-    lat_col, lon_col = pair
+    name_col = _pick_name_column(df)
+    coord_pair = _pick_coord_columns(df)
+    if not name_col or not coord_pair:
+        return _all_casino_names(), dbg
+    lat_col, lon_col = coord_pair
 
-    # Clean coords
-    df = df.copy()
+    df = df[[name_col, lat_col, lon_col]].copy()
     df[lat_col] = df[lat_col].apply(_to_float_or_none)
     df[lon_col] = df[lon_col].apply(_to_float_or_none)
-    df_coords = df[df[lat_col].notna() & df[lon_col].notna()].copy()
-    dbg["with_coords"] = int(len(df_coords))
+    df = df[df[lat_col].notna() & df[lon_col].notna()].copy()
+    dbg["with_coords"] = int(len(df))
+    if df.empty:
+        return _all_casino_names(), dbg
 
-    if df_coords.empty:
-        names = _all_casino_names()
-        return names, dbg
-
-    # Fix US longitude sign if majority positive
+    # Fix common US longitude sign issue
     try:
-        pos_ratio = float((df_coords[lon_col] > 0).sum()) / max(1.0, float(len(df_coords)))
+        pos_ratio = float((df[lon_col] > 0).sum()) / max(1.0, float(len(df)))
         if pos_ratio >= 0.8:
-            df_coords[lon_col] = df_coords[lon_col].apply(lambda x: -abs(x) if x is not None else None)
+            df[lon_col] = df[lon_col].apply(lambda x: -abs(x) if x is not None else None)
     except Exception:
         pass
 
-    # Distances
-    df_coords["distance_mi"] = df_coords.apply(
-        lambda r: _haversine_miles(user_lat, user_lon, r.get(lat_col), r.get(lon_col)),
-        axis=1,
+    df["distance_mi"] = df.apply(
+        lambda r: _haversine_miles(user_lat, user_lon, r.get(lat_col), r.get(lon_col)), axis=1
     )
-    within = df_coords[df_coords["distance_mi"].notna() & (df_coords["distance_mi"] <= float(radius_mi))].copy()
+    within = df[df["distance_mi"].notna() & (df["distance_mi"] <= float(radius_mi))].copy()
     dbg["in_range"] = int(len(within))
 
     if within.empty:
-        # show all so user isn't stuck, but debug shows why
         names = _all_casino_names()
     else:
-        names = sorted(within["name"].astype(str).tolist(), key=lambda s: s.lower())
+        names = sorted(within[name_col].astype(str).tolist(), key=lambda s: s.lower())
         if "Other..." not in names:
             names.append("Other...")
 
     return names, dbg
 
 
-# =========================
-# Sidebar (single-row control + Clear + filtering)
-# =========================
+# ---------- Sidebar ----------
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.markdown("### 🎯 Trip Settings")
-
         disabled = bool(st.session_state.trip_started)
 
-        # ROW 1: [ 🎯 Locate casinos near me ] [ Radius slider ] [ Clear ]
+        # Row 1: single-line control + radius + clear
         col_btn, col_radius, col_clear = st.columns([0.62, 0.23, 0.15])
 
         with col_btn:
-            # Single control with icon + text => always same line
             if st.button("🎯 Locate casinos near me", use_container_width=True, disabled=disabled, key="ph_locate_btn"):
                 request_location_inline()
                 st.rerun()
 
         with col_radius:
             radius = st.slider(
-                "Radius (miles)",
-                min_value=5, max_value=300, step=5,
+                "Radius (miles)", 5, 300,
                 value=int(st.session_state.trip_settings.get("nearby_radius", 30)),
-                key="tm_nearby_radius",
-                label_visibility="collapsed",
+                step=5, key="tm_nearby_radius", label_visibility="collapsed",
                 disabled=disabled,
             )
             st.session_state.trip_settings["nearby_radius"] = int(radius)
@@ -222,33 +190,33 @@ def render_sidebar() -> None:
                 st.session_state.trip_settings["casino"] = ""
                 st.rerun()
 
-        # Casino select (filtered by location if coords present)
-        options, dbg = _filtered_casino_names_by_location(int(st.session_state.trip_settings.get("nearby_radius", 30)))
-        if not options:
-            options = ["(select casino)"]
+        # Casino select (filtered if coords present)
+        names, dbg = _filtered_casino_names_by_location(int(st.session_state.trip_settings.get("nearby_radius", 30)))
+        if not names:
+            names = ["(select casino)"]
 
         current = st.session_state.trip_settings.get("casino", "")
-        if current not in options and options:
-            current = options[0]
+        if current not in names and names:
+            current = names[0]
         try:
-            idx = options.index(current)
+            idx = names.index(current)
         except Exception:
             idx = 0
-        sel = st.selectbox("Casino", options=options, index=idx, disabled=disabled)
-        st.session_state.trip_settings["casino"] = "" if sel == "(select casino)" else sel
+        choice = st.selectbox("Casino", options=names, index=idx, disabled=disabled)
+        st.session_state.trip_settings["casino"] = "" if choice == "(select casino)" else choice
 
-        # Near‑me badge with results + tiny debug (so we can confirm it’s working)
-        has_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
-        if has_coords:
-            count = len([n for n in options if n != "Other..."])
+        # Badge with a tiny debug tail (so we can see if it's filtering)
+        have_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
+        if have_coords:
+            count = len([n for n in names if n != "Other..."])
             st.caption(
                 f"📍 near‑me: ON • radius: {int(st.session_state.trip_settings.get('nearby_radius',30))} mi • results: {count} "
-                f"• dbg: {dbg.get('source')}, rows:{dbg.get('rows')}, coords:{dbg.get('with_coords')}, in:{dbg.get('in_range')}"
+                f"• rows:{dbg.get('rows')} coords:{dbg.get('with_coords')} in:{dbg.get('in_range')}"
             )
         else:
             st.caption("📍 near‑me: OFF")
 
-        # Bankroll + Sessions on one row
+        # Bankroll + Sessions row
         c5, c6 = st.columns([0.6, 0.4])
         with c5:
             start_bankroll = st.number_input(
@@ -266,7 +234,7 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
         st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
-        # Start / Stop on one row
+        # Start / Stop row
         c7, c8 = st.columns(2)
         with c7:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
@@ -283,9 +251,7 @@ def render_sidebar() -> None:
                 st.rerun()
 
 
-# =========================
-# Public API (unchanged)
-# =========================
+# ---------- Public API ----------
 def get_session_bankroll() -> float:
     ts = st.session_state.trip_settings
     total = float(ts.get("starting_bankroll", 0.0) or 0.0)
