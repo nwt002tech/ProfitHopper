@@ -176,7 +176,7 @@ def render_sidebar() -> None:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
             # -- Inline two-column row for PERFECT alignment
-            r_icon, r_label = st.columns([0.18, 0.82])
+            r_icon, r_label = st.columns([0.6, 0.82])
             with r_icon:
                 request_location_component_once()
             with r_label:
