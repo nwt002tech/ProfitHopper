@@ -189,7 +189,7 @@ def render_sidebar() -> None:
             MARGIN_UP  = 6  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
 
             st.markdown("""
-    <div style="display: flex; align-items: center; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 4px;">
         <div id="geo_widget_in_sidebar"></div><span style="font-size: 14px;">Locate casinos near me</span>
     </div>
 """, unsafe_allow_html=True)
