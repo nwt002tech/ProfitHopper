@@ -168,7 +168,7 @@ def render_sidebar() -> None:
         st.markdown("### 🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # OUTER ROW: [ (component+label overlay) ] [ radius ] [ Clear ]
+        # OUTER ROW: [ (component+label) ] [ radius ] [ Clear ]
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
@@ -184,18 +184,21 @@ def render_sidebar() -> None:
                     if k in st.session_state:
                         del st.session_state[k]
 
-            # --- Label overlay, vertically centered next to the icon ---
-            # Assumes the icon's visual box ~32px tall; we vertically center the text to match it.
+            # Vertically centered label next to the icon (same column)
+            # Adjust ONLY these two values if needed for your theme:
+            ICON_BOX_H = 36  # px  (try 32–40 depending on how the target renders in your theme)
+            MARGIN_UP  = 30  # px  (usually ICON_BOX_H - ~6 to overlay on the same row)
+
             st.markdown(
-                """
+                f"""
                 <div style="
                     position: relative;
-                    margin-top: -28px;      /* pull label up onto the component row (tweak -24 to -34 if needed) */
-                    margin-left: 40px;      /* push label to the right of the icon (tweak 36–48 if needed) */
-                    height: 32px;           /* match the icon's height */
+                    margin-top: -{MARGIN_UP}px;   /* pull label up onto the component row */
+                    margin-left: 44px;            /* push label to the right of the icon */
+                    height: {ICON_BOX_H}px;       /* match icon visual height */
                     display: flex;
-                    align-items: center;    /* vertical centering */
-                    font-size: 0.86rem;
+                    align-items: center;          /* vertical centering */
+                    font-size: 0.90rem;
                     line-height: 1.2;
                     white-space: nowrap;
                 ">
@@ -299,7 +302,7 @@ def get_current_bankroll() -> float:
 
 def get_win_streak_factor() -> float:
     profits = st.session_state.get("recent_profits", [])
-    if len(profits) < 3:
+    if len(profits < 3):
         return 1.0
     last = profits[-5:]
     avg = sum(last) / len(last)
