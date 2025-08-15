@@ -8,7 +8,7 @@ import pandas as pd
 # Loaders (use your existing implementations)
 from data_loader_supabase import get_casinos, get_casinos_full
 
-# Use your EXISTING working component helpers (do not modify browser_location.py)
+# Use your working component helpers
 from browser_location import request_location_component_once, clear_location
 
 
@@ -134,7 +134,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     dbg["rows"] = int(len(df))
 
     if "is_active" in df.columns:
-        df = df[df["is_active"] == True]
+        df = df[df["is_active"] is True] if df["is_active"].dtype == bool else df[df["is_active"] == True]
 
     name_col = _pick_name_column(df)
     coord_pair = _pick_coord_columns(df)
@@ -189,10 +189,9 @@ def render_sidebar() -> None:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
             # ---- INLINE ROW: icon and label in the SAME layout row ----
-            # Important: calling the component inside its own column keeps it visible & inline.
             icon_col, label_col = st.columns([0.20, 0.80], gap="small")
             with icon_col:
-                # If your component expects a key, add it back: key="geo_widget_in_sidebar"
+                # If your component previously needed a specific key, add it back here
                 request_location_component_once()
             with label_col:
                 st.markdown(
