@@ -8,7 +8,7 @@ import pandas as pd
 # Loaders (use your existing implementations)
 from data_loader_supabase import get_casinos, get_casinos_full
 
-# Use your working component helpers
+# Your working component helpers (leave browser_location.py as-is)
 from browser_location import request_location_component_once, clear_location
 
 
@@ -117,6 +117,18 @@ def _pick_coord_columns(df: pd.DataFrame) -> Optional[Tuple[str, str]]:
     return None
 
 
+def _coerce_active_mask(series: pd.Series) -> pd.Series:
+    """Return a boolean mask from a heterogeneous 'is_active' column."""
+    try:
+        if series.dtype == bool:
+            return series
+        # handle 1/0, 't'/'f', 'true'/'false', 'yes'/'no'
+        return series.apply(lambda x: str(x).strip().lower() in ("true", "t", "1", "yes"))
+    except Exception:
+        # Fallback: only exact True
+        return series == True  # noqa: E712
+
+
 def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]:
     dbg = {"have_user_coords": False, "rows": 0, "with_coords": 0, "in_range": 0}
 
@@ -133,8 +145,14 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
         return _all_casino_names(), dbg
     dbg["rows"] = int(len(df))
 
+    # --- robust active filter (or skip if column missing) ---
     if "is_active" in df.columns:
-        df = df[df["is_active"] is True] if df["is_active"].dtype == bool else df[df["is_active"] == True]
+        try:
+            mask = _coerce_active_mask(df["is_active"])
+            df = df[mask]
+        except Exception:
+            # if anything odd, don't filter out rows
+            pass
 
     name_col = _pick_name_column(df)
     coord_pair = _pick_coord_columns(df)
@@ -188,26 +206,34 @@ def render_sidebar() -> None:
             # One-run guard so Clear doesn't instantly re-capture coords:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
-            # ---- INLINE ROW: icon and label in the SAME layout row ----
-            icon_col, label_col = st.columns([0.20, 0.80], gap="small")
-            with icon_col:
-                # If your component previously needed a specific key, add it back here
+            # 1) Render the component first (keeps it visible). It may trigger a rerun.
+            try:
+                # If your component expects a key, add it here:
+                # request_location_component_once(key="geo_widget_in_sidebar")
                 request_location_component_once()
-            with label_col:
-                st.markdown(
-                    """
-                    <div style="
-                        height: 32px;            /* tweak 30–36 to match icon box in your theme */
-                        display: flex;
-                        align-items: center;     /* vertical alignment */
-                        font-size: 0.90rem;
-                        white-space: nowrap;     /* keep on one line */
-                    ">
-                        Locate casinos near me
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            except Exception as e:
+                st.warning(f"Location component error: {e}")
+
+            # 2) Put the label visually on the same row via a tiny, sidebar-scoped CSS tweak.
+            #    This avoids fighting the component's iframe height on narrow sidebars.
+            st.markdown(
+                """
+                <style>
+                div[data-testid="stSidebar"] .ph-nearme-label {
+                    position: relative;
+                    margin-top: -28px;   /* pull onto the icon row (tweak -24..-32) */
+                    margin-left: 44px;   /* push right of icon (tweak 38..52)       */
+                    height: 32px;        /* match icon box height (tweak 30..36)    */
+                    display: flex;
+                    align-items: center;
+                    font-size: 0.90rem;
+                    white-space: nowrap;
+                }
+                </style>
+                <div class="ph-nearme-label">Locate casinos near me</div>
+                """,
+                unsafe_allow_html=True,
+            )
 
             # If we just cleared, discard any coords the component might have returned this run
             if skip_once:
