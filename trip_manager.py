@@ -183,7 +183,7 @@ def render_sidebar() -> None:
                 st.markdown(
                     """
                     <div style="
-                        height: 10px;              /* match the icon's visual box (tweak 32–40 if needed) */
+                        height: 5px;              /* match the icon's visual box (tweak 32–40 if needed) */
                         display: flex;
                         align-items: center;       /* vertical centering */
                         font-size: 0.90rem;
