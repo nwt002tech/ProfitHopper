@@ -161,7 +161,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (icon + label aligned; Clear truly resets) ==============
+# ============== Sidebar (icon + label on SAME line, vertically centered; Clear truly resets) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
@@ -175,31 +175,43 @@ def render_sidebar() -> None:
             # One-run guard so Clear doesn't instantly re-capture coords:
             skip_once = st.session_state.pop("_ph_skip_geo_once", False)
 
-            # -- Inline two-column row for PERFECT alignment
-            r_icon, r_label = st.columns([0.6, 0.10])
-            with r_icon:
-                request_location_component_once()
-            with r_label:
-                st.markdown(
-                    """
-                    <div style="
-                        height: 3px;              /* match the icon's visual box (tweak 32–40 if needed) */
-                        display: flex;
-                        align-items: center;       /* vertical centering */
-                        font-size: 0.90rem;
-                        white-space: nowrap;
-                    ">
-                        Locate casinos near me
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+            # Always render the component so the icon never disappears
+            request_location_component_once()
 
             # If we just cleared, discard any coords the component might have returned this run
             if skip_once:
                 for k in ("client_lat", "client_lon", "client_geo_source"):
                     if k in st.session_state:
                         del st.session_state[k]
+
+            # === LABEL INLINE WITH ICON ===
+            # We place the label in the SAME column and pull it up onto the same line.
+            # The CSS ensures the text is vertically centered next to the icon.
+            st.markdown(
+                """
+                <style>
+                /* Scope to the sidebar only */
+                div[data-testid="stSidebar"] .ph-nearme-label {
+                    position: relative;
+                    margin-top: -28px;     /* pull label onto the icon's line (tweak -24 to -34) */
+                    margin-left: 42px;     /* push label to the right of the icon (tweak 36–48) */
+                    height: 32px;          /* approximate icon box height; tweak 28–36 if needed */
+                    display: flex;
+                    align-items: center;   /* vertical centering */
+                    font-size: 0.90rem;
+                    white-space: nowrap;
+                }
+                /* Narrow sidebars: small nudge */
+                @media (max-width: 420px) {
+                    div[data-testid="stSidebar"] .ph-nearme-label {
+                        margin-left: 36px;
+                    }
+                }
+                </style>
+                <div class="ph-nearme-label">Locate casinos near me</div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         with col_radius:
             radius = st.slider(
