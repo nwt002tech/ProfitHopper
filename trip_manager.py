@@ -5,10 +5,10 @@ from typing import List, Dict, Any, Optional, Tuple
 import streamlit as st
 import pandas as pd
 
-# Supabase loaders in your project
+# Your Supabase loaders
 from data_loader_supabase import get_casinos, get_casinos_full
 
-# Component-based geolocation (blue target)
+# Geolocation via the blue target component
 from browser_location import request_location_component_once, clear_location
 
 
@@ -137,7 +137,7 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     if df.empty:
         return _all_casino_names(), dbg
 
-    # Fix common US longitude sign issue (positives)
+    # Fix common US longitude sign issue
     try:
         pos_ratio = float((df[lon_col] > 0).sum()) / max(1.0, float(len(df)))
         if pos_ratio >= 0.8:
@@ -161,33 +161,37 @@ def _filtered_casino_names_by_location(radius_mi: int) -> Tuple[List[str], dict]
     return names, dbg
 
 
-# ============== Sidebar (blue target + inline label) ==============
+# ============== Sidebar (blue target + SAME‑LINE label) ==============
 def render_sidebar() -> None:
     initialize_trip_state()
     with st.sidebar:
         st.markdown("### 🎯 Trip Settings")
         disabled = bool(st.session_state.trip_started)
 
-        # OUTER ROW: [ (blue target + label) ] [ radius ] [ clear ]
+        # OUTER ROW: [ (component+label overlay) ] [ radius ] [ Clear ]
         left, col_radius, col_clear = st.columns([0.68, 0.22, 0.10])
 
         with left:
-            # INNER ROW forces label inline with the component
-            c_btn, c_txt = st.columns([0.25, 0.75])
-            with c_btn:
-                # Render the component. If the user clicks the target, coords are set.
-                # If the last run was a Clear-triggered rerun, skip once to avoid instant re-capture.
-                skip_once = st.session_state.pop("_ph_skip_geo_once", False)
-                if not skip_once:
-                    request_location_component_once()
-            with c_txt:
-                # Keep the label on the same visual line using flex
-                st.markdown(
-                    "<div style='display:flex;align-items:center;height:32px;font-size:0.86rem;'>"
-                    "Locate casinos near me"
-                    "</div>",
-                    unsafe_allow_html=True,
-                )
+            # --- Render component and overlay the label inside the SAME column ---
+            skip_once = st.session_state.pop("_ph_skip_geo_once", False)
+            if not skip_once:
+                request_location_component_once()
+
+            # Overlay label: same column, nudged right & up to sit on the same line
+            st.markdown(
+                """
+                <div style="
+                    position: relative;
+                    margin-top: -28px;   /* pull label up onto the component row */
+                    margin-left: 40px;   /* push label to the right of the icon */
+                    font-size: 0.86rem;
+                    line-height: 1.2;
+                ">
+                    Locate casinos near me
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         with col_radius:
             radius = st.slider(
@@ -220,7 +224,7 @@ def render_sidebar() -> None:
         choice = st.selectbox("Casino", options=names, index=idx, disabled=disabled)
         st.session_state.trip_settings["casino"] = "" if choice == "(select casino)" else choice
 
-        # Badge with small debug tail so we can verify filtering live
+        # Badge with small debug tail
         have_coords = ("client_lat" in st.session_state) and ("client_lon" in st.session_state)
         if have_coords:
             count = len([n for n in names if n != "Other..."])
@@ -231,7 +235,7 @@ def render_sidebar() -> None:
         else:
             st.caption("📍 near‑me: OFF")
 
-        # Bankroll + Sessions row
+        # Bankroll + Sessions
         c5, c6 = st.columns([0.6, 0.4])
         with c5:
             start_bankroll = st.number_input(
@@ -249,7 +253,7 @@ def render_sidebar() -> None:
         st.session_state.trip_settings["num_sessions"] = int(num_sessions)
         st.caption(f"Per‑session: ${get_session_bankroll():,.2f}")
 
-        # Start / Stop row
+        # Start / Stop
         c7, c8 = st.columns(2)
         with c7:
             if st.button("Start New Trip", disabled=st.session_state.trip_started, use_container_width=True):
