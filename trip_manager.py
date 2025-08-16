@@ -1,3 +1,4 @@
+# trip_manager.py
 from __future__ import annotations
 
 import math
@@ -24,9 +25,9 @@ except Exception:
         a = sin(dlat/2)**2 + cos(radians(a_lat))*cos(radians(b_lat))*sin(dlon/2)**2
         return 2 * R * asin(sqrt(a))
 
-# Optional: your blue target renderer (kept for UX continuity)
+# Optional: your visual blue target renderer (kept for UX continuity)
 try:
-    from browser_location import render_geo_target  # renders icon only; not required anymore
+    from browser_location import render_geo_target  # purely visual; not required now
 except Exception:
     render_geo_target = None
 
@@ -39,19 +40,18 @@ def initialize_trip_state() -> None:
         "near_me": False,
         "nearby_radius": 30,
         "selected_casino": None,
-        "casino": None,           # keep for session_manager.py
+        "casino": None,               # for session_manager compatibility
         "selected_game": None,
+        "starting_bankroll": 0.0,     # for session_manager compatibility
     })
-    # coordinate stores (support BOTH shapes, since your app has used both)
+    # coordinate stores
     st.session_state.setdefault("user_coords", None)   # {"lat":..,"lon":..}
-    st.session_state.setdefault("client_lat", None)    # float
-    st.session_state.setdefault("client_lon", None)    # float
     st.session_state.setdefault("geo_source", None)
 
     # track last toggle state to detect ON transitions
     st.session_state.setdefault("_ph_prev_nearme", False)
 
-    # optional analytics knobs used elsewhere
+    # analytics knobs used elsewhere (safe defaults)
     st.session_state.setdefault("win_streak_factor", 1.0)
     st.session_state.setdefault("volatility_adjustment", 1.0)
 
@@ -100,7 +100,7 @@ def render_sidebar() -> None:
         _inject_compact_css()
         st.markdown("### 🎯 Trip Settings")
 
-        # --- top row: icon + label (same line), toggle triggers geolocation + filter ---
+        # --- top row: icon + label (same line), switch that also fetches location ---
         _near_row_and_controls(ts)
 
         # --- casino selector (filtered if near_me + coords present) ---
@@ -129,7 +129,7 @@ def render_sidebar() -> None:
 
 
 def _near_row_and_controls(ts: Dict[str, Any]) -> None:
-    # 1) Render your icon (visual only). The switch will actually trigger geolocation.
+    # 1) Icon (visual only). The switch will actually trigger geolocation.
     if render_geo_target:
         render_geo_target()
     else:
@@ -138,15 +138,15 @@ def _near_row_and_controls(ts: Dict[str, Any]) -> None:
     # 2) Label on the same line (CSS keeps it beside the icon)
     st.markdown('<div class="ph-nearme-label">Locate casinos near me</div>', unsafe_allow_html=True)
 
-    # 3) Toggle — when turned ON, immediately request browser geolocation and filter
+    # 3) Switch — when turned ON, immediately request browser geolocation and filter
     prev = bool(st.session_state.get("_ph_prev_nearme", False))
     ts["near_me"] = st.toggle("Use near-me filter", value=bool(ts.get("near_me", False)),
                               label_visibility="collapsed")
     st.session_state["_ph_prev_nearme"] = bool(ts["near_me"])
 
-    # If switched ON and we don't yet have coords, request them now (user gesture just happened)
-    if ts["near_me"] and not prev and (_get_coords() is None):
-        _request_coords_via_switch()  # sets coords into session if permission granted
+    # If switched ON and we don't yet have coords, request them now (same user gesture)
+    if ts["near_me"] and not prev and (st.session_state.get("user_coords") is None):
+        _request_coords_via_switch()  # writes coords -> reruns on success
 
     # 4) Radius slider (compact)
     ts["nearby_radius"] = int(st.slider("Radius (mi)", 5, 300, int(ts.get("nearby_radius", 30)),
@@ -156,8 +156,6 @@ def _near_row_and_controls(ts: Dict[str, Any]) -> None:
     if st.button("Clear", key="ph_clear_loc", use_container_width=True):
         ts["near_me"] = False
         st.session_state["user_coords"] = None
-        st.session_state["client_lat"] = None
-        st.session_state["client_lon"] = None
         st.session_state["geo_source"] = None
         st.session_state["_ph_prev_nearme"] = False
         st.rerun()
@@ -166,7 +164,7 @@ def _near_row_and_controls(ts: Dict[str, Any]) -> None:
     if not ts["near_me"]:
         st.caption(f"📍 near-me: OFF • radius: {ts['nearby_radius']} mi")
     else:
-        coords = _get_coords()
+        coords = st.session_state.get("user_coords")
         if not coords:
             st.caption(f"📍 near-me: ON • radius: {ts['nearby_radius']} mi • waiting for location")
         else:
@@ -175,14 +173,12 @@ def _near_row_and_controls(ts: Dict[str, Any]) -> None:
 
 def _request_coords_via_switch() -> None:
     """
-    Inline, invisible component that immediately requests browser geolocation
-    when the switch is turned ON (this runs as part of the same user gesture).
-    On success, it writes a JSON payload back via Streamlit's component bridge,
-    which we read from session_state and store in user_coords.
+    Invisible component that requests browser geolocation when the switch turns ON.
+    On success, writes coords into session_state['user_coords'] and triggers a rerun.
     """
-    component_key = "ph_geo_switch_bridge"
+    bridge_key = "ph_geo_switch_bridge"
     js = f"""
-    <div id="{component_key}_wrap" style="height:0;overflow:hidden;"></div>
+    <div id="{bridge_key}_wrap" style="height:0;overflow:hidden;"></div>
     <script>
       (function(){{
         function send(val){{
@@ -190,7 +186,7 @@ def _request_coords_via_switch() -> None:
             is_streamlit_message: true,
             type: "streamlit:setComponentValue",
             value: JSON.stringify(val),
-            key: "{component_key}"
+            key: "{bridge_key}"
           }}, "*");
         }}
         if (!navigator.geolocation){{
@@ -213,7 +209,7 @@ def _request_coords_via_switch() -> None:
     st_html(js, height=0)
 
     # If the payload comes back in this run, capture and store it.
-    raw = st.session_state.get(component_key)
+    raw = st.session_state.get(bridge_key)
     if raw:
         try:
             import json
@@ -224,44 +220,17 @@ def _request_coords_via_switch() -> None:
         if isinstance(payload, dict) and "lat" in payload and "lon" in payload:
             st.session_state["user_coords"] = {"lat": float(payload["lat"]), "lon": float(payload["lon"])}
             st.session_state["geo_source"] = payload.get("src", "browser")
-            # clear bridge to avoid reprocessing
-            st.session_state[component_key] = None
-            # Rerun so the filtered list appears immediately
+            st.session_state[bridge_key] = None  # clear bridge
             st.rerun()
         else:
-            # clear on error too
-            st.session_state[component_key] = None
+            st.session_state[bridge_key] = None  # clear on error too
 
 
 # ===================== Casino / filtering =====================
 
-def _get_coords() -> Optional[Dict[str, float]]:
-    """
-    Return coords from either storage style:
-      - st.session_state['user_coords'] = {'lat':..,'lon':..}
-      - st.session_state['client_lat'], st.session_state['client_lon']
-    """
-    uc = st.session_state.get("user_coords")
-    if isinstance(uc, dict) and "lat" in uc and "lon" in uc and uc["lat"] is not None and uc["lon"] is not None:
-        try:
-            return {"lat": float(uc["lat"]), "lon": float(uc["lon"])}
-        except Exception:
-            pass
-
-    clat = st.session_state.get("client_lat")
-    clon = st.session_state.get("client_lon")
-    try:
-        if clat is not None and clon is not None:
-            return {"lat": float(clat), "lon": float(clon)}
-    except Exception:
-        pass
-
-    return None
-
-
 def _casino_selector(ts: Dict[str, Any]) -> Optional[str]:
     df = _casinos_df()
-    if ts.get("near_me") and _get_coords():
+    if ts.get("near_me") and st.session_state.get("user_coords"):
         names, _ = _filtered_casino_names_by_location(int(ts.get("nearby_radius", 30)))
         options = names if names else _names_from_df(df)
     else:
@@ -334,7 +303,7 @@ def _filtered_casino_names_by_location(radius_miles: int) -> Tuple[List[str], Di
     if not lat_col or not lon_col:
         return _names_from_df(df), {"reason": "no-coord-cols"}
 
-    coords = _get_coords()
+    coords = st.session_state.get("user_coords")
     if not coords:
         return _names_from_df(df), {"reason": "no-user-coords"}
 
