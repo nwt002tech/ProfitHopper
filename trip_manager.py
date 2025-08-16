@@ -1,43 +1,38 @@
+# trip_manager.py
 from __future__ import annotations
 
-import math
 from typing import Dict, Any, List, Optional, Tuple
 
 import pandas as pd
 import streamlit as st
 
-# ======== Data loader ========
+# Data
 try:
-    from data_loader_supabase import get_casinos_full  # must return a DataFrame
+    from data_loader_supabase import get_casinos_full
 except Exception:
     get_casinos_full = None
 
-# Optional: haversine from utils; else fallback
+# Distance: try your utils, else simple fallback
 try:
     from utils import haversine_miles as _haversine
 except Exception:
+    from math import radians, sin, cos, asin, sqrt
     def _haversine(a_lat: float, a_lon: float, b_lat: float, b_lon: float) -> float:
-        from math import radians, sin, cos, asin, sqrt
         R = 3958.7613
         dlat = radians(b_lat - a_lat); dlon = radians(b_lon - a_lon)
         a = sin(dlat/2)**2 + cos(radians(a_lat))*cos(radians(b_lat))*sin(dlon/2)**2
         return 2 * R * asin(sqrt(a))
 
-# Your working geolocation component API
-# Expecting these in browser_location.py:
-#   - render_geo_target()   -> renders the blue target icon (visual)
-#   - request_location()    -> actively requests browser geolocation and writes coords to st.session_state
-try:
-    from browser_location import render_geo_target, request_location  # type: ignore
-except Exception:
-    render_geo_target = None
-    request_location = None
+# Geolocation component API
+from browser_location import render_geo_target, request_location  # provided above
 
 
-# ========== Public API used by app.py / session_manager.py ==========
+# ===================== Public API (kept stable) =====================
+
 def initialize_trip_state() -> None:
     st.session_state.setdefault("trip_active", False)
     st.session_state.setdefault("current_trip_id", None)
+
     st.session_state.setdefault("trip_settings", {
         "near_me": False,
         "nearby_radius": 30,
@@ -46,16 +41,12 @@ def initialize_trip_state() -> None:
         "selected_game": None,
         "starting_bankroll": 0.0,     # for session_manager compatibility
     })
-    # coordinate stores (support both shapes seen previously)
-    st.session_state.setdefault("user_coords", None)   # {"lat":..,"lon":..}
-    st.session_state.setdefault("client_lat", None)    # float
-    st.session_state.setdefault("client_lon", None)    # float
-    st.session_state.setdefault("geo_source", None)
 
-    # track last toggle to detect ON transition
+    st.session_state.setdefault("user_coords", None)   # {"lat":..,"lon":..}
+    st.session_state.setdefault("geo_source", None)
     st.session_state.setdefault("_ph_prev_nearme", False)
 
-    # safe defaults for other app knobs
+    # keep safe defaults used elsewhere
     st.session_state.setdefault("win_streak_factor", 1.0)
     st.session_state.setdefault("volatility_adjustment", 1.0)
 
@@ -104,19 +95,18 @@ def render_sidebar() -> None:
         _inject_compact_css()
         st.markdown("### 🎯 Trip Settings")
 
-        # --- top row: icon + label (same line), switch triggers the *same* geolocation flow as the icon ---
         _near_row_and_controls(ts)
 
-        # --- casino selector (filtered if near_me + coords present) ---
+        # Casino selector (filters if near-me + coords present)
         casino_choice = _casino_selector(ts)
         ts["selected_casino"] = casino_choice
-        ts["casino"] = casino_choice  # mirror to avoid KeyErrors elsewhere
+        ts["casino"] = casino_choice  # mirror key used elsewhere
 
-        # --- game selector (preserve your current behavior; placeholder A→Z if you supply list) ---
+        # Game selector (leave your existing logic; placeholder keeps prior)
         prev_game = ts.get("selected_game")
         ts["selected_game"] = st.selectbox("Game", [prev_game] if prev_game else ["Select a game"], index=0)
 
-        # --- Start/Stop on one line ---
+        # Start / Stop on one line
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Start Trip", use_container_width=True):
@@ -133,117 +123,46 @@ def render_sidebar() -> None:
 
 
 def _near_row_and_controls(ts: Dict[str, Any]) -> None:
-    # 1) Icon (visual). Your working component stays — some users prefer tapping it directly.
-    if render_geo_target:
-        render_geo_target()
-    else:
-        st.markdown('<div class="ph-geo-fallback" title="Location component">📍</div>', unsafe_allow_html=True)
+    # Icon (visual only)
+    render_geo_target()
 
-    # 2) Label on the same line (CSS keeps it beside the icon)
+    # Same-line label
     st.markdown('<div class="ph-nearme-label">Locate casinos near me</div>', unsafe_allow_html=True)
 
-    # 3) Switch — when turned ON, call the SAME geolocation function used by the icon
+    # Toggle → on transition, actively request location
     prev = bool(st.session_state.get("_ph_prev_nearme", False))
     ts["near_me"] = st.toggle("Use near-me filter", value=bool(ts.get("near_me", False)),
                               label_visibility="collapsed")
     st.session_state["_ph_prev_nearme"] = bool(ts["near_me"])
 
-    # ON transition ⇒ actively request location using your proven component function
-    if ts["near_me"] and not prev and request_location:
-        # This will trigger the browser permission prompt and, on success,
-        # write coords into st.session_state (user_coords or client_lat/lon)
+    if ts["near_me"] and not prev and st.session_state.get("user_coords") is None:
+        # Prompt browser and store coords to session; reruns on success
         request_location()
-        # If coords arrived this same run, great; if not, the next rerun after permission will have them.
 
-    # 4) Radius slider (compact)
+    # Radius
     ts["nearby_radius"] = int(st.slider("Radius (mi)", 5, 300, int(ts.get("nearby_radius", 30)),
                                         step=5, label_visibility="collapsed"))
 
-    # 5) Clear — disables filter and erases cached coords (but keeps icon visible)
+    # Clear
     if st.button("Clear", key="ph_clear_loc", use_container_width=True):
         ts["near_me"] = False
         st.session_state["user_coords"] = None
-        st.session_state["client_lat"] = None
-        st.session_state["client_lon"] = None
         st.session_state["geo_source"] = None
         st.session_state["_ph_prev_nearme"] = False
         st.rerun()
 
-    # 6) Badge
+    # Badge
     if not ts["near_me"]:
         st.caption(f"📍 near-me: OFF • radius: {ts['nearby_radius']} mi")
     else:
-        coords = _get_coords()
+        coords = st.session_state.get("user_coords")
         if not coords:
             st.caption(f"📍 near-me: ON • radius: {ts['nearby_radius']} mi • waiting for location")
         else:
             st.caption(f"📍 near-me: ON • radius: {ts['nearby_radius']} mi • filtering…")
 
 
-# ===================== Casino / filtering =====================
-
-def _get_coords() -> Optional[Dict[str, float]]:
-    """
-    Return coords from either storage style your app has used:
-      - st.session_state['user_coords'] = {'lat':..,'lon':..}
-      - st.session_state['client_lat'], st.session_state['client_lon']
-    """
-    uc = st.session_state.get("user_coords")
-    if isinstance(uc, dict) and uc.get("lat") is not None and uc.get("lon") is not None:
-        try:
-            return {"lat": float(uc["lat"]), "lon": float(uc["lon"])}
-        except Exception:
-            pass
-
-    clat = st.session_state.get("client_lat")
-    clon = st.session_state.get("client_lon")
-    try:
-        if clat is not None and clon is not None:
-            return {"lat": float(clat), "lon": float(clon)}
-    except Exception:
-        pass
-
-    return None
-
-
-def _casino_selector(ts: Dict[str, Any]) -> Optional[str]:
-    df = _casinos_df()
-    if ts.get("near_me") and _get_coords():
-        names, _ = _filtered_casino_names_by_location(int(ts.get("nearby_radius", 30)))
-        options = names if names else _names_from_df(df)
-    else:
-        options = _names_from_df(df)
-
-    if not options:
-        return None
-
-    default = ts.get("selected_casino") or ts.get("casino")
-    if default not in options:
-        default = options[0]
-
-    return st.selectbox("Casino", options, index=options.index(default))
-
-
-def _names_from_df(df: pd.DataFrame) -> List[str]:
-    col = _name_col(df)
-    if not col:
-        return []
-    return (
-        df[col]
-        .dropna()
-        .astype(str)
-        .drop_duplicates()
-        .sort_values(key=lambda s: s.str.lower())
-        .tolist()
-    )
-
-
-def _name_col(df: pd.DataFrame) -> Optional[str]:
-    for c in ("casino_name", "name", "casino"):
-        if c in df.columns:
-            return c
-    return None
-
+# ===================== Filtering =====================
 
 def _casinos_df() -> pd.DataFrame:
     try:
@@ -258,32 +177,46 @@ def _casinos_df() -> pd.DataFrame:
     return pd.DataFrame(columns=["casino_name", "name", "casino", "city", "state", "latitude", "longitude", "is_active"])
 
 
+def _name_col(df: pd.DataFrame) -> Optional[str]:
+    for c in ("casino_name", "name", "casino"):
+        if c in df.columns:
+            return c
+    return None
+
+
+def _names_from_df(df: pd.DataFrame) -> List[str]:
+    col = _name_col(df)
+    if not col:
+        return []
+    return (
+        df[col].dropna().astype(str).drop_duplicates().sort_values(key=lambda s: s.str.lower()).tolist()
+    )
+
+
 def _filtered_casino_names_by_location(radius_miles: int) -> Tuple[List[str], Dict[str, Any]]:
     df = _casinos_df()
     ncol = _name_col(df)
     if not ncol:
         return [], {"reason": "no-name-col"}
 
-    # Active filtering (if present)
     if "is_active" in df.columns:
         if df["is_active"].dtype == bool:
             df = df[df["is_active"]]
         else:
             df = df[df["is_active"] == True]  # noqa: E712
 
-    # Coord columns
-    lat_col = None
-    lon_col = None
-    for a, b in (("latitude", "longitude"), ("lat", "lon")):
-        if a in df.columns and b in df.columns:
-            lat_col, lon_col = a, b
-            break
-    if not lat_col or not lon_col:
-        return _names_from_df(df), {"reason": "no-coord-cols"}
-
-    coords = _get_coords()
+    # coords present?
+    coords = st.session_state.get("user_coords")
     if not coords:
         return _names_from_df(df), {"reason": "no-user-coords"}
+
+    # coord columns
+    lat_col = None; lon_col = None
+    for a, b in (("latitude", "longitude"), ("lat", "lon")):
+        if a in df.columns and b in df.columns:
+            lat_col, lon_col = a, b; break
+    if not lat_col or not lon_col:
+        return _names_from_df(df), {"reason": "no-coord-cols"}
 
     df2 = df.dropna(subset=[lat_col, lon_col]).copy()
     if df2.empty:
@@ -304,6 +237,23 @@ def _filtered_casino_names_by_location(radius_miles: int) -> Tuple[List[str], Di
     }
 
 
+def _casino_selector(ts: Dict[str, Any]) -> Optional[str]:
+    df = _casinos_df()
+    if ts.get("near_me") and st.session_state.get("user_coords"):
+        names, _ = _filtered_casino_names_by_location(int(ts.get("nearby_radius", 30)))
+        options = names if names else _names_from_df(df)
+    else:
+        options = _names_from_df(df)
+
+    if not options:
+        return None
+
+    default = ts.get("selected_casino") or ts.get("casino")
+    if default not in options:
+        default = options[0]
+    return st.selectbox("Casino", options, index=options.index(default))
+
+
 # ===================== CSS =====================
 
 def _inject_compact_css() -> None:
@@ -314,22 +264,14 @@ def _inject_compact_css() -> None:
           padding-top: 6px !important;
           padding-bottom: 6px !important;
         }
-        .ph-geo-fallback{
-          display:inline-flex; align-items:center; justify-content:center;
-          width:36px; height:36px; border-radius:8px; background:#eef3ff; color:#1e88e5;
-          font-size:18px; line-height:1; margin-bottom:0;
-        }
         .ph-nearme-label{
           position: relative;
           display: inline-block;
           white-space: nowrap;
           font-weight: 600;
-          top: -28px;       /* keep beside icon */
+          top: -28px;
           left: 48px;
           margin-bottom: -18px;
-        }
-        @media (max-width: 420px){
-          .ph-nearme-label{ top: -30px; left: 50px; }
         }
         </style>
         """,
