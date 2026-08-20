@@ -1,0 +1,13 @@
+{
+  "status": "running",
+  "started_at": "2026-08-20T20:33:02.736397+00:00",
+  "finished_at": null,
+  "workflow_run_id": "32414675103",
+  "workflow_run_number": "2",
+  "workflow_sha": "1ccea0cf7afb00448e5eae43a6427974365243fd",
+  "scrape_exit_code": null,
+  "validation_exit_code": null,
+  "record_count": null,
+  "unique_titles": null,
+  "error_excerpt": null
+}
