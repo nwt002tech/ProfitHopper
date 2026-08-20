@@ -1,13 +1,15 @@
 {
-  "status": "running",
+  "status": "succeeded",
   "started_at": "2026-08-20T22:53:03.590187+00:00",
-  "finished_at": null,
+  "finished_at": "2026-08-20T22:58:45.104225+00:00",
   "workflow_run_id": "32426221302",
   "workflow_run_number": "5",
   "workflow_sha": "f65e4ded09bacf318f4009c004d24d4a86572c1d",
-  "scrape_exit_code": null,
-  "validation_exit_code": null,
-  "record_count": null,
-  "unique_titles": null,
+  "setup_python_outcome": "success",
+  "install_dependencies_outcome": "success",
+  "scrape_outcome": "success",
+  "validation_outcome": "success",
+  "record_count": 2992,
+  "unique_titles": 1303,
   "error_excerpt": null
 }

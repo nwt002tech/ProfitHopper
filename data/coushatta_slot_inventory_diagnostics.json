@@ -1,18 +1,18 @@
 {
-  "started_at": "2026-08-20T20:33:17.853391+00:00",
-  "strategy": "numeric_sid_scan",
-  "search_diagnostic": "No SID links discovered from wildcard search after 36 request pattern(s).",
-  "requested_sid_range": [
-    1,
-    5000
-  ],
-  "wildcard_sid_count": 0,
-  "summary": {
-    "records": 5000,
-    "unique_games": 1304,
-    "manufacturers": 13,
-    "denominations": 16,
-    "volatility_known": 4068
-  },
-  "finished_at": "2026-08-20T20:35:18.081046+00:00"
+  "search_url": "https://www.coushattacasinoresort.com/gaming/slot-search/",
+  "wildcard": "%%%",
+  "active_sid_count": 2992,
+  "captured_response_count": 1,
+  "page_title": "Slot Search - Coushatta Casino Resort",
+  "strategy": "live_playwright_wildcard_search",
+  "started_at": "2026-08-20T22:53:42.862558+00:00",
+  "finished_at": "2026-08-20T22:58:44.362067+00:00",
+  "parsed_record_count": 2992,
+  "parse_ratio": 1.0,
+  "unique_games": 1303,
+  "manufacturers": 13,
+  "denominations": 15,
+  "volatility_known": 2992,
+  "source_of_truth": "Coushatta live wildcard search results only",
+  "numeric_sid_scan_used": false
 }
