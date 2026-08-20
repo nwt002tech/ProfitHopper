@@ -29,35 +29,84 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Mark worker running
+        shell: bash
+        run: |
+          mkdir -p data
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          payload = {
+              "status": "running",
+              "started_at": datetime.now(timezone.utc).isoformat(),
+              "finished_at": None,
+              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "workflow_run_number": os.environ.get("GITHUB_RUN_NUMBER"),
+              "workflow_sha": os.environ.get("GITHUB_SHA"),
+              "scrape_exit_code": None,
+              "validation_exit_code": None,
+              "record_count": None,
+              "unique_titles": None,
+              "error_excerpt": None,
+          }
+          with open("data/coushatta_slot_worker_status.json", "w", encoding="utf-8") as f:
+              json.dump(payload, f, indent=2)
+          PY
+          git config user.name "profit-hopper-worker"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/coushatta_slot_worker_status.json
+          git commit -m "Coushatta worker started [skip ci]" || true
+          git push || true
+
       - name: Set up Python
+        id: setup_python
+        continue-on-error: true
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
       - name: Install scraper dependencies
+        id: install_deps
+        if: steps.setup_python.outcome == 'success'
+        continue-on-error: true
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           python -m pip install requests pandas beautifulsoup4
 
       - name: Extract Coushatta inventory
+        id: scrape
+        if: steps.setup_python.outcome == 'success' && steps.install_deps.outcome == 'success'
+        continue-on-error: true
+        shell: bash
         run: |
+          mkdir -p data
           python coushatta_slot_worker.py \
             --start 1 \
             --end 5000 \
             --workers 6 \
             --timeout 15 \
             --output data/coushatta_slot_inventory.csv \
-            --diagnostics data/coushatta_slot_inventory_diagnostics.json
+            --diagnostics data/coushatta_slot_inventory_diagnostics.json \
+            > data/coushatta_slot_worker.log 2>&1
 
       - name: Validate inventory
+        id: validate
+        if: steps.scrape.outcome == 'success'
+        continue-on-error: true
+        shell: bash
         run: |
-          python - <<'PY'
+          python - <<'PY' >> data/coushatta_slot_worker.log 2>&1
           import pandas as pd
+
           path = "data/coushatta_slot_inventory.csv"
           df = pd.read_csv(path)
           if df.empty:
               raise SystemExit("Inventory is empty")
+
           required = {
               "sid", "name", "manufacturer", "game_type", "denomination",
               "volatility_text", "location", "source_url", "scraped_at"
@@ -65,17 +114,130 @@ jobs:
           missing = required - set(df.columns)
           if missing:
               raise SystemExit(f"Missing required columns: {sorted(missing)}")
-          print(f"Validated {len(df)} Coushatta machine records / {df['name'].nunique()} unique titles")
+
+          print(
+              f"Validated {len(df)} Coushatta machine records / "
+              f"{df['name'].nunique()} unique titles"
+          )
           PY
 
-      - name: Commit refreshed inventory
+      - name: Write final worker status
+        if: always()
+        shell: bash
+        env:
+          SETUP_OUTCOME: ${{ steps.setup_python.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install_deps.outcome }}
+          SCRAPE_OUTCOME: ${{ steps.scrape.outcome }}
+          VALIDATE_OUTCOME: ${{ steps.validate.outcome }}
         run: |
-          if git diff --quiet -- data/coushatta_slot_inventory.csv data/coushatta_slot_inventory_diagnostics.json; then
-            echo "No inventory changes to commit."
-            exit 0
-          fi
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          status_path = Path("data/coushatta_slot_worker_status.json")
+          previous = {}
+          if status_path.exists():
+              try:
+                  previous = json.loads(status_path.read_text(encoding="utf-8"))
+              except Exception:
+                  previous = {}
+
+          setup = os.environ.get("SETUP_OUTCOME", "unknown")
+          install = os.environ.get("INSTALL_OUTCOME", "unknown")
+          scrape = os.environ.get("SCRAPE_OUTCOME", "unknown")
+          validate = os.environ.get("VALIDATE_OUTCOME", "unknown")
+
+          success = (
+              setup == "success"
+              and install == "success"
+              and scrape == "success"
+              and validate == "success"
+          )
+
+          record_count = None
+          unique_titles = None
+          csv_path = Path("data/coushatta_slot_inventory.csv")
+          if csv_path.exists():
+              try:
+                  import pandas as pd
+                  df = pd.read_csv(csv_path)
+                  record_count = int(len(df))
+                  unique_titles = int(df["name"].nunique()) if "name" in df.columns else None
+              except Exception:
+                  pass
+
+          log_path = Path("data/coushatta_slot_worker.log")
+          excerpt = None
+          if log_path.exists():
+              lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+              excerpt = "\n".join(lines[-80:])[-12000:] or None
+
+          payload = {
+              "status": "succeeded" if success else "failed",
+              "started_at": previous.get("started_at"),
+              "finished_at": datetime.now(timezone.utc).isoformat(),
+              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "workflow_run_number": os.environ.get("GITHUB_RUN_NUMBER"),
+              "workflow_sha": os.environ.get("GITHUB_SHA"),
+              "setup_python_outcome": setup,
+              "install_dependencies_outcome": install,
+              "scrape_outcome": scrape,
+              "validation_outcome": validate,
+              "record_count": record_count,
+              "unique_titles": unique_titles,
+              "error_excerpt": None if success else excerpt,
+          }
+          status_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+          PY
+
+      - name: Commit worker result and status
+        if: always()
+        shell: bash
+        run: |
           git config user.name "profit-hopper-worker"
           git config user.email "actions@users.noreply.github.com"
-          git add data/coushatta_slot_inventory.csv data/coushatta_slot_inventory_diagnostics.json
-          git commit -m "Refresh Coushatta slot inventory"
-          git push
+
+          git pull --rebase || true
+
+          git add data/coushatta_slot_worker_status.json
+          if [ -f data/coushatta_slot_worker.log ]; then
+            git add data/coushatta_slot_worker.log
+          fi
+          if [ -f data/coushatta_slot_inventory.csv ]; then
+            git add data/coushatta_slot_inventory.csv
+          fi
+          if [ -f data/coushatta_slot_inventory_diagnostics.json ]; then
+            git add data/coushatta_slot_inventory_diagnostics.json
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No worker output changes to commit."
+          else
+            git commit -m "Record Coushatta worker result [skip ci]"
+            git push
+          fi
+
+      - name: Fail workflow when worker failed
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("data/coushatta_slot_worker_status.json")
+          if not path.exists():
+              raise SystemExit("Worker status file was not produced")
+
+          status = json.loads(path.read_text(encoding="utf-8"))
+          if status.get("status") != "succeeded":
+              print(json.dumps(status, indent=2))
+              raise SystemExit("Coushatta inventory refresh failed")
+
+          print(
+              f"Coushatta refresh succeeded: {status.get('record_count')} records / "
+              f"{status.get('unique_titles')} unique titles"
+          )
+          PY
