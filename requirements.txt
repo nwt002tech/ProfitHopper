@@ -11,3 +11,4 @@ streamlit-geolocation
 geopy
 streamlit-js-eval
 streamlit-javascript
+beautifulsoup4
