@@ -1,0 +1,18 @@
+{
+  "started_at": "2026-08-20T20:33:17.853391+00:00",
+  "strategy": "numeric_sid_scan",
+  "search_diagnostic": "No SID links discovered from wildcard search after 36 request pattern(s).",
+  "requested_sid_range": [
+    1,
+    5000
+  ],
+  "wildcard_sid_count": 0,
+  "summary": {
+    "records": 5000,
+    "unique_games": 1304,
+    "manufacturers": 13,
+    "denominations": 16,
+    "volatility_known": 4068
+  },
+  "finished_at": "2026-08-20T20:35:18.081046+00:00"
+}
