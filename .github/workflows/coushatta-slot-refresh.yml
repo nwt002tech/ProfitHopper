@@ -1,0 +1,81 @@
+name: Refresh Coushatta Slot Inventory
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "coushatta_slot_worker.py"
+      - ".github/workflows/coushatta-slot-refresh.yml"
+      - "requirements.txt"
+  schedule:
+    - cron: "17 10 * * 4"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: coushatta-slot-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install scraper dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install requests pandas beautifulsoup4
+
+      - name: Extract Coushatta inventory
+        run: |
+          python coushatta_slot_worker.py \
+            --start 1 \
+            --end 5000 \
+            --workers 6 \
+            --timeout 15 \
+            --output data/coushatta_slot_inventory.csv \
+            --diagnostics data/coushatta_slot_inventory_diagnostics.json
+
+      - name: Validate inventory
+        run: |
+          python - <<'PY'
+          import pandas as pd
+          path = "data/coushatta_slot_inventory.csv"
+          df = pd.read_csv(path)
+          if df.empty:
+              raise SystemExit("Inventory is empty")
+          required = {
+              "sid", "name", "manufacturer", "game_type", "denomination",
+              "volatility_text", "location", "source_url", "scraped_at"
+          }
+          missing = required - set(df.columns)
+          if missing:
+              raise SystemExit(f"Missing required columns: {sorted(missing)}")
+          print(f"Validated {len(df)} Coushatta machine records / {df['name'].nunique()} unique titles")
+          PY
+
+      - name: Commit refreshed inventory
+        run: |
+          if git diff --quiet -- data/coushatta_slot_inventory.csv data/coushatta_slot_inventory_diagnostics.json; then
+            echo "No inventory changes to commit."
+            exit 0
+          fi
+          git config user.name "profit-hopper-worker"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/coushatta_slot_inventory.csv data/coushatta_slot_inventory_diagnostics.json
+          git commit -m "Refresh Coushatta slot inventory"
+          git push
