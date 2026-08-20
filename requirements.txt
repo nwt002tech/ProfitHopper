@@ -12,3 +12,4 @@ geopy
 streamlit-js-eval
 streamlit-javascript
 beautifulsoup4
+playwright
