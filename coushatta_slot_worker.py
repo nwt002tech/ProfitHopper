@@ -23,6 +23,7 @@ HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
+
 @dataclasses.dataclass
 class SlotRecord:
     sid: int
@@ -33,6 +34,7 @@ class SlotRecord:
     volatility_text: str = ""
     volatility_score: int | None = None
     location: str = ""
+    map_url: str = ""
     source_url: str = ""
     casino: str = CASINO_NAME
     scraped_at: str = ""
@@ -227,6 +229,7 @@ def parse_detail_html(html: str, sid: int, source_url: str) -> SlotRecord | None
     if not name:
         return None
 
+    canonical_map_url = DETAIL_URL.format(sid=sid)
     return SlotRecord(
         sid=sid,
         name=name,
@@ -236,6 +239,7 @@ def parse_detail_html(html: str, sid: int, source_url: str) -> SlotRecord | None
         volatility_text=values.get("volatility_text", ""),
         volatility_score=volatility_score(values.get("volatility_text", "")),
         location=values.get("location", ""),
+        map_url=canonical_map_url,
         source_url=source_url,
         scraped_at=datetime.now(timezone.utc).isoformat(),
     )
@@ -307,6 +311,7 @@ def main() -> int:
         "manufacturers": int(df["manufacturer"].replace("", pd.NA).nunique()) if not df.empty else 0,
         "denominations": int(df["denomination"].replace("", pd.NA).nunique()) if not df.empty else 0,
         "volatility_known": int(df["volatility_text"].fillna("").str.strip().ne("").sum()) if not df.empty else 0,
+        "map_url_known": int(df["map_url"].fillna("").str.strip().ne("").sum()) if not df.empty else 0,
         "source_of_truth": "Coushatta live wildcard search results only",
         "numeric_sid_scan_used": False,
     })
