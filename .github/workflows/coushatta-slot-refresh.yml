@@ -110,11 +110,16 @@ jobs:
 
           required = {
               "sid", "name", "manufacturer", "game_type", "denomination",
-              "volatility_text", "location", "source_url", "scraped_at"
+              "volatility_text", "location", "map_url", "source_url", "scraped_at"
           }
           missing = required - set(df.columns)
           if missing:
               raise SystemExit(f"Missing required columns: {sorted(missing)}")
+
+          if df["map_url"].fillna("").str.strip().eq("").any():
+              raise SystemExit("One or more active slot records is missing map_url")
+          if not df["map_url"].astype(str).str.contains(r"/slot-map\.php\?sid=\d+$", regex=True).all():
+              raise SystemExit("One or more map_url values is not a Coushatta SID map link")
 
           diag = json.loads(Path("data/coushatta_slot_inventory_diagnostics.json").read_text())
           if diag.get("strategy") != "live_playwright_wildcard_search":
@@ -126,7 +131,7 @@ jobs:
                   f"Active SID count {diag.get('active_sid_count')} does not match parsed inventory {len(df)}"
               )
 
-          print(f"Validated {len(df)} active Coushatta records / {df['name'].nunique()} unique titles")
+          print(f"Validated {len(df)} active Coushatta records / {df['name'].nunique()} unique titles with map links")
           PY
 
       - name: Write final worker status
