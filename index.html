@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Coushatta Advantage-State Guide</title>
+<style>
+:root{--n:#10243e;--n2:#173a5e;--i:#172033;--m:#5b677a;--bg:#f5f7fa;--bd:#d9e0e8;--r:#a23b3b;--rb:#fceded}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--i);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit}.app{max-width:760px;margin:auto;padding:0 13px 70px}
+header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdrop-filter:blur(12px);padding-top:10px;border-bottom:1px solid var(--bd)}
+.hero{background:linear-gradient(135deg,var(--n),var(--n2));color:#fff;border-radius:17px;padding:16px}.hero h1{font-size:1.35rem;line-height:1.06;margin:0}.hero p{font-size:.82rem;color:#d6e0eb;line-height:1.3;margin:7px 0 0}
+.tabs,.filters{display:flex;gap:7px;overflow:auto;scrollbar-width:none;padding:9px 0 0}.tabs::-webkit-scrollbar,.filters::-webkit-scrollbar{display:none}
+.pillbtn{border:1px solid var(--bd);background:#fff;color:var(--i);border-radius:999px;padding:9px 12px;white-space:nowrap;min-height:40px}.pillbtn.on{background:var(--n);color:#fff;border-color:var(--n)}
+.searchrow{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 10px}input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.stat{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}.stat b{display:block;color:var(--n);font-size:1.05rem}.stat small{color:var(--m);font-size:.68rem}
+.route{display:none;background:#fff8e9;border:1px solid #ead5a6;border-radius:13px;padding:11px;margin:9px 0;font-size:.82rem;line-height:1.35}.route.show{display:block}.route ol{margin:6px 0 0 18px;padding:0}.route li{margin:4px 0}
+.selector{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:11px;margin:9px 0}.selector label{display:block;font-size:.7rem;font-weight:800;color:var(--n);letter-spacing:.04em;margin-bottom:6px}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.quick button{border:1px solid var(--bd);background:#fff;border-radius:10px;padding:9px;text-align:left;font-size:.76rem;line-height:1.2}
+.card{background:#fff;border:1px solid var(--bd);border-radius:17px;overflow:hidden;box-shadow:0 7px 20px rgba(16,36,62,.07);margin-top:10px}.head{display:flex;gap:9px;align-items:flex-start;padding:12px}.num{background:var(--n);color:#fff;border-radius:11px;min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-weight:800}.hmain{flex:1;min-width:0}.title{font-weight:800;color:var(--n);font-size:1rem;line-height:1.15}.maker{color:var(--m);font-size:.78rem;margin-top:3px}.fav{border:1px solid var(--bd);background:#fff;border-radius:10px;width:40px;height:40px;font-size:1.25rem;color:#ad8100}.fav.on{background:#fff5ce}.badge{display:inline-block;border-radius:999px;padding:6px 8px;font-size:.64rem;font-weight:800;margin-top:6px}
+.body{border-top:1px solid var(--bd);padding:10px}.visual{background:#eef4f9;border-radius:14px;padding:6px;border:1px solid var(--bd)}.visual svg{display:block;width:100%;height:auto}.vnote{font-size:.72rem;color:var(--m);margin-top:5px;line-height:1.3}
+.box{border:1px solid var(--bd);border-radius:12px;padding:10px;margin:8px 0;font-size:.88rem;line-height:1.38}.lab{font-size:.67rem;font-weight:800;letter-spacing:.05em;color:var(--n);margin-bottom:5px}.warn{background:var(--rb);border-color:#efcaca}.warn .lab{color:var(--r)}
+.mapgrid{display:grid;grid-template-columns:1fr;gap:7px}.map{display:block;text-decoration:none;background:var(--n2);color:#fff;border-radius:10px;padding:11px;text-align:center;font-size:.8rem;font-weight:700}
+.empty{display:none;background:#fff;border:1px dashed var(--bd);border-radius:13px;padding:14px;margin-top:10px;color:var(--m)}.empty.show{display:block}
+@media(min-width:620px){.mapgrid{grid-template-columns:1fr 1fr}.searchrow{grid-template-columns:1fr 180px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<div class="hero"><h1>Coushatta Advantage-State Guide</h1><p>Standalone mobile guide • 36 games • illustrated state references • direct Coushatta maps</p></div>
+<div class="tabs" id="tabs"><button class="pillbtn on" data-tab="route">Tonight's Route</button><button class="pillbtn" data-tab="all">All Games</button><button class="pillbtn" data-tab="fav">Favorites</button></div>
+<div class="filters" id="filters"><button class="pillbtn on" data-f="ALL">All</button><button class="pillbtn" data-f="RULE">Fixed Rules</button><button class="pillbtn" data-f="SCOUT">Scout</button><button class="pillbtn" data-f="METER">Meters</button><button class="pillbtn" data-f="VERIFY">Photo / Verify</button></div>
+<div class="searchrow"><input id="q" type="search" placeholder="Search Scarab, Buffalo, pig, meter…"><select id="gameSelect" aria-label="Jump to game"></select></div>
+</header>
+<div class="stats"><div class="stat"><b>36</b><small>Total</small></div><div class="stat"><b>12</b><small>Priority</small></div><div class="stat"><b id="vc">12</b><small>Visible</small></div></div>
+<div class="route show" id="routeBox"><b>Tonight's fastest scouting order</b><ol><li>Scarab</li><li>Golden Egypt</li><li>Dancing Drums: Golden Drums</li><li>Ultra Rush Gold</li><li>Grand Buddha / Grand Cat Link</li><li>Cash Falls</li><li>Cash Wizard</li><li>Buffalo Ascension</li><li>Buffalo Link</li><li>Phoenix Link</li><li>Zhao Cai Zhu</li><li>Rich Little Piggies</li></ol></div>
+<div class="selector"><label>QUICK JUMP</label><div class="quick" id="quick"></div></div>
+<div id="empty" class="empty">No games match the current view.</div><main id="card"></main>
+</div>
+<script src="games.js"></script><script src="app.js"></script>
+</body></html>
