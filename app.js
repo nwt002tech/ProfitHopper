@@ -355,21 +355,27 @@ function render() {
     )
     .join("");
 
-  // IMPORTANT:
-  // All Games shows all 36 quick-jump buttons.
-  // Tonight's Route shows only its 12 because visibleGames() already limits it.
-  // Category filters show all games matching that category.
   renderQuickJump(games);
   renderCardOnly();
+}
+
+function selectTopView(nextTab) {
+  tab = nextTab;
+  filter = "ALL";
+  query = "";
+  selected = null;
+
+  const search = $("#q");
+  if (search) search.value = "";
+
+  render();
 }
 
 $("#tabs").onclick = (event) => {
   const button = event.target.closest("button[data-tab]");
   if (!button) return;
 
-  tab = button.dataset.tab;
-  selected = null;
-  render();
+  selectTopView(button.dataset.tab);
 };
 
 $("#filters").onclick = (event) => {
@@ -391,6 +397,14 @@ $("#gameSelect").onchange = (event) => {
   selected = Number(event.target.value);
   renderCardOnly();
   scrollToGameCard();
+};
+
+$("#priorityStat").onclick = () => {
+  selectTopView("route");
+};
+
+$("#allGamesStat").onclick = () => {
+  selectTopView("all");
 };
 
 render();
