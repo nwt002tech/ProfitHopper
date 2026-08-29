@@ -210,6 +210,27 @@ function updateFilterButtons() {
   });
 }
 
+function scrollToGameCard() {
+  const card = $("#card");
+  const header = document.querySelector("header");
+
+  if (!card) return;
+
+  requestAnimationFrame(() => {
+    const headerHeight = header ? header.offsetHeight : 0;
+    const targetY =
+      card.getBoundingClientRect().top +
+      window.scrollY -
+      headerHeight -
+      10;
+
+    window.scrollTo({
+      top: Math.max(0, targetY),
+      behavior: "smooth",
+    });
+  });
+}
+
 function renderQuickJump(games) {
   const quick = $("#quick");
 
@@ -226,7 +247,7 @@ function renderQuickJump(games) {
     button.onclick = () => {
       selected = Number(button.dataset.p);
       renderCardOnly();
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      scrollToGameCard();
     };
   });
 }
@@ -357,6 +378,7 @@ $("#q").oninput = (event) => {
 $("#gameSelect").onchange = (event) => {
   selected = Number(event.target.value);
   renderCardOnly();
+  scrollToGameCard();
 };
 
 render();
