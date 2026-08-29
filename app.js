@@ -272,6 +272,9 @@ function renderCardOnly() {
   }
 
   const game = games.find((item) => item.p === selected);
+  const gameIndex = games.findIndex((item) => item.p === selected);
+  const previousGame = gameIndex > 0 ? games[gameIndex - 1] : null;
+  const nextGame = gameIndex < games.length - 1 ? games[gameIndex + 1] : null;
   const [label, color, background] = META[game.s];
   const favoriteSet = favorites();
   const isFavorite = favoriteSet.has(game.p);
@@ -299,6 +302,11 @@ function renderCardOnly() {
     `<button class="fav ${isFavorite ? "on" : ""}" id="favBtn">${isFavorite ? "★" : "☆"}</button>` +
     "</div>" +
     "</div>" +
+    '<div class="game-nav">' +
+    `<button id="prevGameBtn" type="button" ${previousGame ? "" : "disabled"}>← Previous</button>` +
+    `<div class="game-position">${gameIndex + 1} of ${games.length}</div>` +
+    `<button id="nextGameBtn" type="button" ${nextGame ? "" : "disabled"}>Next →</button>` +
+    "</div>" +
     '<div class="body">' +
     `<div class="visual">${visual(game.v)}</div>` +
     '<div class="vnote">Recognition guide: compare this to the cabinet, then read the actual counters/meters before wagering.</div>' +
@@ -311,6 +319,27 @@ function renderCardOnly() {
     "</article>";
 
   $("#topGameBtn").onclick = scrollToPageTop;
+
+  const previousButton = $("#prevGameBtn");
+  const nextButton = $("#nextGameBtn");
+
+  if (previousButton && previousGame) {
+    previousButton.onclick = () => {
+      selected = previousGame.p;
+      $("#gameSelect").value = String(selected);
+      renderCardOnly();
+      scrollToGameCard();
+    };
+  }
+
+  if (nextButton && nextGame) {
+    nextButton.onclick = () => {
+      selected = nextGame.p;
+      $("#gameSelect").value = String(selected);
+      renderCardOnly();
+      scrollToGameCard();
+    };
+  }
 
   $("#favBtn").onclick = () => {
     const set = favorites();
@@ -355,6 +384,10 @@ function render() {
     )
     .join("");
 
+  // IMPORTANT:
+  // All Games shows all 36 quick-jump buttons.
+  // Tonight's Route shows only its 12 because visibleGames() already limits it.
+  // Category filters show all games matching that category.
   renderQuickJump(games);
   renderCardOnly();
 }
@@ -399,6 +432,7 @@ $("#gameSelect").onchange = (event) => {
   scrollToGameCard();
 };
 
+
 $("#priorityStat").onclick = () => {
   selectTopView("route");
 };
@@ -406,5 +440,6 @@ $("#priorityStat").onclick = () => {
 $("#allGamesStat").onclick = () => {
   selectTopView("all");
 };
+
 
 render();
