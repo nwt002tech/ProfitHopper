@@ -14,7 +14,7 @@ header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdro
 .tabs,.filters{display:flex;gap:7px;overflow:auto;scrollbar-width:none;padding:9px 0 0}.tabs::-webkit-scrollbar,.filters::-webkit-scrollbar{display:none}
 .pillbtn{border:1px solid var(--bd);background:#fff;color:var(--i);border-radius:999px;padding:9px 12px;white-space:nowrap;min-height:40px}.pillbtn.on{background:var(--n);color:#fff;border-color:var(--n)}
 .searchrow{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 10px}input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.stat{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}.stat b{display:block;color:var(--n);font-size:1.05rem}.stat small{color:var(--m);font-size:.68rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}.stat{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}.stat-button{appearance:none;-webkit-appearance:none;cursor:pointer;color:inherit;font:inherit}.stat-button:active{transform:scale(.98);background:#eef4f9}.stat b{display:block;color:var(--n);font-size:1.05rem}.stat small{color:var(--m);font-size:.68rem}
 .legend{background:#eef4f9;border:1px solid #cbd9e8;border-radius:13px;padding:10px 11px;margin:9px 0;font-size:.8rem;line-height:1.35;color:#33455b}
 .route{display:none;background:#fff8e9;border:1px solid #ead5a6;border-radius:13px;padding:11px;margin:9px 0;font-size:.82rem;line-height:1.35}.route.show{display:block}.route ol{margin:6px 0 0 18px;padding:0}.route li{margin:4px 0}
 .selector{background:#fff;border:1px solid var(--bd);border-radius:14px;padding:11px;margin:9px 0}.selector label{display:block;font-size:.7rem;font-weight:800;color:var(--n);letter-spacing:.04em;margin-bottom:6px}
@@ -31,13 +31,13 @@ header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdro
 <div class="app">
 <header>
 <div class="hero"><h1>Coushatta Advantage-State Guide</h1><p>Standalone mobile guide • 36 games • illustrated state references • direct Coushatta maps</p></div>
-<div class="tabs" id="tabs"><button class="pillbtn" data-tab="route">Tonight's Route</button><button class="pillbtn on" data-tab="all">All Games</button><button class="pillbtn" data-tab="fav">Favorites</button></div>
+<div class="tabs" id="tabs"><button class="pillbtn" data-tab="route">Priority Games</button><button class="pillbtn on" data-tab="all">All Games</button><button class="pillbtn" data-tab="fav">Favorites</button></div>
 <div class="filters" id="filters"><button class="pillbtn on" data-f="ALL">All</button><button class="pillbtn" data-f="RULE">Fixed Rules</button><button class="pillbtn" data-f="SCOUT">State-Based</button><button class="pillbtn" data-f="METER">Meters</button><button class="pillbtn" data-f="VERIFY">Photo / Verify</button></div>
 <div class="searchrow"><input id="q" type="search" placeholder="Search Scarab, Buffalo, pig, meter…"><select id="gameSelect" aria-label="Jump to game"></select></div>
 </header>
-<div class="stats"><div class="stat"><b>36</b><small>Total</small></div><div class="stat"><b>12</b><small>Priority</small></div><div class="stat"><b id="vc">36</b><small>Visible</small></div></div>
+<div class="stats"><button class="stat stat-button" id="allGamesStat" type="button"><b>36</b><small>All Games</small></button><button class="stat stat-button" id="priorityStat" type="button"><b>12</b><small>Priority Games</small></button><div class="stat"><b id="vc">36</b><small>Visible</small></div></div>
 <div class="legend"><b>State-Based</b> does not mean these are the only games to scout. Scout <b>every</b> AP machine before betting. State-Based means there is no single simple threshold; evaluate the overall inherited screen state.</div>
-<div class="route" id="routeBox"><b>Tonight's fastest scouting order</b><ol><li>Scarab</li><li>Golden Egypt</li><li>Dancing Drums: Golden Drums</li><li>Ultra Rush Gold</li><li>Grand Buddha / Grand Cat Link</li><li>Cash Falls</li><li>Cash Wizard</li><li>Buffalo Ascension</li><li>Buffalo Link</li><li>Phoenix Link</li><li>Zhao Cai Zhu</li><li>Rich Little Piggies</li></ol></div>
+<div class="route" id="routeBox"><b>Priority 12 — fastest scouting order</b><ol><li>Scarab</li><li>Golden Egypt</li><li>Dancing Drums: Golden Drums</li><li>Ultra Rush Gold</li><li>Grand Buddha / Grand Cat Link</li><li>Cash Falls</li><li>Cash Wizard</li><li>Buffalo Ascension</li><li>Buffalo Link</li><li>Phoenix Link</li><li>Zhao Cai Zhu</li><li>Rich Little Piggies</li></ol></div>
 <div class="selector"><label>QUICK JUMP</label><div class="quick" id="quick"></div></div>
 <div id="empty" class="empty">No games match the current view.</div><main id="card"></main>
 </div>
