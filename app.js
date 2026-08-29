@@ -1,6 +1,6 @@
 const META = {
   RULE: ["FIXED RULE", "#137a4b", "#e9f6ef"],
-  SCOUT: ["SCOUT STATE", "#205da8", "#eaf2fc"],
+  SCOUT: ["STATE-BASED", "#205da8", "#eaf2fc"],
   METER: ["METER / COUNTER", "#205da8", "#eaf2fc"],
   VERIFY: ["PHOTO / VERIFY", "#a65c00", "#fff3de"],
 };
