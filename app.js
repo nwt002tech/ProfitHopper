@@ -231,6 +231,13 @@ function scrollToGameCard() {
   });
 }
 
+function scrollToPageTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}
+
 function renderQuickJump(games) {
   const quick = $("#quick");
 
@@ -287,7 +294,10 @@ function renderCardOnly() {
     `<div class="maker">${escapeHtml(game.m)}</div>` +
     `<span class="badge" style="color:${color};background:${background}">${label}</span>` +
     "</div>" +
+    '<div class="header-actions">' +
+    '<button class="top-game-btn" id="topGameBtn" type="button">Top ↑</button>' +
     `<button class="fav ${isFavorite ? "on" : ""}" id="favBtn">${isFavorite ? "★" : "☆"}</button>` +
+    "</div>" +
     "</div>" +
     '<div class="body">' +
     `<div class="visual">${visual(game.v)}</div>` +
@@ -299,6 +309,8 @@ function renderCardOnly() {
     `<div class="box"><div class="lab">COUSHATTA MAP</div><div class="mapgrid">${maps}</div></div>` +
     "</div>" +
     "</article>";
+
+  $("#topGameBtn").onclick = scrollToPageTop;
 
   $("#favBtn").onclick = () => {
     const set = favorites();
