@@ -61,13 +61,11 @@ function escapeHtml(value) {
 function visual(type) {
   let body = "";
   let label = "";
-
   const top =
     '<svg viewBox="0 0 320 160" xmlns="http://www.w3.org/2000/svg">' +
     '<text x="12" y="14" font-size="9" font-weight="700" fill="#62748a">' +
-    "ILLUSTRATED ADVANTAGE STATE" +
+    "ILLUSTRATED RECOGNITION DIAGRAM" +
     "</text>";
-
   const end = "</svg>";
 
   if (
@@ -86,7 +84,6 @@ function visual(type) {
         const x = 18 + col * 58;
         const y = 28 + row * 34;
         const highlighted = (col + row) % 3 === 0;
-
         body +=
           `<rect x="${x}" y="${y}" width="48" height="25" rx="6" ` +
           `fill="${highlighted ? "#fff1b8" : "#fff"}" ` +
@@ -94,13 +91,9 @@ function visual(type) {
       }
     }
 
-    if (type === "scarab") {
-      label = "Gold frames on reels 1–3";
-    } else if (type === "golden_egypt") {
-      label = "Stored coin holders";
-    } else {
-      label = "Persistent loaded positions + counter";
-    }
+    if (type === "scarab") label = "Gold frames on reels 1-3";
+    else if (type === "golden_egypt") label = "Stored coin holders";
+    else label = "Persistent loaded positions + counter";
   } else if (["multiplier", "reel_multiplier"].includes(type)) {
     body =
       '<rect x="58" y="35" width="204" height="80" rx="14" fill="#fff" stroke="#d8e2ec" stroke-width="2"/>' +
@@ -114,14 +107,12 @@ function visual(type) {
     ].forEach(([height, rows], index) => {
       const x = 28 + index * 94;
       const y = 122 - height;
-
       body +=
         `<rect x="${x}" y="${y}" width="66" height="${height}" rx="8" ` +
         'fill="#fff" stroke="#d8e2ec" stroke-width="2"/>' +
         `<text x="${x + 33}" y="${y + height / 2 + 5}" text-anchor="middle" ` +
         `font-size="14" font-weight="800" fill="#205da8">${rows} rows</text>`;
     });
-
     label = "Reels grow toward 7 rows";
   } else if (
     [
@@ -140,13 +131,11 @@ function visual(type) {
       [81, "#a23b3b"],
     ].forEach(([percent, color], index) => {
       const y = 34 + index * 34;
-
       body +=
         `<rect x="30" y="${y}" width="260" height="22" rx="8" fill="#fff" stroke="#d8e2ec"/>` +
         `<rect x="30" y="${y}" width="${2.6 * percent}" height="22" rx="8" fill="${color}" opacity=".24"/>` +
         `<text x="42" y="${y + 15}" font-size="10" font-weight="700" fill="#10243e">${percent}%</text>`;
     });
-
     label = "Read actual meter / counter / ceiling";
   } else if (type === "lanterns") {
     body =
@@ -161,13 +150,10 @@ function visual(type) {
       ["RED", "#a23b3b"],
     ].forEach(([text, color], index) => {
       const cx = 70 + index * 90;
-
       body +=
         `<circle cx="${cx}" cy="78" r="30" fill="${color}"/>` +
-        `<text x="${cx}" y="82" text-anchor="middle" font-size="10" ` +
-        `font-weight="800" fill="#fff">${text}</text>`;
+        `<text x="${cx}" y="82" text-anchor="middle" font-size="10" font-weight="800" fill="#fff">${text}</text>`;
     });
-
     label = "Persistent pig / bank state";
   } else if (["bubbles", "ocean", "spheres"].includes(type)) {
     [
@@ -178,10 +164,8 @@ function visual(type) {
     ].forEach(([x, y, radius, text]) => {
       body +=
         `<circle cx="${x}" cy="${y}" r="${radius}" fill="#eaf2fc" stroke="#205da8" stroke-width="2"/>` +
-        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10" ` +
-        `font-weight="700" fill="#205da8">${text}</text>`;
+        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#205da8">${text}</text>`;
     });
-
     label = "Persistent object value + position";
   } else {
     body =
@@ -195,6 +179,32 @@ function visual(type) {
     body +
     `<text x="160" y="148" text-anchor="middle" font-size="11" font-weight="700" fill="#10243e">${label}</text>` +
     end
+  );
+}
+
+function realPhotoMarkup(game) {
+  const photo = window.GAME_IMAGES && window.GAME_IMAGES[game.p];
+  if (!photo) return "";
+
+  const isState = photo.kind === "state";
+  const badgeText = isState
+    ? "REAL STATE / MECHANIC PHOTO"
+    : "REAL GAME PHOTO - VERIFY STATE";
+  const badgeClass = isState ? "photo-state" : "photo-reference";
+
+  return (
+    '<section class="real-photo-card">' +
+    '<div class="photo-toolbar">' +
+    `<span class="photo-badge ${badgeClass}">${badgeText}</span>` +
+    `<a class="photo-source" href="${escapeHtml(photo.source)}" target="_blank" rel="noopener">Source: ${escapeHtml(photo.sourceLabel)} ↗</a>` +
+    "</div>" +
+    `<img id="realGameImage" src="${escapeHtml(photo.image)}" alt="Real ${escapeHtml(game.t)} slot machine reference" decoding="async">` +
+    '<div class="photo-load-error" id="photoLoadError">The external photo could not load. Use the recognition diagram and source link below.</div>' +
+    `<div class="photo-caption">${escapeHtml(photo.caption)}</div>` +
+    (isState
+      ? '<div class="photo-warning">This is a real example of the game/state mechanic, but it is not automatically a PLAY. Compare the live numbers/layout to the Action Rule.</div>'
+      : '<div class="photo-warning">This is a real photo of the correct game/family for recognition. It is not verified as a qualifying AP state. Use the live screen plus the Action Rule.</div>') +
+    "</section>"
   );
 }
 
@@ -213,46 +223,33 @@ function updateFilterButtons() {
 function scrollToGameCard() {
   const card = $("#card");
   const header = document.querySelector("header");
-
   if (!card) return;
 
   requestAnimationFrame(() => {
     const headerHeight = header ? header.offsetHeight : 0;
     const targetY =
-      card.getBoundingClientRect().top +
-      window.scrollY -
-      headerHeight -
-      10;
-
-    window.scrollTo({
-      top: Math.max(0, targetY),
-      behavior: "smooth",
-    });
+      card.getBoundingClientRect().top + window.scrollY - headerHeight - 10;
+    window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
   });
 }
 
 function scrollToPageTop() {
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function renderQuickJump(games) {
   const quick = $("#quick");
-
   quick.innerHTML = games
     .map(
       (game) =>
-        `<button data-p="${game.p}">` +
-        `<b>${String(game.p).padStart(2, "0")}</b> · ${escapeHtml(game.t)}` +
-        "</button>"
+        `<button data-p="${game.p}"><b>${String(game.p).padStart(2, "0")}</b> · ${escapeHtml(game.t)}</button>`
     )
     .join("");
 
   quick.querySelectorAll("button").forEach((button) => {
     button.onclick = () => {
       selected = Number(button.dataset.p);
+      $("#gameSelect").value = String(selected);
       renderCardOnly();
       scrollToGameCard();
     };
@@ -261,7 +258,6 @@ function renderQuickJump(games) {
 
 function renderCardOnly() {
   const games = visibleGames();
-
   if (!games.length) {
     $("#card").innerHTML = "";
     return;
@@ -282,9 +278,7 @@ function renderCardOnly() {
   const maps = game.maps
     .map(
       ([name, sid]) =>
-        `<a class="map" target="_blank" rel="noopener" ` +
-        `href="https://www.coushattacasinoresort.com/slot-map.php?sid=${sid}">` +
-        `📍 ${escapeHtml(name)} · SID ${sid}</a>`
+        `<a class="map" target="_blank" rel="noopener" href="https://www.coushattacasinoresort.com/slot-map.php?sid=${sid}">📍 ${escapeHtml(name)} · SID ${sid}</a>`
     )
     .join("");
 
@@ -299,7 +293,7 @@ function renderCardOnly() {
     "</div>" +
     '<div class="header-actions">' +
     '<button class="top-game-btn" id="topGameBtn" type="button">Top ↑</button>' +
-    `<button class="fav ${isFavorite ? "on" : ""}" id="favBtn">${isFavorite ? "★" : "☆"}</button>` +
+    `<button class="fav ${isFavorite ? "on" : ""}" id="favBtn" type="button" aria-label="Favorite">${isFavorite ? "★" : "☆"}</button>` +
     "</div>" +
     "</div>" +
     '<div class="game-nav">' +
@@ -308,15 +302,27 @@ function renderCardOnly() {
     `<button id="nextGameBtn" type="button" ${nextGame ? "" : "disabled"}>Next →</button>` +
     "</div>" +
     '<div class="body">' +
-    `<div class="visual">${visual(game.v)}</div>` +
-    '<div class="vnote">Recognition guide: compare this to the cabinet, then read the actual counters/meters before wagering.</div>' +
+    realPhotoMarkup(game) +
     `<div class="box"><div class="lab">LOOK FOR</div>${escapeHtml(game.l)}</div>` +
-    `<div class="box" style="background:${background};border-color:${color}">` +
-    `<div class="lab">ACTION RULE</div><b>${escapeHtml(game.a)}</b></div>` +
+    `<div class="box" style="background:${background};border-color:${color}"><div class="lab">ACTION RULE</div><b>${escapeHtml(game.a)}</b></div>` +
     `<div class="box warn"><div class="lab">DO NOT MISREAD</div>${escapeHtml(game.n)}</div>` +
+    '<details class="diagram-details">' +
+    '<summary>Illustrated recognition diagram</summary>' +
+    `<div class="visual">${visual(game.v)}</div>` +
+    '<div class="vnote">Backup diagram only. Always read the actual meters, counters, symbols and wager on the live cabinet.</div>' +
+    "</details>" +
     `<div class="box"><div class="lab">COUSHATTA MAP</div><div class="mapgrid">${maps}</div></div>` +
     "</div>" +
     "</article>";
+
+  const image = $("#realGameImage");
+  const imageError = $("#photoLoadError");
+  if (image) {
+    image.addEventListener("error", () => {
+      image.style.display = "none";
+      if (imageError) imageError.classList.add("show");
+    });
+  }
 
   $("#topGameBtn").onclick = scrollToPageTop;
 
@@ -343,13 +349,8 @@ function renderCardOnly() {
 
   $("#favBtn").onclick = () => {
     const set = favorites();
-
-    if (set.has(game.p)) {
-      set.delete(game.p);
-    } else {
-      set.add(game.p);
-    }
-
+    if (set.has(game.p)) set.delete(game.p);
+    else set.add(game.p);
     saveFavorites(set);
     render();
   };
@@ -357,11 +358,9 @@ function renderCardOnly() {
 
 function render() {
   const games = visibleGames();
-
   $("#vc").textContent = games.length;
   $("#empty").classList.toggle("show", games.length === 0);
   $("#routeBox").classList.toggle("show", tab === "route");
-
   updateTabButtons();
   updateFilterButtons();
 
@@ -379,15 +378,10 @@ function render() {
   $("#gameSelect").innerHTML = games
     .map(
       (game) =>
-        `<option value="${game.p}" ${game.p === selected ? "selected" : ""}>` +
-        `${String(game.p).padStart(2, "0")} · ${escapeHtml(game.t)}</option>`
+        `<option value="${game.p}" ${game.p === selected ? "selected" : ""}>${String(game.p).padStart(2, "0")} · ${escapeHtml(game.t)}</option>`
     )
     .join("");
 
-  // IMPORTANT:
-  // All Games shows all 36 quick-jump buttons.
-  // Tonight's Route shows only its 12 because visibleGames() already limits it.
-  // Category filters show all games matching that category.
   renderQuickJump(games);
   renderCardOnly();
 }
@@ -397,24 +391,20 @@ function selectTopView(nextTab) {
   filter = "ALL";
   query = "";
   selected = null;
-
   const search = $("#q");
   if (search) search.value = "";
-
   render();
 }
 
 $("#tabs").onclick = (event) => {
   const button = event.target.closest("button[data-tab]");
   if (!button) return;
-
   selectTopView(button.dataset.tab);
 };
 
 $("#filters").onclick = (event) => {
   const button = event.target.closest("button[data-f]");
   if (!button) return;
-
   filter = button.dataset.f;
   selected = null;
   render();
@@ -432,14 +422,7 @@ $("#gameSelect").onchange = (event) => {
   scrollToGameCard();
 };
 
-
-$("#priorityStat").onclick = () => {
-  selectTopView("route");
-};
-
-$("#allGamesStat").onclick = () => {
-  selectTopView("all");
-};
-
+$("#priorityStat").onclick = () => selectTopView("route");
+$("#allGamesStat").onclick = () => selectTopView("all");
 
 render();
