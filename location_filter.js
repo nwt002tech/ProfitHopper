@@ -14,7 +14,7 @@
     11: { zones:["UNMAPPED"], clusters:[], note:"Location code not yet resolved — use the card's Coushatta map button." },
     12: { zones:["UNMAPPED"], clusters:[], note:"Location code not yet resolved — use the card's Coushatta map button." },
     18: { zones:["RD"], clusters:["RD25"], note:"Ocean Magic — RD25xx area." },
-    35: { zones:["RD"], clusters:["RD08"], note:"Wolf Run Eclipse — RD08xx area." },
+    35: { zones:["RD","OR"], clusters:["RD08","OR38"], note:"Wolf Run Eclipse has known banks in RD08xx and OR38xx." },
     47: { zones:["RD"], clusters:["RD25"], note:"Wu Wang Zhe — RD25xx area, same cluster as Ocean Magic." }
   };
 
