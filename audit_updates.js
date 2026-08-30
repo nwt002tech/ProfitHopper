@@ -46,6 +46,20 @@
       a: "Fast public screen rule: useful bubbles on reels 1-3 are playable territory; reel 4 is borderline and reel 5 is usually poor. Check every bet level and both normal/Bubble Boost states because each can store a different screen.",
       n: "Do not use bubble count alone. A bubble's reel, row and remaining life matter. Bubble Boost costs more and should be evaluated as its own stored state."
     },
+    19: {
+      s: "VERIFY",
+      v: "ocean",
+      l: "Ocean Magic Bubble Boost retains the rising-bubble concept and adds a paid Boost option that can seed extra bubbles, but public free sources do not establish a trustworthy +EV threshold that can simply be copied from classic Ocean Magic.",
+      a: "Evaluate the exact inherited bubble positions at the wager/Boost mode you intend to play. Favor useful lower/left bubbles, but keep this variant verify-first unless the live state clearly matches a validated Bubble Boost rule.",
+      n: "Do not assume classic Ocean Magic's quick reel rule has identical EV under the doubled Bubble Boost wager. The extra cost changes the math even when the visual mechanic looks familiar."
+    },
+    20: {
+      s: "SCOUT",
+      v: "prize_blocks",
+      l: "Prize Pool: Fierce Dragon has a persistent 20-position prize grid corresponding to the 20 reel spots. Gold Prize Pool scatters increase the matching grid credits; those prizes remain in place and keep growing until awarded by four or more Prize Pool scatters.",
+      a: "Scout the entire overhead grid. Favor screens with multiple unusually large stored credits, especially useful concentrations of high values; exact +EV entry depends on the full 20-value grid, denomination and scatter frequency.",
+      n: "Do not judge the state by how many boxes are lit. The actual stored credit amounts matter, and there is no trustworthy public one-number threshold for this configuration."
+    },
     21: {
       s: "SCOUT",
       v: "grid",
@@ -87,6 +101,13 @@
       l: "Fire Light Eruption has three persistent colored meters—Blue, Green and Red. Blue can cap at 99 and remain there for a long time; the combination of all three meters is the inherited state.",
       a: "Best free public read: prioritize a high Green meter with supportive Red/Blue state. A high Green while Red/Blue are relatively low is specifically identified as a stronger configuration than simply chasing the highest Blue number.",
       n: "Blue at 99 by itself is a known trap and can sit there for many spins. Do not play from one meter in isolation."
+    },
+    31: {
+      s: "VERIFY",
+      v: "piggy",
+      l: "The Coushatta title is Lock It Link: Piggy Bankin'. Light & Wonder's official rules describe piggy banks locking in place after the Lock It feature has already triggered; free public documentation does not establish a pre-trigger persistent pig/countdown state that carries to the next player.",
+      a: "Treat the base-game screen as verify-first. Photograph any visible pig/bank counter that demonstrably remains after cash-out/player change before assigning it inherited value.",
+      n: "Do not import the classic three-reel WMS Piggy Bankin' countdown strategy. That older game is a different product with a different AP mechanic."
     },
     32: {
       s: "SCOUT",
