@@ -20,6 +20,10 @@ header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdro
 .pillbtn.on{background:var(--n);color:#fff;border-color:var(--n)}
 .threshold-filter{display:flex;align-items:center;gap:10px;background:#eef9f2;border:2px solid #137a4b;color:#0e623a;border-radius:12px;padding:10px 12px;margin:9px 0 0;font-size:.86rem;font-weight:850;line-height:1.2}
 .threshold-filter input{width:22px;height:22px;min-width:22px;margin:0;accent-color:#137a4b}
+.floor-select-wrap{margin-top:8px}
+.floor-select-wrap label{display:block;font-size:.68rem;font-weight:900;color:var(--n);letter-spacing:.05em;margin:0 0 5px}
+.floor-select-wrap select{border:2px solid #cbd9e8;background:#fff}
+.floor-help{font-size:.69rem;color:var(--m);margin-top:4px;line-height:1.25}
 .searchrow{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 10px}
 input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
@@ -96,10 +100,10 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <header>
 <div class="hero">
 <h1>Coushatta Advantage-State Guide</h1>
-<p>Casino-floor mode • exact entry points shown by default • direct Coushatta floor-map links</p>
+<p>Casino-floor mode • exact entry points shown by default • grouped by Coushatta floor area</p>
 </div>
 <div class="tabs" id="tabs">
-<button class="pillbtn" data-tab="route">Priority 12</button>
+<button class="pillbtn" data-tab="route">Exact Route</button>
 <button class="pillbtn on" data-tab="all">All Cards</button>
 <button class="pillbtn" data-tab="fav">Favorites</button>
 </div>
@@ -115,6 +119,19 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <input id="verifiedOnly" type="checkbox" checked>
 <span>Exact entry points only</span>
 </label>
+<div class="floor-select-wrap">
+<label for="floorZone">FLOOR AREA</label>
+<select id="floorZone" aria-label="Filter by Coushatta floor area">
+<option value="ALL">All mapped floor areas</option>
+<option value="BL">BL area — Phoenix Link / Buffalo Link side</option>
+<option value="OR">OR area — Golden Drums / Phoenix Link side</option>
+<option value="RD">RD area — Ocean Magic / Wu Wang Zhe / Wolf Run side</option>
+<option value="GR">GR area — Buffalo Ascension bank</option>
+<option value="HD">HD area — high-denom Phoenix Link</option>
+<option value="UNMAPPED">Location not yet resolved</option>
+</select>
+<div class="floor-help">Location codes are Coushatta's own machine-location codes. Use the exact code shown on each card with its MAP button.</div>
+</div>
 <div class="searchrow">
 <input id="q" type="search" placeholder="Search game, manufacturer, state or SID…">
 <select id="gameSelect" aria-label="Jump to game"></select>
@@ -123,20 +140,24 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 
 <div class="stats">
 <button class="stat stat-button" id="allGamesStat" type="button"><b id="allCount">52</b><small>AP Cards</small></button>
-<button class="stat stat-button" id="priorityStat" type="button"><b id="priorityCount">12</b><small>Priority Route</small></button>
+<button class="stat stat-button" id="priorityStat" type="button"><b id="priorityCount">11</b><small>Exact Route</small></button>
 <div class="stat"><b id="vc">0</b><small>Visible Now</small></div>
 </div>
 
 <div class="legend">
-<b>Casino-floor rule:</b> when the green checkbox is on, every visible game has a concrete PLAY IF condition. Uncheck it only if you want to see the research/verify candidates too.
+<b>Use Floor Area to finish one section before moving.</b> Exact Route groups mapped games by Coushatta's internal location zones so nearby machines stay together. This is zone grouping, not a claim of a mathematically shortest walking path.
 </div>
 
 <div class="photo-key">
-<b>Read the QUICK DECISION first.</b> It gives the exact count/state to look for and when to stop/recheck. Photos are for machine recognition; diagrams are not play thresholds.
+<b>Current mapped clusters include:</b> BL58 Phoenix Link, BL73 Buffalo Link, OR61 Golden Drums, OR29 Phoenix Link, RD08 Wolf Run Eclipse, RD19 Buffalo Ascension, RD25 Ocean Magic + Wu Wang Zhe, GR03 Buffalo Ascension, and HD09 high-denom Phoenix Link.
+</div>
+
+<div class="photo-key">
+<b>Read the QUICK DECISION first.</b> It gives the exact count/state to look for. The FLOOR LOCATION box tells you which Coushatta bank/area to target next.
 </div>
 
 <div class="route" id="routeBox">
-<b>Priority 12 — best verified scouting order</b>
+<b>Exact Route — grouped by floor area</b>
 <ol id="routeList"></ol>
 </div>
 
@@ -145,7 +166,7 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <div class="quick" id="quick"></div>
 </div>
 
-<div id="empty" class="empty">No exact-entry games match the current search/filter.</div>
+<div id="empty" class="empty">No games match the current exact-entry/location filters.</div>
 <main id="card"></main>
 </div>
 
@@ -159,5 +180,6 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <script src="floor_exact.js"></script>
 <script src="route_patch.js"></script>
 <script src="verified_filter.js"></script>
+<script src="location_filter.js"></script>
 </body>
 </html>
