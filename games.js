@@ -454,11 +454,11 @@ window.G = [
     p: 42,
     t: "Legend of the 3x2x Phoenix",
     m: "IGT",
-    s: "VERIFY",
-    v: "progressive",
-    l: "Coushatta lists this as a progressive/free-bonus title and AP references flag the title, but a dependable public inherited-state entry rule has not been verified.",
-    a: "Photograph the progressive/free-game display, any persistent counters, and the required wager before playing.",
-    n: "Do not infer an advantage from the progressive amount alone.",
+    s: "METER",
+    v: "three_meters",
+    l: "Three persistent free-spin accumulators are stored separately at each bet level and must award by 15. Red pays free games at 2x, Green at 5x and Blue at 10x.",
+    a: "Check every bet level before wagering. Higher counters closer to 15 are stronger; at the same count, Blue 10x carries more bonus value than Green 5x or Red 2x. Exact +EV entry still depends on the full counter combination and wager.",
+    n: "Flames behind a number only show it has passed its average hit point—they do not mean the bonus is due. Each bet level has its own three counters, and the triggering counter resets after its free games complete.",
     maps: [["3x2x Phoenix", 935]]
   },
   {
