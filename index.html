@@ -18,11 +18,10 @@ header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdro
 .tabs::-webkit-scrollbar,.filters::-webkit-scrollbar{display:none}
 .pillbtn{border:1px solid var(--bd);background:#fff;color:var(--i);border-radius:999px;padding:9px 12px;white-space:nowrap;min-height:40px}
 .pillbtn.on{background:var(--n);color:#fff;border-color:var(--n)}
-.threshold-filter{display:flex;align-items:center;gap:9px;margin:9px 0 0;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px 11px;font-size:.79rem;font-weight:800;color:var(--n);cursor:pointer}
-.threshold-filter input{width:21px;height:21px;margin:0;accent-color:var(--n);flex:0 0 auto}
-.threshold-filter span{line-height:1.25}
+.threshold-filter{display:flex;align-items:center;gap:10px;background:#eef9f2;border:2px solid #137a4b;color:#0e623a;border-radius:12px;padding:10px 12px;margin:9px 0 0;font-size:.86rem;font-weight:850;line-height:1.2}
+.threshold-filter input{width:22px;height:22px;min-width:22px;margin:0;accent-color:#137a4b}
 .searchrow{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 10px}
-input[type="search"],select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
+input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
 .stat{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}
 .stat-button{appearance:none;-webkit-appearance:none;cursor:pointer;color:inherit;font:inherit}
@@ -97,7 +96,7 @@ input[type="search"],select{width:100%;border:1px solid var(--bd);background:#ff
 <header>
 <div class="hero">
 <h1>Coushatta Advantage-State Guide</h1>
-<p>52 AP cards • matched to Coushatta's 8/27/2026 inventory • real photos where available • direct floor-map links</p>
+<p>Casino-floor mode • exact entry points shown by default • direct Coushatta floor-map links</p>
 </div>
 <div class="tabs" id="tabs">
 <button class="pillbtn" data-tab="route">Priority 12</button>
@@ -113,8 +112,8 @@ input[type="search"],select{width:100%;border:1px solid var(--bd);background:#ff
 <button class="pillbtn" data-f="VERIFY">Photo / Verify</button>
 </div>
 <label class="threshold-filter" for="verifiedOnly">
-<input id="verifiedOnly" type="checkbox">
-<span>Hide games without a verified play threshold</span>
+<input id="verifiedOnly" type="checkbox" checked>
+<span>Exact entry points only</span>
 </label>
 <div class="searchrow">
 <input id="q" type="search" placeholder="Search game, manufacturer, state or SID…">
@@ -125,23 +124,15 @@ input[type="search"],select{width:100%;border:1px solid var(--bd);background:#ff
 <div class="stats">
 <button class="stat stat-button" id="allGamesStat" type="button"><b id="allCount">52</b><small>AP Cards</small></button>
 <button class="stat stat-button" id="priorityStat" type="button"><b id="priorityCount">12</b><small>Priority Route</small></button>
-<div class="stat"><b id="vc">52</b><small>Visible</small></div>
+<div class="stat"><b id="vc">0</b><small>Visible Now</small></div>
 </div>
 
 <div class="legend">
-<b>Fast decision first.</b> Every card now starts with PLAY, DO NOT PLAY YET, or SKIP and the exact screen condition to check. If a defensible public +EV entry threshold is not verified, the guide will not invent one.
+<b>Casino-floor rule:</b> when the green checkbox is on, every visible game has a concrete PLAY IF condition. Uncheck it only if you want to see the research/verify candidates too.
 </div>
 
 <div class="photo-key">
-<b>Verified-only checkbox:</b> turn it on when you want the fastest floor scan. It hides every card that does not currently have a verified actionable PLAY condition.
-</div>
-
-<div class="photo-key">
-<b>Count note:</b> this is 52 AP <b>cards</b>, not 52 single cabinet names. Some cards group closely related variants. Duo Fu Duo Cai Grand: Dragons and Ingotcha are intentionally separate because their persistent-wild mechanics differ.
-</div>
-
-<div class="photo-key">
-<b>Photos:</b> use the photo to recognize the machine/state. The large QUICK DECISION box—not the photo or illustration—is the play rule. Recognition diagrams are collapsed because they are not thresholds.
+<b>Read the QUICK DECISION first.</b> It gives the exact count/state to look for and when to stop/recheck. Photos are for machine recognition; diagrams are not play thresholds.
 </div>
 
 <div class="route" id="routeBox">
@@ -154,7 +145,7 @@ input[type="search"],select{width:100%;border:1px solid var(--bd);background:#ff
 <div class="quick" id="quick"></div>
 </div>
 
-<div id="empty" class="empty">No games match the current view.</div>
+<div id="empty" class="empty">No exact-entry games match the current search/filter.</div>
 <main id="card"></main>
 </div>
 
@@ -165,6 +156,7 @@ input[type="search"],select{width:100%;border:1px solid var(--bd);background:#ff
 <script src="clarity_overrides.js"></script>
 <script src="app.js"></script>
 <script src="quick_decision.js"></script>
+<script src="floor_exact.js"></script>
 <script src="route_patch.js"></script>
 <script src="verified_filter.js"></script>
 </body>
