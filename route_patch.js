@@ -19,9 +19,19 @@
   try {
     if (typeof PRIORITY_ORDER !== "undefined" && Array.isArray(PRIORITY_ORDER)) {
       PRIORITY_ORDER.splice(0, PRIORITY_ORDER.length, ...revisedPriority);
-      if (typeof selected !== "undefined") selected = null;
-      if (typeof render === "function") render();
     }
+
+    const routeTab = document.querySelector('[data-tab="route"]');
+    if (routeTab) routeTab.textContent = "Exact Route";
+
+    const priorityLabel = document.querySelector("#priorityStat small");
+    if (priorityLabel) priorityLabel.textContent = "Exact Route";
+
+    const routeHeading = document.querySelector("#routeBox > b");
+    if (routeHeading) routeHeading.textContent = "Exact-entry scouting order";
+
+    if (typeof selected !== "undefined") selected = null;
+    if (typeof render === "function") render();
   } catch (error) {
     console.warn("Coushatta exact-route patch could not be applied:", error);
   }
