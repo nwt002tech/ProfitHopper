@@ -443,11 +443,11 @@ window.G = [
     p: 41,
     t: "Lightning 10 Year Storm",
     m: "Aristocrat",
-    s: "VERIFY",
-    v: "generic",
-    l: "Current AP catalogs list this family, but the exact public persistent-state rule and entry threshold for these Coushatta versions are not sufficiently documented.",
-    a: "Before wagering, photograph the full progress/counter display and bet panel. Treat it as identify-and-verify until the exact live state is confirmed.",
-    n: "Do not copy Phoenix Link's 1,888 rule onto this family unless the cabinet itself verifies that mechanic.",
+    s: "METER",
+    v: "counter",
+    l: "Lightning balls feed a persistent Lightning Free must-hit-by meter. Aristocrat confirms the meter can trigger the free Hold & Spin and may reset to a higher value after the Lightning Free feature.",
+    a: "Read the cabinet's actual must-hit-by meter before betting. Higher/closer to its printed ceiling is stronger. Exact +EV entry is not publicly verified, so photograph high states for a precise decision.",
+    n: "Do not assume Phoenix Link's 1,888 ceiling. Use this cabinet's own displayed meter, ceiling and wager state.",
     maps: [["Gold Archer", 404], ["Wild Cougar", 405], ["Master Magician", 1460], ["Shang Jin Warrior", 1461]]
   },
   {
