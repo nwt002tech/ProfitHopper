@@ -60,12 +60,26 @@
       a: "Higher stored counts are stronger, especially when two or three pots are simultaneously elevated. The public game data shows counts can build into the 40s, but no trustworthy universal +EV start number is public, so compare the complete three-pot state.",
       n: "Do not judge by animated pot fullness alone. Read the numeric Money Ball counts and remember this Gold version is substantially more volatile than original Magic Treasures."
     },
+    23: {
+      s: "SCOUT",
+      v: "frames",
+      l: "Light & Wonder explicitly identifies a Persistence Feature: collect hard hats to upgrade persistent house frames, then the wolf can blow down upgraded houses for prizes, jackpots or feature-wheel entries.",
+      a: "Prioritize boards with several visibly upgraded frames and meaningful hard-hat progress, especially when multiple houses are advanced at once. Exact +EV entry is tier/layout-specific, so use the complete frame board rather than one isolated upgrade.",
+      n: "Do not apply We've Had Enuff frame rules to every Huff N' Puff title. The family has multiple versions with different persistence mechanics and thresholds."
+    },
     28: {
       s: "METER",
       v: "meter",
       l: "River Dragons has two AGS mystery Must-Hit-By progressives. A documented configuration resets the lower meter at $200 and must hit by $500; the upper resets at $4,000 and must hit by $5,000. Use the cabinet's printed reset/ceiling if Coushatta's configuration differs.",
       a: "Treat this as a near-ceiling play, not a generic rising progressive. Published PAR-sheet math for the $4,000/$5,000 version puts the average upper hit near $4,945 and the lower near $490, so only very high meters deserve serious attention.",
       n: "AGS River Dragons meters are not well modeled by assuming an even chance throughout the range. They are documented to hit heavily near the ceiling; halfway up is not automatically attractive."
+    },
+    29: {
+      s: "METER",
+      v: "progressive",
+      l: "Buffalo Instant Hit's AP value is in its two stand-alone progressives, not in a persistent Buffalo collection screen. At the 1¢ baseline, the Grand resets at $5,000 and the Major at $500; the wheel is the only path to either progressive.",
+      a: "Record both live progressive values and compare them with their resets. More growth above reset adds EV, but there is no trustworthy public universal play number because the Instant Hit/wheel trigger rates and wheel jackpot probabilities are not displayed.",
+      n: "Do not call a meter +EV merely because it is above reset, and do not confuse this with Buffalo Link/Buffalo Cash counters. This is progressive-overlay math, not a must-hit-by counter."
     },
     30: {
       s: "SCOUT",
@@ -87,6 +101,27 @@
       l: "Wolf Run Eclipse has multiple persistent free-game meters, but current public AP sources conflict on whether those meters are true must-hit-by counters or randomly triggered accumulating free-game values.",
       a: "Read the live cabinet itself. Photograph all meter values plus any printed 'must hit by,' 'must award by,' reset, or trigger wording before treating a high meter as a forced-trigger play.",
       n: "Do not label a high Eclipse meter 'due' unless the cabinet explicitly verifies a ceiling. Conflicting public documentation makes a conservative verify-first rule safer here."
+    },
+    49: {
+      s: "VERIFY",
+      v: "wonder4",
+      l: "Wonder 4 Collection specifically gives each individual game one Free Games meter and one Super Free Games meter; Collection symbols increase those meters. Other Wonder 4 variants—including Boost Gold, Revolution and newer Buffalo combinations—use different mechanics.",
+      a: "First identify the exact Wonder 4 version. If it is a Collection cabinet with visible red/blue Free Games meters, evaluate those stored meters for each selectable base game. If it is another Wonder 4 variant, do not use the Collection rule.",
+      n: "The words 'Wonder 4' do not define one AP mechanic. This grouped Coushatta card covers several variants, so variant identification must come before any state decision."
+    },
+    50: {
+      s: "VERIFY",
+      v: "pusher",
+      l: "Super Push: Firebird Festival is a true coin-pusher-style slot presentation with a tray of coins/special tokens and a Super Push bonus that adds extra pushes. Public game descriptions verify the tray mechanics, but not a dependable inherited-state +EV threshold.",
+      a: "Photograph the complete tray, special tokens, any visible prize progress and the wager before playing. Only promote this to a state-based rule if the live machine clearly preserves the tray for the next player and a defensible value threshold can be established.",
+      n: "A crowded tray is not proof of positive EV. Without verified carryover behavior and token/push valuation, keep this as photo/verify."
+    },
+    51: {
+      s: "VERIFY",
+      v: "pots",
+      l: "Triple Treasure Pot uses three collection pots tied to Tiger, Dragon and Ox bonuses, but manufacturer/trade coverage describes the presentation as perceived persistence rather than confirmed stored player equity.",
+      a: "Use the pots for game recognition only unless the live cabinet exposes an actual numeric counter or other persistent variable that survives player change. Photograph any such state before wagering.",
+      n: "Do not convert pot fullness into a play threshold. A visually fuller pot can be presentation rather than an inherited advantage."
     }
   };
 
@@ -122,12 +157,33 @@
         kind: "reference",
         caption: "Real Ocean Magic screen showing the bubble mechanic. On a live abandoned state, bubbles farther left and lower on the screen generally retain more usable value."
       },
+      23: {
+        image: "https://pbs.twimg.com/media/GzZAhZyXUAA-6G6.jpg",
+        source: "https://gaming.lnw.com/games/Light-And-Wonder/class3/premium-games/Huff-N%27-Puff-We%27ve-Had-Enuff-20321",
+        sourceLabel: "Light & Wonder",
+        kind: "reference",
+        caption: "Real We've Had Enuff cabinets for recognition. Light & Wonder confirms the persistent hard-hat/frame-upgrade mechanic; inspect the lower game screen for the actual inherited frame state."
+      },
+      29: {
+        image: "https://www.indiangaming.com/wp-content/uploads/2021/07/Aristocrat-Gaming-Buffalo-Instant-Hit.jpg",
+        source: "https://www.indiangaming.com/aristocrat-gaming-buffalo-instant-hit/",
+        sourceLabel: "Indian Gaming / Aristocrat",
+        kind: "reference",
+        caption: "Real Buffalo Instant Hit cabinet. The relevant AP read is the live Grand and Major progressive amounts relative to their resets, not a persistent Buffalo collection state."
+      },
       35: {
         image: "https://eidk95seyu2.exactdn.com/en/blog/wp-content/uploads/2024/10/wolf-run-eclipse-base-game.jpg?strip=all",
         source: "https://eidk95seyu2.exactdn.com/en/blog/wp-content/uploads/2024/10/wolf-run-eclipse-base-game.jpg?strip=all",
         sourceLabel: "Game reference",
         kind: "reference",
         caption: "Real Wolf Run Eclipse base-game screen showing the feature meters. Because public sources conflict on their trigger structure, verify any printed must-hit/reset wording on the actual Coushatta cabinet."
+      },
+      49: {
+        image: "https://www.machinepro.club/content-assets/public/eyJhbGciOiJIUzI1NiJ9.eyJvYmplY3Rfa2V5Ijoic3dmcWp6Z3cyYzZpeDg3ZnYxaHV4ZTAzMmkxZiIsImRvbWFpbiI6Ind3dy5tYWNoaW5lcHJvLmNsdWIifQ.yb9yuxSHV2KVTk0ScVB0-6smQimknAu-XjPUIBidKs0",
+        source: "https://www.aristocratgaming.com/latam/games/latam-wonder-4-collection",
+        sourceLabel: "Aristocrat Gaming",
+        kind: "state",
+        caption: "Real Wonder 4 Collection meter example. Aristocrat confirms each individual game has a Free Games meter and a Super Free Games meter; do not apply this Collection mechanic to other Wonder 4 variants."
       }
     });
   }
