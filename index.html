@@ -18,8 +18,11 @@ header{position:sticky;top:0;z-index:20;background:rgba(245,247,250,.97);backdro
 .tabs::-webkit-scrollbar,.filters::-webkit-scrollbar{display:none}
 .pillbtn{border:1px solid var(--bd);background:#fff;color:var(--i);border-radius:999px;padding:9px 12px;white-space:nowrap;min-height:40px}
 .pillbtn.on{background:var(--n);color:#fff;border-color:var(--n)}
+.threshold-filter{display:flex;align-items:center;gap:9px;margin:9px 0 0;background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px 11px;font-size:.79rem;font-weight:800;color:var(--n);cursor:pointer}
+.threshold-filter input{width:21px;height:21px;margin:0;accent-color:var(--n);flex:0 0 auto}
+.threshold-filter span{line-height:1.25}
 .searchrow{display:grid;grid-template-columns:1fr;gap:7px;padding:9px 0 10px}
-input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
+input[type="search"],select{width:100%;border:1px solid var(--bd);background:#fff;border-radius:12px;padding:11px 12px;font-size:16px;color:var(--i)}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
 .stat{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:10px;text-align:center}
 .stat-button{appearance:none;-webkit-appearance:none;cursor:pointer;color:inherit;font:inherit}
@@ -109,6 +112,10 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <button class="pillbtn" data-f="METER">Meters</button>
 <button class="pillbtn" data-f="VERIFY">Photo / Verify</button>
 </div>
+<label class="threshold-filter" for="verifiedOnly">
+<input id="verifiedOnly" type="checkbox">
+<span>Hide games without a verified play threshold</span>
+</label>
 <div class="searchrow">
 <input id="q" type="search" placeholder="Search game, manufacturer, state or SID…">
 <select id="gameSelect" aria-label="Jump to game"></select>
@@ -123,6 +130,10 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 
 <div class="legend">
 <b>Fast decision first.</b> Every card now starts with PLAY, DO NOT PLAY YET, or SKIP and the exact screen condition to check. If a defensible public +EV entry threshold is not verified, the guide will not invent one.
+</div>
+
+<div class="photo-key">
+<b>Verified-only checkbox:</b> turn it on when you want the fastest floor scan. It hides every card that does not currently have a verified actionable PLAY condition.
 </div>
 
 <div class="photo-key">
@@ -151,8 +162,10 @@ input,select{width:100%;border:1px solid var(--bd);background:#fff;border-radius
 <script src="images.js"></script>
 <script src="images_new.js"></script>
 <script src="audit_updates.js"></script>
+<script src="clarity_overrides.js"></script>
 <script src="app.js"></script>
 <script src="quick_decision.js"></script>
 <script src="route_patch.js"></script>
+<script src="verified_filter.js"></script>
 </body>
 </html>
