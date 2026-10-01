@@ -1,20 +1,20 @@
 {
   "search_url": "https://www.coushattacasinoresort.com/gaming/slot-search/",
   "wildcard": "%%%",
-  "active_sid_count": 2962,
+  "active_sid_count": 2965,
   "captured_response_count": 1,
   "page_title": "Slot Search - Coushatta Casino Resort",
   "strategy": "live_playwright_wildcard_search",
-  "started_at": "2026-09-24T15:07:11.803103+00:00",
-  "finished_at": "2026-09-24T15:12:49.897136+00:00",
-  "parsed_record_count": 2962,
+  "started_at": "2026-10-01T17:03:00.469297+00:00",
+  "finished_at": "2026-10-01T17:08:02.738655+00:00",
+  "parsed_record_count": 2965,
   "parse_ratio": 1.0,
-  "unique_games": 1298,
+  "unique_games": 1301,
   "manufacturers": 13,
   "denominations": 15,
-  "volatility_known": 2962,
-  "map_url_known": 2962,
+  "volatility_known": 2965,
+  "map_url_known": 2965,
   "source_of_truth": "Coushatta live wildcard search results only",
   "numeric_sid_scan_used": false
 }
-Validated 2962 active Coushatta records / 1298 unique titles with map links
+Validated 2965 active Coushatta records / 1301 unique titles with map links
